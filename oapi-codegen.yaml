@@ -1,0 +1,30 @@
+# oapi-codegen configuration file
+# This file configures the code generation from OpenAPI specification
+
+package: openapi
+output: internal/infra/handler/openapi/server.gen.go
+
+generate:
+  # Generate server code (chi router)
+  chi-server: true
+
+  # Generate models/types
+  models: true
+
+  # Generate embedded OpenAPI spec
+  embedded-spec: true
+
+output-options:
+  # Skip generation of fmt.Sprintf for readability
+  skip-fmt: false
+
+  # Skip validation of the spec
+  skip-prune: false
+
+# Import mapping for custom types
+import-mapping: {}
+
+# Additional options
+compatibility:
+  # Always prefix enum values
+  always-prefix-enum-values: true

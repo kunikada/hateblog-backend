@@ -1,0 +1,62 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+CONTRIBUTING.md
+AGENT.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Docker
+Dockerfile*
+compose.override.yaml
+.dockerignore
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+build/
+
+# Test files
+*_test.go
+testdata/
+coverage.out
+cover.out
+*.test
+
+# Dependencies (will be downloaded in container)
+vendor/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

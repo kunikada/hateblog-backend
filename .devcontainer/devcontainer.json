@@ -1,0 +1,42 @@
+{
+  "name": "hateblog-backend",
+  "dockerComposeFile": [
+    "../compose.yaml",
+    "../compose.override.yaml"
+  ],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "editorconfig.editorconfig",
+        "redhat.vscode-yaml",
+        "ms-vscode.makefile-tools"
+      ],
+      "settings": {
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint",
+        "go.lintOnSave": "package",
+        "go.formatTool": "goimports",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "go.testFlags": ["-v", "-race"],
+        "[go]": {
+          "editor.defaultFormatter": "golang.go",
+          "editor.tabSize": 4,
+          "editor.insertSpaces": false
+        },
+        "files.eol": "\n",
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true
+      }
+    }
+  },
+  "postCreateCommand": "go mod tidy && go mod download || true"
+}

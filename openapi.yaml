@@ -1,0 +1,1211 @@
+openapi: 3.0.3
+info:
+  title: Hateblog Backend API
+  description: |
+    hateblog リニューアル版のバックエンド API 仕様書。
+    はてなブックマークのエントリー情報を提供するREST APIです。
+  version: 1.0.0
+  contact:
+    name: Hateblog Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: ローカル開発環境
+  - url: https://hateblog.jp/api/v1
+    description: 本番環境
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: entries
+    description: エントリー関連のエンドポイント
+  - name: archive
+    description: アーカイブ関連のエンドポイント
+  - name: rankings
+    description: ランキング関連のエンドポイント
+  - name: tags
+    description: タグ関連のエンドポイント
+  - name: search
+    description: 検索関連のエンドポイント
+  - name: metrics
+    description: メトリクス計測関連のエンドポイント
+  - name: utilities
+    description: ユーティリティ関連のエンドポイント
+  - name: admin
+    description: 管理機能関連のエンドポイント
+
+paths:
+  /entries/new:
+    get:
+      tags:
+        - entries
+      summary: 新着順エントリー一覧取得
+      description: |
+        指定日付のエントリーを新着順（posted_at DESC）で取得します。
+        ブックマーク件数での閾値フィルタリングが可能です。
+      operationId: getNewEntries
+      parameters:
+        - name: date
+          in: query
+          description: 取得対象日付（YYYYMMDD形式）。未指定の場合は今日の日付。
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{8}$'
+            example: "20250105"
+        - name: min_users
+          in: query
+          description: 最低ブックマーク件数（5/10/50/100/500/1000など）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 10
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+            example: 25
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryListResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /entries/hot:
+    get:
+      tags:
+        - entries
+      summary: 人気順エントリー一覧取得
+      description: |
+        指定日付のエントリーを人気順（bookmark_count DESC, posted_at DESC）で取得します。
+        ブックマーク件数での閾値フィルタリングが可能です。
+      operationId: getHotEntries
+      parameters:
+        - name: date
+          in: query
+          description: 取得対象日付（YYYYMMDD形式）。未指定の場合は今日の日付。
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{8}$'
+            example: "20250105"
+        - name: min_users
+          in: query
+          description: 最低ブックマーク件数（5/10/50/100/500/1000など）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 50
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+            example: 25
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryListResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /archive:
+    get:
+      tags:
+        - archive
+      summary: アーカイブデータ取得
+      description: |
+        年→月→日の階層でアーカイブデータを取得します。
+        年のみ指定で月別データ、年月指定で日別データを取得します。
+      operationId: getArchive
+      parameters:
+        - name: year
+          in: query
+          description: 対象年（YYYY形式）
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 9999
+            example: 2025
+        - name: month
+          in: query
+          description: 対象月（MM形式、1-12）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 12
+        - name: min_users
+          in: query
+          description: 最低ブックマーク件数フィルタ
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 5
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rankings/yearly:
+    get:
+      tags:
+        - rankings
+      summary: 年次ランキング取得
+      description: |
+        指定年の「はてブ・オブ・ザ・イヤー」ランキングを取得します。
+        ブックマーク件数上位順に並びます。
+      operationId: getYearlyRanking
+      parameters:
+        - name: year
+          in: query
+          description: 対象年（YYYY形式）
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 9999
+            example: 2024
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+            example: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rankings/monthly:
+    get:
+      tags:
+        - rankings
+      summary: 月次ランキング取得
+      description: |
+        指定年月の月間ランキングTOP 100を取得します。
+        ブックマーク件数上位順に並びます。
+      operationId: getMonthlyRanking
+      parameters:
+        - name: year
+          in: query
+          description: 対象年（YYYY形式）
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 9999
+            example: 2025
+        - name: month
+          in: query
+          description: 対象月（MM形式、1-12）
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 12
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+            example: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rankings/weekly:
+    get:
+      tags:
+        - rankings
+      summary: 週次ランキング取得
+      description: |
+        指定年・週の週間ランキングTOP 100を取得します。
+        ブックマーク件数上位順に並びます。
+      operationId: getWeeklyRanking
+      parameters:
+        - name: year
+          in: query
+          description: 対象年（YYYY形式）
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 9999
+            example: 2025
+        - name: week
+          in: query
+          description: 対象週（1-53、ISO週番号）
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 53
+            example: 1
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+            example: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tags/{tag}/entries:
+    get:
+      tags:
+        - tags
+      summary: タグ別エントリー一覧取得
+      description: |
+        指定されたタグに紐づくエントリーを新着順で取得します。
+        ブックマーク件数での閾値フィルタリングが可能です。
+        タグ閲覧はサーバー側で自動的に記録されます（tag_view_historyテーブル）。
+      operationId: getEntriesByTag
+      parameters:
+        - name: tag
+          in: path
+          description: タグ名
+          required: true
+          schema:
+            type: string
+            maxLength: 100
+            example: "技術"
+        - name: min_users
+          in: query
+          description: 最低ブックマーク件数（5/10/50/100/500/1000など）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 10
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+            example: 25
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryListResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: タグが見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tags:
+    get:
+      tags:
+        - tags
+      summary: タグ一覧取得
+      description: |
+        システムに登録されているタグの一覧を取得します。
+        使用頻度順（エントリー数降順）で並びます。
+      operationId: getTags
+      parameters:
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+            example: 100
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagListResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search:
+    get:
+      tags:
+        - search
+      summary: キーワード検索
+      description: |
+        エントリーのタイトル・抜粋・タグをキーワード検索します。
+        全文検索（pg_bigm）を使用します。
+      operationId: searchEntries
+      parameters:
+        - name: q
+          in: query
+          description: 検索キーワード
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+            example: "Go言語"
+        - name: min_users
+          in: query
+          description: 最低ブックマーク件数フィルタ
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 5
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+            example: 25
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics/clicks:
+    post:
+      tags:
+        - metrics
+      summary: クリック計測
+      description: |
+        エントリーへのクリックを記録します。
+        日別集計でclick_metricsテーブルに保存されます。
+      operationId: recordClick
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClickMetricsRequest'
+      responses:
+        '201':
+          description: 記録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /favicons:
+    get:
+      tags:
+        - utilities
+      summary: Faviconプロキシ
+      description: |
+        指定されたドメインのFaviconを取得します。
+        Google Favicon API経由で取得し、キャッシュして返します。
+      operationId: getFavicon
+      parameters:
+        - name: domain
+          in: query
+          description: Faviconを取得するドメイン名
+          required: true
+          schema:
+            type: string
+            format: hostname
+            example: "example.com"
+      responses:
+        '200':
+          description: 成功（画像を返す）
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/x-icon:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api-keys:
+    post:
+      tags:
+        - admin
+      summary: APIキー発行
+      description: |
+        新しいAPIキーを発行します。
+        現在は認証なしで発行できますが、将来的に認証や発行制限を追加予定です。
+      operationId: createApiKey
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '201':
+          description: APIキー発行成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      tags:
+        - system
+      summary: ヘルスチェック
+      description: APIサーバーとデータベースの健全性をチェックします。
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: サービス利用不可
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API認証キー。環境変数で設定されたキーと照合します。
+        ヘッダーに `X-API-Key: your-api-key` を含めてリクエストしてください。
+
+  responses:
+    UnauthorizedError:
+      description: 認証エラー - APIキーが無効または未提供
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Invalid or missing API key"
+
+  schemas:
+    Entry:
+      type: object
+      description: はてなブックマークエントリー
+      required:
+        - id
+        - title
+        - url
+        - posted_at
+        - bookmark_count
+        - tags
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: エントリーID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          description: エントリーのタイトル
+          example: "Go言語による高速なWeb API開発"
+        url:
+          type: string
+          format: uri
+          description: エントリーのURL
+          example: "https://example.com/article/golang-web-api"
+        posted_at:
+          type: string
+          format: date-time
+          description: 記事の投稿日時（ISO 8601形式）
+          example: "2025-01-05T10:30:00Z"
+        bookmark_count:
+          type: integer
+          minimum: 0
+          description: はてなブックマーク件数
+          example: 150
+        excerpt:
+          type: string
+          nullable: true
+          description: 記事本文の抜粋
+          example: "Go言語を使ったWeb API開発の実践的なテクニックを紹介します..."
+        subject:
+          type: string
+          nullable: true
+          description: RSSフィードのsubject（画面非表示、内部利用）
+          example: "テクノロジー"
+        tags:
+          type: array
+          description: エントリーに紐づくタグ一覧
+          items:
+            $ref: '#/components/schemas/EntryTag'
+          example:
+            - tag_id: "123e4567-e89b-12d3-a456-426614174000"
+              tag_name: "Go"
+              score: 0.95
+            - tag_id: "223e4567-e89b-12d3-a456-426614174001"
+              tag_name: "プログラミング"
+              score: 0.85
+        favicon_url:
+          type: string
+          format: uri
+          description: Favicon URL（Google Favicon API経由）
+          example: "https://www.google.com/s2/favicons?domain=example.com"
+        created_at:
+          type: string
+          format: date-time
+          description: レコード作成日時（ISO 8601形式）
+          example: "2025-01-05T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: レコード更新日時（ISO 8601形式）
+          example: "2025-01-05T12:00:00Z"
+
+    EntryTag:
+      type: object
+      description: エントリーに紐づくタグ（スコア付き）
+      required:
+        - tag_id
+        - tag_name
+        - score
+      properties:
+        tag_id:
+          type: string
+          format: uuid
+          description: タグID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        tag_name:
+          type: string
+          maxLength: 100
+          description: タグ名
+          example: "Go"
+        score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: タグのスコア（Yahoo! キーフレーズ抽出APIから取得した重要度）
+          example: 0.95
+
+    Tag:
+      type: object
+      description: タグマスター
+      required:
+        - id
+        - name
+        - entry_count
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: タグID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          maxLength: 100
+          description: タグ名
+          example: "Go"
+        entry_count:
+          type: integer
+          minimum: 0
+          description: このタグに紐づくエントリー数
+          example: 1234
+        created_at:
+          type: string
+          format: date-time
+          description: レコード作成日時（ISO 8601形式）
+          example: "2024-01-01T00:00:00Z"
+
+    EntryListResponse:
+      type: object
+      description: エントリー一覧レスポンス
+      required:
+        - entries
+        - total
+        - limit
+        - offset
+      properties:
+        entries:
+          type: array
+          description: エントリー一覧
+          items:
+            $ref: '#/components/schemas/Entry'
+        total:
+          type: integer
+          minimum: 0
+          description: 総件数（フィルタ適用後）
+          example: 500
+        limit:
+          type: integer
+          description: 1ページあたりの件数
+          example: 25
+        offset:
+          type: integer
+          description: オフセット
+          example: 0
+
+    TagListResponse:
+      type: object
+      description: タグ一覧レスポンス
+      required:
+        - tags
+        - total
+        - limit
+        - offset
+      properties:
+        tags:
+          type: array
+          description: タグ一覧
+          items:
+            $ref: '#/components/schemas/Tag'
+        total:
+          type: integer
+          minimum: 0
+          description: 総件数
+          example: 1000
+        limit:
+          type: integer
+          description: 1ページあたりの件数
+          example: 100
+        offset:
+          type: integer
+          description: オフセット
+          example: 0
+
+    ArchiveItem:
+      type: object
+      description: アーカイブアイテム（月別または日別）
+      required:
+        - date
+        - count
+      properties:
+        date:
+          type: string
+          description: 日付（YYYY-MM形式または YYYY-MM-DD形式）
+          example: "2025-01"
+        count:
+          type: integer
+          minimum: 0
+          description: エントリー件数
+          example: 1234
+
+    ArchiveResponse:
+      type: object
+      description: アーカイブデータレスポンス
+      required:
+        - year
+        - items
+      properties:
+        year:
+          type: integer
+          description: 対象年
+          example: 2025
+        month:
+          type: integer
+          nullable: true
+          description: 対象月（月指定時のみ）
+          example: 12
+        items:
+          type: array
+          description: アーカイブアイテム一覧（月別または日別）
+          items:
+            $ref: '#/components/schemas/ArchiveItem'
+
+    RankingEntry:
+      type: object
+      description: ランキングエントリー
+      required:
+        - rank
+        - entry
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+          description: 順位
+          example: 1
+        entry:
+          $ref: '#/components/schemas/Entry'
+
+    RankingResponse:
+      type: object
+      description: ランキングレスポンス
+      required:
+        - period_type
+        - year
+        - entries
+        - total
+      properties:
+        period_type:
+          type: string
+          enum: [yearly, monthly, weekly]
+          description: ランキング期間種別
+          example: "monthly"
+        year:
+          type: integer
+          description: 対象年
+          example: 2025
+        month:
+          type: integer
+          nullable: true
+          description: 対象月（月次・週次ランキング時のみ）
+          example: 12
+        week:
+          type: integer
+          nullable: true
+          description: 対象週（週次ランキング時のみ、ISO週番号）
+          example: 1
+        entries:
+          type: array
+          description: ランキングエントリー一覧
+          items:
+            $ref: '#/components/schemas/RankingEntry'
+        total:
+          type: integer
+          minimum: 0
+          description: 対象期間の総エントリー数
+          example: 10000
+
+    SearchResponse:
+      type: object
+      description: 検索結果レスポンス
+      required:
+        - query
+        - entries
+        - total
+        - limit
+        - offset
+      properties:
+        query:
+          type: string
+          description: 検索キーワード
+          example: "Go言語"
+        entries:
+          type: array
+          description: 検索結果のエントリー一覧
+          items:
+            $ref: '#/components/schemas/Entry'
+        total:
+          type: integer
+          minimum: 0
+          description: 検索結果の総件数
+          example: 123
+        limit:
+          type: integer
+          description: 1ページあたりの件数
+          example: 25
+        offset:
+          type: integer
+          description: オフセット
+          example: 0
+
+    ClickMetricsRequest:
+      type: object
+      description: クリック計測リクエスト
+      required:
+        - entry_id
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+          description: エントリーID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        referrer:
+          type: string
+          nullable: true
+          description: リファラーURL（オプション）
+          example: "https://hateblog.example.com/entries/new"
+        user_agent:
+          type: string
+          nullable: true
+          description: ユーザーエージェント（オプション）
+          example: "Mozilla/5.0..."
+
+    MetricsResponse:
+      type: object
+      description: メトリクス記録レスポンス
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          description: 成功フラグ
+          example: true
+        message:
+          type: string
+          description: メッセージ
+          example: "Click recorded successfully"
+
+    CreateApiKeyRequest:
+      type: object
+      description: APIキー発行リクエスト
+      properties:
+        name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: キーの名前（オプション、将来の管理用）
+          example: "Frontend App Key"
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: キーの説明（オプション）
+          example: "本番環境のフロントエンドアプリ用"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 有効期限（オプション、将来の拡張用）
+          example: "2026-12-31T23:59:59Z"
+
+    ApiKeyResponse:
+      type: object
+      description: APIキー発行レスポンス
+      required:
+        - id
+        - key
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: APIキーID
+          example: "9f8e7d6c-5b4a-3c2d-1e0f-123456789abc"
+        key:
+          type: string
+          description: 生成されたAPIキー（この1回のみ表示）
+          example: "hb_live_1234567890abcdef1234567890abcdef"
+        name:
+          type: string
+          nullable: true
+          description: キーの名前
+          example: "Frontend App Key"
+        description:
+          type: string
+          nullable: true
+          description: キーの説明
+          example: "本番環境のフロントエンドアプリ用"
+        created_at:
+          type: string
+          format: date-time
+          description: 作成日時
+          example: "2025-01-05T10:00:00Z"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 有効期限
+          example: "2026-12-31T23:59:59Z"
+
+    HealthResponse:
+      type: object
+      description: ヘルスチェックレスポンス
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: ステータス
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: チェック実行日時
+          example: "2025-01-05T10:00:00Z"
+        database:
+          type: object
+          description: データベース接続状態
+          properties:
+            connected:
+              type: boolean
+              description: 接続可否
+              example: true
+            response_time_ms:
+              type: number
+              format: float
+              description: レスポンスタイム（ミリ秒）
+              example: 5.2
+
+    ErrorResponse:
+      type: object
+      description: エラーレスポンス
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: エラーコード
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "Invalid parameter: date format must be YYYYMMDD"
+        details:
+          type: object
+          nullable: true
+          description: 詳細情報（オプション）
+          additionalProperties: true
+          example:
+            field: "date"
+            value: "20251301"
+            constraint: "month must be 1-12"
