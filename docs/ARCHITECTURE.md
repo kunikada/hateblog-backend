@@ -65,8 +65,13 @@ UI/Handler → app(UseCase) → domain(interface) ← infra(impl)
 - ワーカー数／チャネル容量は明示。無制限キューは禁止。
 
 ## Testing Strategy
-- domain はテーブル駆動で性質を固定。infra はコントラクトテスト。
-- app はユースケース単位の統合テスト。外部は testcontainer か fake。
+このバックエンドは**API中心**のため、テストもAPIテストを中心に据える。
+詳細は [TESTING.md](./TESTING.md) を参照。
+
+**概要**:
+- **API Tests（中心）**: 全エンドポイントの正常系・異常系を `testcontainers-go` で実環境に近い形でテスト
+- **Unit Tests（最低限）**: domain層のコアロジック・重要な関数のみテーブル駆動テストで保証
+- **E2E Tests（少数）**: 主要なユーザーシナリオをエンドツーエンドで確認
 
 ## Versioning / Release
 - セマンティックバージョニング。Breaking は `CHANGELOG.md`。
