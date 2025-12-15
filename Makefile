@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test cover build run clean docker-build docker-run security migrate-up migrate-down migrate-create generate generate-install
+.PHONY: help fmt lint test cover build run clean docker-build docker-run security migrate-up migrate-down migrate-create generate generate-install deps-outdated
 
 # Default target
 .DEFAULT_GOAL := help
@@ -76,6 +76,12 @@ build:
 run:
 	@echo "==> Running application..."
 	go run $(CMD_DIR)/main.go
+
+## deps-outdated: List outdated Go module dependencies
+deps-outdated:
+	@echo "==> Checking outdated dependencies..."
+	go run ./cmd/tools/depsoutdated
+	@echo "✓ Dependency check complete"
 
 ## clean: Clean build artifacts and caches
 clean:

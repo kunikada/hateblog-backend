@@ -6,6 +6,7 @@
   ],
   "service": "app",
   "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
   "customizations": {
     "vscode": {
       "extensions": [

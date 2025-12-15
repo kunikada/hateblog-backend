@@ -176,30 +176,12 @@ paths:
     get:
       tags:
         - archive
-      summary: アーカイブデータ取得
+      summary: 日別エントリー数一覧取得
       description: |
-        年→月→日の階層でアーカイブデータを取得します。
-        年のみ指定で月別データ、年月指定で日別データを取得します。
+        全期間の日別エントリー数をリスト形式で取得します。
+        日付の新しい順に並びます。
       operationId: getArchive
       parameters:
-        - name: year
-          in: query
-          description: 対象年（YYYY形式）
-          required: true
-          schema:
-            type: integer
-            minimum: 2000
-            maximum: 9999
-            example: 2025
-        - name: month
-          in: query
-          description: 対象月（MM形式、1-12）
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 12
-            example: 12
         - name: min_users
           in: query
           description: 最低ブックマーク件数フィルタ
@@ -467,16 +449,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /tags:
+  /tags/trending:
     get:
       tags:
         - tags
-      summary: タグ一覧取得
+      summary: トレンドタグ一覧取得
       description: |
-        システムに登録されているタグの一覧を取得します。
-        使用頻度順（エントリー数降順）で並びます。
-      operationId: getTags
+        直近の人気エントリーで使用されているタグの一覧を取得します。
+        指定時間内のエントリーを対象に、タグの出現頻度とスコアを集計して返します。
+      operationId: getTrendingTags
       parameters:
+        - name: hours
+          in: query
+          description: 集計対象時間（デフォルト 24時間）
+          required: false
+          schema:
+            type: integer
+            enum: [6, 12, 24, 48]
+            default: 24
+            example: 24
+        - name: min_users
+          in: query
+          description: 対象エントリーの最低ブックマーク件数
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 5
+            example: 10
         - name: limit
           in: query
           description: 取得件数
@@ -484,25 +484,65 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
-            default: 100
-            example: 100
-        - name: offset
-          in: query
-          description: オフセット（ページネーション用）
-          required: false
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
-            example: 0
+            maximum: 100
+            default: 20
+            example: 20
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagListResponse'
+                $ref: '#/components/schemas/TrendingTagsResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tags/clicked:
+    get:
+      tags:
+        - tags
+      summary: クリックされたエントリーのタグ一覧取得
+      description: |
+        実際にクリックされたエントリーで使用されているタグの一覧を取得します。
+        click_metricsテーブルを参照し、ユーザーの実際の興味関心を反映したタグを返します。
+      operationId: getClickedTags
+      parameters:
+        - name: days
+          in: query
+          description: 集計対象日数（デフォルト 7日間）
+          required: false
+          schema:
+            type: integer
+            enum: [1, 7, 30]
+            default: 7
+            example: 7
+        - name: limit
+          in: query
+          description: 取得件数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClickedTagsResponse'
         '400':
           description: バリデーションエラー
           content:
@@ -900,70 +940,139 @@ components:
           description: オフセット
           example: 0
 
-    TagListResponse:
+    TrendingTag:
       type: object
-      description: タグ一覧レスポンス
+      description: トレンドタグ（出現回数付き）
+      required:
+        - id
+        - name
+        - occurrence_count
+        - entry_count
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: タグID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          maxLength: 100
+          description: タグ名
+          example: "Go"
+        occurrence_count:
+          type: integer
+          minimum: 0
+          description: 集計期間内での出現回数（エントリー数）
+          example: 42
+        entry_count:
+          type: integer
+          minimum: 0
+          description: このタグに紐づく総エントリー数
+          example: 1234
+
+    TrendingTagsResponse:
+      type: object
+      description: トレンドタグ一覧レスポンス
       required:
         - tags
+        - hours
         - total
-        - limit
-        - offset
       properties:
         tags:
           type: array
-          description: タグ一覧
+          description: トレンドタグ一覧
           items:
-            $ref: '#/components/schemas/Tag'
+            $ref: '#/components/schemas/TrendingTag'
+        hours:
+          type: integer
+          description: 集計対象時間
+          example: 24
         total:
           type: integer
           minimum: 0
-          description: 総件数
-          example: 1000
-        limit:
+          description: 該当タグ総数
+          example: 50
+
+    ClickedTag:
+      type: object
+      description: クリックされたタグ（クリック数付き）
+      required:
+        - id
+        - name
+        - click_count
+        - entry_count
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: タグID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          maxLength: 100
+          description: タグ名
+          example: "Go"
+        click_count:
           type: integer
-          description: 1ページあたりの件数
-          example: 100
-        offset:
+          minimum: 0
+          description: 集計期間内でのクリック数
+          example: 156
+        entry_count:
           type: integer
-          description: オフセット
-          example: 0
+          minimum: 0
+          description: このタグに紐づく総エントリー数
+          example: 1234
+
+    ClickedTagsResponse:
+      type: object
+      description: クリックされたタグ一覧レスポンス
+      required:
+        - tags
+        - days
+        - total
+      properties:
+        tags:
+          type: array
+          description: クリックされたタグ一覧
+          items:
+            $ref: '#/components/schemas/ClickedTag'
+        days:
+          type: integer
+          description: 集計対象日数
+          example: 7
+        total:
+          type: integer
+          minimum: 0
+          description: 該当タグ総数
+          example: 30
 
     ArchiveItem:
       type: object
-      description: アーカイブアイテム（月別または日別）
+      description: 日別エントリー数
       required:
         - date
         - count
       properties:
         date:
           type: string
-          description: 日付（YYYY-MM形式または YYYY-MM-DD形式）
-          example: "2025-01"
+          format: date
+          description: 日付（YYYY-MM-DD形式）
+          example: "2025-01-05"
         count:
           type: integer
           minimum: 0
-          description: エントリー件数
+          description: その日のエントリー件数
           example: 1234
 
     ArchiveResponse:
       type: object
-      description: アーカイブデータレスポンス
+      description: 日別エントリー数一覧レスポンス
       required:
-        - year
         - items
       properties:
-        year:
-          type: integer
-          description: 対象年
-          example: 2025
-        month:
-          type: integer
-          nullable: true
-          description: 対象月（月指定時のみ）
-          example: 12
         items:
           type: array
-          description: アーカイブアイテム一覧（月別または日別）
+          description: 日別エントリー数一覧（日付降順）
           items:
             $ref: '#/components/schemas/ArchiveItem'
 

@@ -15,6 +15,7 @@
   - `make lint` → `golangci-lint run`
   - `make test` → `go test ./... -race -shuffle=on`
   - `make cover` → `go test ./... -coverprofile=cover.out`
+  - `make deps-outdated` → `go list -m -u all` を解析し、更新候補の依存を一覧表示
 
 ## Branch / Commit
 - ブランチ: `feat/*`, `fix/*`, `chore/*`, `docs/*`
@@ -57,6 +58,11 @@
 ## Dependencies
 - 標準ライブラリ優先。外部は厳選・少数・更新容易。
 - 破壊的変更のある lib は `internal/adapter` で吸収。
+- 依存更新フロー:
+  1. `make deps-outdated` で更新候補を確認
+  2. `go get example.com/mod@vX.Y.Z` で個別に上げる（`go get -u ./...` は慎重に）
+  3. `go mod tidy` ＋ `go test ./...` で差分と動作を確認
+  4. `go.mod` / `go.sum` の diff が最小になっているかをチェック
 
 ## API/CLI 契約
 - 入出力は明確・最小。**Breaking change は Release Note 必須**。
