@@ -2,82 +2,90 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
+
+	appEntry "hateblog/internal/app/entry"
+	"hateblog/internal/infra/handler"
+	infraPostgres "hateblog/internal/infra/postgres"
+	infraRedis "hateblog/internal/infra/redis"
+	"hateblog/internal/platform/cache"
+	"hateblog/internal/platform/config"
+	"hateblog/internal/platform/database"
+	"hateblog/internal/platform/logger"
+	"hateblog/internal/platform/server"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(context.Background()); err != nil {
 		slog.Error("application error", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	// Setup logger
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
-
-	// Get port from environment
-	port := os.Getenv("APP_PORT")
-	if port == "" {
-		port = "8080"
+func run(ctx context.Context) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Setup HTTP server
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthHandler)
+	log := logger.New(logger.Config{
+		Level:  logger.Level(cfg.App.LogLevel),
+		Format: logger.Format(cfg.App.LogFormat),
+	})
+	logger.SetDefault(log)
 
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	db, err := database.New(ctx, database.Config{
+		ConnectionString: cfg.Database.ConnectionString(),
+		MaxConns:         cfg.Database.MaxConns,
+		MinConns:         cfg.Database.MinConns,
+		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
+		ConnectTimeout:   cfg.Database.ConnectTimeout,
+	}, log)
+	if err != nil {
+		return fmt.Errorf("connect database: %w", err)
 	}
+	defer db.Close()
 
-	// Start server in goroutine
-	serverErr := make(chan error, 1)
-	go func() {
-		slog.Info("starting server", "port", port)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErr <- err
+	redisClient, err := cache.New(cache.Config{
+		Address:      cfg.Redis.Address(),
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		MaxRetries:   cfg.Redis.MaxRetries,
+		DialTimeout:  cfg.Redis.DialTimeout,
+		ReadTimeout:  cfg.Redis.ReadTimeout,
+		WriteTimeout: cfg.Redis.WriteTimeout,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+	}, log)
+	if err != nil {
+		return fmt.Errorf("connect redis: %w", err)
+	}
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			log.Error("failed to close redis", "error", err)
 		}
 	}()
 
-	// Wait for interrupt signal
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	entryRepo := infraPostgres.NewEntryRepository(db.Pool)
+	entryCache := infraRedis.NewEntryListCache(redisClient, cfg.App.CacheTTL)
+	entryService := appEntry.NewService(entryRepo, entryCache, log)
 
-	select {
-	case err := <-serverErr:
-		return fmt.Errorf("server error: %w", err)
-	case sig := <-quit:
-		slog.Info("received shutdown signal", "signal", sig.String())
+	entryHandler := handler.NewEntryHandler(entryService)
+	healthHandler := &handler.HealthHandler{
+		DB:    db,
+		Cache: redisClient,
 	}
+	router := handler.NewRouter(entryHandler, healthHandler)
 
-	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	srv := server.New(server.Config{
+		Address:      cfg.Server.Address(),
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
+	}, router, log)
 
-	if err := server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server shutdown error: %w", err)
-	}
-
-	slog.Info("server stopped gracefully")
-	return nil
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"ok"}`)
+	return srv.ListenAndServeWithGracefulShutdown()
 }

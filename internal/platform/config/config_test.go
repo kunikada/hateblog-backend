@@ -10,14 +10,14 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		name    string
 		envVars map[string]string
 		wantErr bool
 		check   func(*testing.T, *Config)
 	}{
 		{
-			name: "default configuration",
+			name:    "default configuration",
 			envVars: map[string]string{},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {
@@ -90,12 +90,14 @@ func TestLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			restore := clearTestEnv()
+			defer restore()
+
 			// Set environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 			}
 			defer func() {
-				// Clean up environment variables
 				for k := range tt.envVars {
 					os.Unsetenv(k)
 				}
@@ -114,6 +116,32 @@ func TestLoad(t *testing.T) {
 				tt.check(t, cfg)
 			}
 		})
+	}
+}
+
+func clearTestEnv() func() {
+	keys := []string{
+		"SERVER_HOST", "SERVER_PORT", "SERVER_READ_TIMEOUT", "SERVER_WRITE_TIMEOUT", "SERVER_IDLE_TIMEOUT",
+		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
+		"DB_MAX_CONNS", "DB_MIN_CONNS", "DB_MAX_CONN_LIFETIME", "DB_MAX_CONN_IDLE_TIME", "DB_CONNECT_TIMEOUT",
+		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB", "REDIS_MAX_RETRIES",
+		"REDIS_DIAL_TIMEOUT", "REDIS_READ_TIMEOUT", "REDIS_WRITE_TIMEOUT", "REDIS_POOL_SIZE", "REDIS_MIN_IDLE_CONNS",
+		"APP_ENV", "APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",
+		"APP_ENABLE_METRICS", "APP_ENABLE_CORS", "APP_ALLOWED_ORIGINS", "APP_API_KEY_REQUIRED", "APP_MASTER_API_KEY",
+	}
+	prev := make(map[string]string, len(keys))
+	for _, k := range keys {
+		prev[k] = os.Getenv(k)
+		os.Unsetenv(k)
+	}
+	return func() {
+		for k, v := range prev {
+			if v == "" {
+				os.Unsetenv(k)
+				continue
+			}
+			os.Setenv(k, v)
+		}
 	}
 }
 

@@ -77,60 +77,60 @@ hateblog バックエンドAPIの段階的な実装計画。
 **実装内容**:
 - [ ] `internal/domain/entry` - Entry エンティティ、ValueObject
 - [ ] `internal/domain/tag` - Tag エンティティ
-- [ ] `internal/domain/repository` - Repository インターフェース定義
-  - [ ] `EntryRepository` - CRUD + フィルタ/ソートメソッド
-  - [ ] `TagRepository` - CRUD + 検索メソッド
+- [x] `internal/domain/repository` - Repository インターフェース定義
+  - [x] `EntryRepository` - CRUD + フィルタ/ソートメソッド
+  - [x] `TagRepository` - CRUD + 検索メソッド
 
 **検証**:
-- [ ] ドメインモデルの単体テスト
+- [x] ドメインモデルの単体テスト
 
 ### 2.2 インフラ層の実装
 
 **目的**: DB/外部APIとの接続実装
 
 **実装内容**:
-- [ ] `internal/infra/postgres` - PostgreSQL リポジトリ実装
-  - [ ] EntryRepository 実装
-  - [ ] TagRepository 実装
-- [ ] `internal/infra/redis` - Redis キャッシュ実装
-  - [ ] エントリーリストのキャッシュ
-  - [ ] TTL 設定（1時間など）
+- [x] `internal/infra/postgres` - PostgreSQL リポジトリ実装
+  - [x] EntryRepository 実装
+  - [x] TagRepository 実装
+- [x] `internal/infra/redis` - Redis キャッシュ実装
+  - [x] エントリーリストのキャッシュ
+  - [x] TTL 設定（1時間など）
 - [ ] `internal/infra/hatena` - はてなブックマークAPI クライアント（将来実装）
 
 **検証**:
-- [ ] リポジトリの統合テスト（testcontainers）
-- [ ] キャッシュの動作確認
+- [x] リポジトリの統合テスト（testcontainers）
+- [x] キャッシュの動作確認
 
 ### 2.3 アプリケーション層の実装
 
 **目的**: ユースケースの実装
 
 **実装内容**:
-- [ ] `internal/app/entry` - エントリー関連ユースケース
-  - [ ] `ListNewEntries` - 新着順リスト取得（キャッシュ付き）
-  - [ ] `ListHotEntries` - 人気順リスト取得（キャッシュ付き）
-  - [ ] フィルタリング（最小ブックマーク件数）
-  - [ ] ページネーション（offset/limit）
+- [x] `internal/app/entry` - エントリー関連ユースケース
+  - [x] `ListNewEntries` - 新着順リスト取得（キャッシュ付き）
+  - [x] `ListHotEntries` - 人気順リスト取得（キャッシュ付き）
+  - [x] フィルタリング（最小ブックマーク件数）
+  - [x] ページネーション（offset/limit）
 
 **検証**:
-- [ ] ユースケースの単体テスト（モックリポジトリ）
-- [ ] キャッシュヒット/ミスの確認
+- [x] ユースケースの単体テスト（モックリポジトリ）
+- [x] キャッシュヒット/ミスの確認
 
 ### 2.4 ハンドラ層の実装
 
 **目的**: HTTPエンドポイントの実装
 
 **実装内容**:
-- [ ] `internal/infra/handler` - OpenAPI生成インターフェースの実装
-  - [ ] `NewEntriesHandler` - GET /entries/new
-  - [ ] `HotEntriesHandler` - GET /entries/hot
-  - [ ] `HealthCheckHandler` - GET /health
-- [ ] エラーハンドリング（統一エラーレスポンス）
-- [ ] バリデーション（クエリパラメータ）
+- [x] `internal/infra/handler` - OpenAPI生成インターフェースの実装
+  - [x] `NewEntriesHandler` - GET /entries/new
+  - [x] `HotEntriesHandler` - GET /entries/hot
+  - [x] `HealthCheckHandler` - GET /health
+- [x] エラーハンドリング（統一エラーレスポンス）
+- [x] バリデーション（クエリパラメータ）
 
 **検証**:
-- [ ] HTTPテスト（`httptest` パッケージ）
-- [ ] E2Eテスト（curl/HTTPクライアント）
+- [x] HTTPテスト（`httptest` パッケージ）
+- [x] E2Eテスト（curl/HTTPクライアント）
 
 ## フェーズ3: 追加機能実装
 
