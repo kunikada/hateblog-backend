@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	appEntry "hateblog/internal/app/entry"
+	appFavicon "hateblog/internal/app/favicon"
+	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
@@ -73,12 +76,22 @@ func run(ctx context.Context) error {
 	entryCache := infraRedis.NewEntryListCache(redisClient, cfg.App.CacheTTL)
 	entryService := appEntry.NewService(entryRepo, entryCache, log)
 
+	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
+	googleClient := infraGoogle.NewClient(infraGoogle.Config{
+		HTTPClient: &http.Client{
+			Timeout: cfg.External.FaviconAPITimeout,
+		},
+		UserAgent: "hateblog-favicon-proxy",
+	})
+	faviconService := appFavicon.NewService(googleClient, faviconCache, log)
+
 	entryHandler := handler.NewEntryHandler(entryService)
+	faviconHandler := handler.NewFaviconHandler(faviconService)
 	healthHandler := &handler.HealthHandler{
 		DB:    db,
 		Cache: redisClient,
 	}
-	router := handler.NewRouter(entryHandler, healthHandler)
+	router := handler.NewRouter(entryHandler, faviconHandler, healthHandler)
 
 	srv := server.New(server.Config{
 		Address:      cfg.Server.Address(),

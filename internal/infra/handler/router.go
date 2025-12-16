@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter wires handlers and middlewares.
-func NewRouter(entryHandler *EntryHandler, healthHandler *HealthHandler) http.Handler {
+func NewRouter(entryHandler *EntryHandler, faviconHandler *FaviconHandler, healthHandler *HealthHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -17,6 +17,9 @@ func NewRouter(entryHandler *EntryHandler, healthHandler *HealthHandler) http.Ha
 
 	if entryHandler != nil {
 		entryHandler.RegisterRoutes(r)
+	}
+	if faviconHandler != nil {
+		faviconHandler.RegisterRoutes(r)
 	}
 	if healthHandler != nil {
 		r.Get("/health", healthHandler.ServeHTTP)

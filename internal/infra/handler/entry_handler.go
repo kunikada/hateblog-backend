@@ -221,8 +221,3 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	}
 	writeJSON(w, status, map[string]string{"error": message})
 }
-
-// chiRouter allows testing without importing chi in callers.
-type chiRouter interface {
-	Get(pattern string, handlerFn http.HandlerFunc)
-}

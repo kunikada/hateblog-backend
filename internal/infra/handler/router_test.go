@@ -32,6 +32,7 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 
 	router := NewRouter(
 		NewEntryHandler(svc),
+		nil,
 		&HealthHandler{
 			DB:    &fakeHealthChecker{},
 			Cache: &fakeHealthChecker{},

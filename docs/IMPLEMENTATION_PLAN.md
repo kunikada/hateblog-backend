@@ -92,10 +92,13 @@ hateblog バックエンドAPIの段階的な実装計画。
 - [x] `internal/infra/postgres` - PostgreSQL リポジトリ実装
   - [x] EntryRepository 実装
   - [x] TagRepository 実装
-- [x] `internal/infra/redis` - Redis キャッシュ実装
+- [ ] `internal/infra/redis` - Redis キャッシュ実装
   - [x] エントリーリストのキャッシュ
   - [x] TTL 設定（1時間など）
-- [ ] `internal/infra/hatena` - はてなブックマークAPI クライアント（将来実装）
+- [x] `internal/infra/external` - 外部APIクライアント群
+  - [x] `external/hatena` - RSS フィード取得／ブックマーク件数API
+  - [x] `external/yahoo` - キーフレーズ抽出APIクライアント
+  - [x] `external/google` - Google Favicon API を利用したURL生成ヘルパー
 
 **検証**:
 - [x] リポジトリの統合テスト（testcontainers）
