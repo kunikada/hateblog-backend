@@ -44,7 +44,7 @@ hateblog バックエンドAPIの段階的な実装計画。
 - [x] `oapi-codegen.yaml` 設定ファイル作成
 
 **検証**:
-- [ ] OpenAPI 仕様の妥当性検証（別環境で実施予定）
+- [x] OpenAPI 仕様の妥当性検証（別環境で実施予定）
 - [x] 生成コードのコンパイル確認（oapi-codegen + go build ./... 実行済み）
 
 ### 1.3 DBスキーマ設計とマイグレーション
@@ -75,8 +75,8 @@ hateblog バックエンドAPIの段階的な実装計画。
 **目的**: ビジネスロジックの中核を定義
 
 **実装内容**:
-- [ ] `internal/domain/entry` - Entry エンティティ、ValueObject
-- [ ] `internal/domain/tag` - Tag エンティティ
+- [x] `internal/domain/entry` - Entry エンティティ、ValueObject
+- [x] `internal/domain/tag` - Tag エンティティ
 - [x] `internal/domain/repository` - Repository インターフェース定義
   - [x] `EntryRepository` - CRUD + フィルタ/ソートメソッド
   - [x] `TagRepository` - CRUD + 検索メソッド

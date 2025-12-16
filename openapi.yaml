@@ -9,10 +9,9 @@ info:
     name: Hateblog Team
   license:
     name: MIT
+    url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:8080/api/v1
-    description: ローカル開発環境
   - url: https://hateblog.jp/api/v1
     description: 本番環境
 
@@ -746,6 +745,12 @@ paths:
       operationId: healthCheck
       security: []
       responses:
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 正常
           content:
@@ -881,36 +886,6 @@ components:
           maximum: 1.0
           description: タグのスコア（Yahoo! キーフレーズ抽出APIから取得した重要度）
           example: 0.95
-
-    Tag:
-      type: object
-      description: タグマスター
-      required:
-        - id
-        - name
-        - entry_count
-        - created_at
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: タグID
-          example: "123e4567-e89b-12d3-a456-426614174000"
-        name:
-          type: string
-          maxLength: 100
-          description: タグ名
-          example: "Go"
-        entry_count:
-          type: integer
-          minimum: 0
-          description: このタグに紐づくエントリー数
-          example: 1234
-        created_at:
-          type: string
-          format: date-time
-          description: レコード作成日時（ISO 8601形式）
-          example: "2024-01-01T00:00:00Z"
 
     EntryListResponse:
       type: object
