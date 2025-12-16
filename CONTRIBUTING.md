@@ -12,7 +12,7 @@
 - 必須: `gofmt`/`goimports`、`go vet`、`golangci-lint`（`staticcheck` 含む）
 - 推奨: `make` タスクで統一
   - `make fmt` → `gofmt -s -w ./` + `goimports -w ./`
-  - `make lint` → `golangci-lint run`
+  - `make lint` → `golangci-lint run` + `depguard` で依存境界チェック
   - `make test` → `go test ./... -race -shuffle=on`
   - `make cover` → `go test ./... -coverprofile=cover.out`
   - `make deps-outdated` → `go list -m -u all` を解析し、更新候補の依存を一覧表示

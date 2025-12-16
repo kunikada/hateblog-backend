@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test cover build run clean docker-build docker-run security migrate-up migrate-down migrate-create generate generate-install deps-outdated
+.PHONY: help fmt lint test cover build run clean docker-build docker-run security migrate-up migrate-down migrate-create generate generate-install deps-outdated depguard
 
 # Default target
 .DEFAULT_GOAL := help
@@ -32,6 +32,7 @@ fmt:
 lint:
 	@echo "==> Running linter..."
 	golangci-lint run --config .golangci.yml
+	@$(MAKE) depguard
 	@echo "✓ Linting complete"
 
 ## test: Run tests with race detector
@@ -82,6 +83,12 @@ deps-outdated:
 	@echo "==> Checking outdated dependencies..."
 	go run ./cmd/tools/depsoutdated
 	@echo "✓ Dependency check complete"
+
+## depguard: Enforce dependency boundaries
+depguard:
+	@echo "==> Checking dependency boundaries..."
+	CGO_ENABLED=0 go run github.com/OpenPeeDeeP/depguard/cmd/depguard@v1.1.1 -c depguard.json ./...
+	@echo "✓ Dependency boundaries respected"
 
 ## clean: Clean build artifacts and caches
 clean:
@@ -201,4 +208,5 @@ dev: deps
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+	go install github.com/OpenPeeDeeP/depguard/cmd/depguard@v1.1.1
 	@echo "✓ Development environment ready"

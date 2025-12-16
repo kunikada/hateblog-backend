@@ -1,0 +1,46 @@
+{
+  "DomainIsolation": {
+    "files": [
+      "**/internal/domain/**/*.go"
+    ],
+    "listMode": "Lax",
+    "deny": {
+      "hateblog/internal/app": "domain層はapp層へ依存できません",
+      "hateblog/internal/infra": "domain層はinfra層へ依存できません",
+      "hateblog/internal/platform": "domain層はplatform層へ依存できません"
+    }
+  },
+  "AppIsolation": {
+    "files": [
+      "**/internal/app/**/*.go"
+    ],
+    "listMode": "Lax",
+    "deny": {
+      "hateblog/internal/infra": "app層はinfra実装へ直接依存できません",
+      "hateblog/internal/platform": "app層はplatform層へ直接依存できません"
+    }
+  },
+  "PlatformIsolation": {
+    "files": [
+      "**/internal/platform/**/*.go"
+    ],
+    "listMode": "Lax",
+    "deny": {
+      "hateblog/internal/app": "platform層は上位層へ依存できません",
+      "hateblog/internal/domain": "platform層は上位層へ依存できません",
+      "hateblog/internal/infra": "platform層は上位層へ依存できません"
+    }
+  },
+  "PkgIsolation": {
+    "files": [
+      "**/internal/pkg/**/*.go"
+    ],
+    "listMode": "Lax",
+    "deny": {
+      "hateblog/internal/app": "pkgユーティリティから上位層へ依存できません",
+      "hateblog/internal/domain": "pkgユーティリティから上位層へ依存できません",
+      "hateblog/internal/infra": "pkgユーティリティから上位層へ依存できません",
+      "hateblog/internal/platform": "pkgユーティリティから上位層へ依存できません"
+    }
+  }
+}
