@@ -13,7 +13,8 @@ services:
 
   app:
     build:
-      target: builder
+      context: .
+      dockerfile: Dockerfile.dev
     command: sleep infinity
     restart: "no"
     user: "1000:1000"

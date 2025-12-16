@@ -1,0 +1,22 @@
+FROM golang:1.25-alpine
+
+# Install development dependencies (make, bash, git, etc.)
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    git \
+    make \
+    sudo \
+    tzdata
+
+# Create non-root user for VS Code devcontainer
+RUN addgroup -g 1000 vscode && \
+    adduser -D -u 1000 -G vscode vscode && \
+    echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode && \
+    chmod 0440 /etc/sudoers.d/vscode
+
+WORKDIR /workspace
+
+USER vscode
+
+CMD ["sleep", "infinity"]

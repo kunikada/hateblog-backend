@@ -44,8 +44,8 @@ hateblog バックエンドAPIの段階的な実装計画。
 - [x] `oapi-codegen.yaml` 設定ファイル作成
 
 **検証**:
-- [ ] OpenAPI 仕様の妥当性検証（Swagger Editor）
-- [ ] 生成コードのコンパイル確認（次フェーズで実施）
+- [ ] OpenAPI 仕様の妥当性検証（別環境で実施予定）
+- [x] 生成コードのコンパイル確認（oapi-codegen + go build ./... 実行済み）
 
 ### 1.3 DBスキーマ設計とマイグレーション
 
