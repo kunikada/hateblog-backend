@@ -7,17 +7,17 @@ import (
 
 	"github.com/google/uuid"
 
-	appMetrics "hateblog/internal/app/metrics"
 	domainEntry "hateblog/internal/domain/entry"
+	usecaseMetrics "hateblog/internal/usecase/metrics"
 )
 
 // MetricsHandler handles /metrics endpoints.
 type MetricsHandler struct {
-	service *appMetrics.Service
+	service *usecaseMetrics.Service
 }
 
 // NewMetricsHandler creates a MetricsHandler.
-func NewMetricsHandler(service *appMetrics.Service) *MetricsHandler {
+func NewMetricsHandler(service *usecaseMetrics.Service) *MetricsHandler {
 	return &MetricsHandler{service: service}
 }
 

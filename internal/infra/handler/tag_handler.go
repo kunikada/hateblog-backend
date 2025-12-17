@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	appEntry "hateblog/internal/app/entry"
-	appTag "hateblog/internal/app/tag"
 	domainTag "hateblog/internal/domain/tag"
+	usecaseEntry "hateblog/internal/usecase/entry"
+	usecaseTag "hateblog/internal/usecase/tag"
 )
 
 const (
@@ -22,12 +22,12 @@ const (
 
 // TagHandler exposes tag endpoints.
 type TagHandler struct {
-	tagService   *appTag.Service
-	entryService *appEntry.Service
+	tagService   *usecaseTag.Service
+	entryService *usecaseEntry.Service
 }
 
 // NewTagHandler builds a TagHandler.
-func NewTagHandler(tagService *appTag.Service, entryService *appEntry.Service) *TagHandler {
+func NewTagHandler(tagService *usecaseTag.Service, entryService *usecaseEntry.Service) *TagHandler {
 	return &TagHandler{
 		tagService:   tagService,
 		entryService: entryService,
@@ -110,7 +110,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := appEntry.ListParams{
+	params := usecaseEntry.ListParams{
 		Tags:             []string{tagEntity.Name},
 		MinBookmarkCount: minUsers,
 		Limit:            limit,

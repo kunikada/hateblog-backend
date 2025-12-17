@@ -109,7 +109,7 @@ hateblog バックエンドAPIの段階的な実装計画。
 **目的**: ユースケースの実装
 
 **実装内容**:
-- [x] `internal/app/entry` - エントリー関連ユースケース
+- [x] `internal/usecase/entry` - エントリー関連ユースケース
   - [x] `ListNewEntries` - 新着順リスト取得（キャッシュ付き）
   - [x] `ListHotEntries` - 人気順リスト取得（キャッシュ付き）
   - [x] フィルタリング（最小ブックマーク件数）

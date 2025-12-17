@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	appRanking "hateblog/internal/app/ranking"
+	usecaseRanking "hateblog/internal/usecase/ranking"
 )
 
 const (
@@ -16,11 +16,11 @@ const (
 
 // RankingHandler serves ranking endpoints.
 type RankingHandler struct {
-	service *appRanking.Service
+	service *usecaseRanking.Service
 }
 
 // NewRankingHandler builds a RankingHandler.
-func NewRankingHandler(service *appRanking.Service) *RankingHandler {
+func NewRankingHandler(service *usecaseRanking.Service) *RankingHandler {
 	return &RankingHandler{service: service}
 }
 
@@ -119,7 +119,7 @@ func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result))
 }
 
-func buildRankingResponse(periodType string, year int, month, week *int, result appRanking.Result) rankingResponse {
+func buildRankingResponse(periodType string, year int, month, week *int, result usecaseRanking.Result) rankingResponse {
 	resp := rankingResponse{
 		PeriodType: periodType,
 		Year:       year,

@@ -4,17 +4,17 @@ import (
 	"errors"
 	"net/http"
 
-	appFavicon "hateblog/internal/app/favicon"
 	"hateblog/internal/pkg/hostname"
+	usecaseFavicon "hateblog/internal/usecase/favicon"
 )
 
 // FaviconHandler handles favicon proxy requests.
 type FaviconHandler struct {
-	service *appFavicon.Service
+	service *usecaseFavicon.Service
 }
 
 // NewFaviconHandler creates a new handler.
-func NewFaviconHandler(service *appFavicon.Service) *FaviconHandler {
+func NewFaviconHandler(service *usecaseFavicon.Service) *FaviconHandler {
 	return &FaviconHandler{service: service}
 }
 
@@ -38,7 +38,7 @@ func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request
 
 	data, contentType, err := h.service.Fetch(r.Context(), host)
 	if err != nil {
-		if errors.Is(err, appFavicon.ErrRateLimited) {
+		if errors.Is(err, usecaseFavicon.ErrRateLimited) {
 			writeError(w, http.StatusTooManyRequests, err)
 			return
 		}

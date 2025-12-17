@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	appEntry "hateblog/internal/app/entry"
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	usecaseEntry "hateblog/internal/usecase/entry"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
-	svc := appEntry.NewService(&fakeRepo{
+	svc := usecaseEntry.NewService(&fakeRepo{
 		list: []*domainEntry.Entry{{
 			ID:            uuid.New(),
 			Title:         "Sample",

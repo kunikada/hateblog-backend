@@ -84,16 +84,16 @@ func (r RedisConfig) Address() string {
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
-	Environment      string        `env:"APP_ENV" envDefault:"development"`
-	LogLevel         string        `env:"APP_LOG_LEVEL" envDefault:"info"`
-	LogFormat        string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
-	CacheTTL         time.Duration `env:"APP_CACHE_TTL" envDefault:"1h"`
-	FaviconCacheTTL  time.Duration `env:"APP_FAVICON_CACHE_TTL" envDefault:"168h"` // 7 days
-	EnableMetrics    bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
-	EnableCORS       bool          `env:"APP_ENABLE_CORS" envDefault:"true"`
-	AllowedOrigins   []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
-	APIKeyRequired   bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
-	MasterAPIKey     string        `env:"APP_MASTER_API_KEY" envDefault:""`
+	Environment     string        `env:"APP_ENV" envDefault:"development"`
+	LogLevel        string        `env:"APP_LOG_LEVEL" envDefault:"info"`
+	LogFormat       string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
+	CacheTTL        time.Duration `env:"APP_CACHE_TTL" envDefault:"1h"`
+	FaviconCacheTTL time.Duration `env:"APP_FAVICON_CACHE_TTL" envDefault:"168h"` // 7 days
+	EnableMetrics   bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
+	EnableCORS      bool          `env:"APP_ENABLE_CORS" envDefault:"true"`
+	AllowedOrigins  []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
+	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
+	MasterAPIKey    string        `env:"APP_MASTER_API_KEY" envDefault:""`
 }
 
 // IsDevelopment returns true if the environment is development

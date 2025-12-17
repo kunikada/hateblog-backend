@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	appEntry "hateblog/internal/app/entry"
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/tag"
+	usecaseEntry "hateblog/internal/usecase/entry"
 )
 
 const (
@@ -20,11 +20,11 @@ const (
 
 // EntryHandler exposes entry endpoints.
 type EntryHandler struct {
-	service *appEntry.Service
+	service *usecaseEntry.Service
 }
 
 // NewEntryHandler creates a new EntryHandler.
-func NewEntryHandler(service *appEntry.Service) *EntryHandler {
+func NewEntryHandler(service *usecaseEntry.Service) *EntryHandler {
 	return &EntryHandler{service: service}
 }
 
@@ -66,7 +66,7 @@ func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params))
 }
 
-func buildEntryListResponse(result appEntry.ListResult, params appEntry.ListParams) entryListResponse {
+func buildEntryListResponse(result usecaseEntry.ListResult, params usecaseEntry.ListParams) entryListResponse {
 	resp := entryListResponse{
 		Entries: make([]entryResponse, 0, len(result.Entries)),
 		Total:   result.Total,
@@ -114,8 +114,8 @@ func toEntryResponse(ent *domainEntry.Entry) entryResponse {
 	return resp
 }
 
-func buildListParams(r *http.Request) (appEntry.ListParams, error) {
-	params := appEntry.ListParams{
+func buildListParams(r *http.Request) (usecaseEntry.ListParams, error) {
+	params := usecaseEntry.ListParams{
 		Limit:  defaultLimit,
 		Offset: 0,
 	}
@@ -123,10 +123,10 @@ func buildListParams(r *http.Request) (appEntry.ListParams, error) {
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
-			return appEntry.ListParams{}, fmt.Errorf("invalid limit")
+			return usecaseEntry.ListParams{}, fmt.Errorf("invalid limit")
 		}
 		if limit < 1 || limit > domainEntry.MaxLimit {
-			return appEntry.ListParams{}, fmt.Errorf("limit must be between 1 and %d", domainEntry.MaxLimit)
+			return usecaseEntry.ListParams{}, fmt.Errorf("limit must be between 1 and %d", domainEntry.MaxLimit)
 		}
 		params.Limit = limit
 	} else {
@@ -136,7 +136,7 @@ func buildListParams(r *http.Request) (appEntry.ListParams, error) {
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
 		offset, err := strconv.Atoi(offsetStr)
 		if err != nil || offset < 0 {
-			return appEntry.ListParams{}, fmt.Errorf("offset must be >= 0")
+			return usecaseEntry.ListParams{}, fmt.Errorf("offset must be >= 0")
 		}
 		params.Offset = offset
 	}
@@ -145,7 +145,7 @@ func buildListParams(r *http.Request) (appEntry.ListParams, error) {
 	if minStr := r.URL.Query().Get("min_users"); minStr != "" {
 		min, err := strconv.Atoi(minStr)
 		if err != nil || min < 0 {
-			return appEntry.ListParams{}, fmt.Errorf("min_users must be >= 0")
+			return usecaseEntry.ListParams{}, fmt.Errorf("min_users must be >= 0")
 		}
 		minUsers = min
 	}
@@ -153,7 +153,7 @@ func buildListParams(r *http.Request) (appEntry.ListParams, error) {
 
 	if date := r.URL.Query().Get("date"); date != "" {
 		if !isValidDate(date) {
-			return appEntry.ListParams{}, fmt.Errorf("date must be YYYYMMDD")
+			return usecaseEntry.ListParams{}, fmt.Errorf("date must be YYYYMMDD")
 		}
 	}
 

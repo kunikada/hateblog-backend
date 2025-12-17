@@ -7,13 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	appArchive "hateblog/internal/app/archive"
-	appEntry "hateblog/internal/app/entry"
-	appFavicon "hateblog/internal/app/favicon"
-	appMetrics "hateblog/internal/app/metrics"
-	appRanking "hateblog/internal/app/ranking"
-	appSearch "hateblog/internal/app/search"
-	appTag "hateblog/internal/app/tag"
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
@@ -23,6 +16,13 @@ import (
 	"hateblog/internal/platform/database"
 	"hateblog/internal/platform/logger"
 	"hateblog/internal/platform/server"
+	usecaseArchive "hateblog/internal/usecase/archive"
+	usecaseEntry "hateblog/internal/usecase/entry"
+	usecaseFavicon "hateblog/internal/usecase/favicon"
+	usecaseMetrics "hateblog/internal/usecase/metrics"
+	usecaseRanking "hateblog/internal/usecase/ranking"
+	usecaseSearch "hateblog/internal/usecase/search"
+	usecaseTag "hateblog/internal/usecase/tag"
 )
 
 func main() {
@@ -82,12 +82,12 @@ func run(ctx context.Context) error {
 	searchHistoryRepo := infraPostgres.NewSearchHistoryRepository(db.Pool)
 	clickMetricsRepo := infraPostgres.NewClickMetricsRepository(db.Pool)
 	entryCache := infraRedis.NewEntryListCache(redisClient, cfg.App.CacheTTL)
-	entryService := appEntry.NewService(entryRepo, entryCache, log)
-	archiveService := appArchive.NewService(entryRepo)
-	rankingService := appRanking.NewService(entryRepo)
-	tagService := appTag.NewService(tagRepo)
-	searchService := appSearch.NewService(entryRepo, searchHistoryRepo, log)
-	metricsService := appMetrics.NewService(entryRepo, clickMetricsRepo)
+	entryService := usecaseEntry.NewService(entryRepo, entryCache, log)
+	archiveService := usecaseArchive.NewService(entryRepo)
+	rankingService := usecaseRanking.NewService(entryRepo)
+	tagService := usecaseTag.NewService(tagRepo)
+	searchService := usecaseSearch.NewService(entryRepo, searchHistoryRepo, log)
+	metricsService := usecaseMetrics.NewService(entryRepo, clickMetricsRepo)
 
 	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
 	faviconLimiter := infraRedis.NewFaviconRateLimiter(redisClient, cfg.External.FaviconRateLimit)
@@ -97,7 +97,7 @@ func run(ctx context.Context) error {
 		},
 		UserAgent: "hateblog-favicon-proxy",
 	})
-	faviconService := appFavicon.NewService(googleClient, faviconCache, faviconLimiter, log)
+	faviconService := usecaseFavicon.NewService(googleClient, faviconCache, faviconLimiter, log)
 
 	entryHandler := handler.NewEntryHandler(entryService)
 	archiveHandler := handler.NewArchiveHandler(archiveService)

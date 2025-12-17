@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"strings"
 
-	appSearch "hateblog/internal/app/search"
+	usecaseSearch "hateblog/internal/usecase/search"
 )
 
 // SearchHandler serves /search endpoint.
 type SearchHandler struct {
-	service *appSearch.Service
+	service *usecaseSearch.Service
 }
 
 // NewSearchHandler builds a SearchHandler.
-func NewSearchHandler(service *appSearch.Service) *SearchHandler {
+func NewSearchHandler(service *usecaseSearch.Service) *SearchHandler {
 	return &SearchHandler{service: service}
 }
 
@@ -50,7 +50,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.service.Search(r.Context(), q, appSearch.Params{
+	result, err := h.service.Search(r.Context(), q, usecaseSearch.Params{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	appEntry "hateblog/internal/app/entry"
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	usecaseEntry "hateblog/internal/usecase/entry"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -32,7 +32,7 @@ func TestHandleNewEntries(t *testing.T) {
 		countResult: 1,
 	}
 
-	service := appEntry.NewService(repo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := usecaseEntry.NewService(repo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	handler := NewEntryHandler(service)
 	r := chi.NewRouter()
 	handler.RegisterRoutes(r)
@@ -50,7 +50,7 @@ func TestHandleNewEntries(t *testing.T) {
 }
 
 func TestHandleNewEntries_InvalidParam(t *testing.T) {
-	service := appEntry.NewService(&mockEntryRepository{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := usecaseEntry.NewService(&mockEntryRepository{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	handler := NewEntryHandler(service)
 	r := chi.NewRouter()
 	handler.RegisterRoutes(r)

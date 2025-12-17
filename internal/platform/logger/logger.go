@@ -58,7 +58,7 @@ func parseLevel(level Level) slog.Level {
 // createHandler creates appropriate handler based on format
 func createHandler(format Format, level slog.Level) slog.Handler {
 	opts := &slog.HandlerOptions{
-		Level: level,
+		Level:     level,
 		AddSource: level == slog.LevelDebug, // Add source file info only in debug mode
 	}
 

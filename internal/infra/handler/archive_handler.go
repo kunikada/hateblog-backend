@@ -3,18 +3,18 @@ package handler
 import (
 	"net/http"
 
-	appArchive "hateblog/internal/app/archive"
+	usecaseArchive "hateblog/internal/usecase/archive"
 )
 
 const defaultArchiveMinUsers = 5
 
 // ArchiveHandler exposes archive endpoints.
 type ArchiveHandler struct {
-	service *appArchive.Service
+	service *usecaseArchive.Service
 }
 
 // NewArchiveHandler builds an ArchiveHandler.
-func NewArchiveHandler(service *appArchive.Service) *ArchiveHandler {
+func NewArchiveHandler(service *usecaseArchive.Service) *ArchiveHandler {
 	return &ArchiveHandler{service: service}
 }
 

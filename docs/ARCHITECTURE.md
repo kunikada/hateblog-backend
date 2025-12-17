@@ -1,9 +1,9 @@
 # Architecture
 
 ## Core Principles
-1) Simplicity over Cleverness — 便利トリックより直交性・明示性  
-2) Readability First — 防御レイヤーを積むより読みやすく  
-3) Small Interfaces — 使う側が必要な面だけを定義  
+1) Simplicity over Cleverness — 便利トリックより直交性・明示性
+2) Readability First — 防御レイヤーを積むより読みやすく
+3) Small Interfaces — 使う側が必要な面だけを定義
 4) Backward Compatibility — 破壊は慎重、移行パスを用意
 
 ## Runtime / Stack
@@ -36,17 +36,24 @@
 ## Module / Layout
 ```
 .
-├─ cmd/<app>          # main: DIとwire-upだけ
+├─ cmd/<app>          # main: DIとwire-upだけ（ロジック禁止）
 ├─ internal/
-│  ├─ app/            # UseCase/Service（ビジネス操作の調停）
-│  ├─ domain/         # Entity/ValueObject/Repository interface
+│  ├─ domain/         # Entity/ValueObject/Repository interface（境界の中心）
+│  ├─ usecase/        # UseCase/Service（ビジネス操作の調停）
 │  ├─ infra/          # DB/HTTP/外部APIの実装（adapter）
 │  └─ platform/       # ログ/設定/観測基盤など
 └─ pkg/               # 外部にも使える純粋Libがある時のみ
 ```
 
+## Layering / Rules
+- 物理境界はディレクトリで分離し、依存方向は usecase → domain（interface） ← infra に固定。
+- domain は純粋に保ち、他層への import を禁止（depguard でCIチェック）。外部ライブラリ依存も最小限にする。
+- interface は利用側（呼び出す層）に置く。実装は提供側が持ち、依存を逆転させる。
+- main/cmd は配線専用。起動設定・DI・handler登録のみを行い、ビジネスロジックを置かない。
+- リファクタリングは小さく・頻繁に実施し、境界崩れを早期に検知・修正する。
+
 ## Data Flow (依存方向)
-UI/Handler → app(UseCase) → domain(interface) ← infra(impl)
+UI/Handler → usecase → domain(interface) ← infra(impl)
 
 - domain は純粋（副作用なし）を目指す
 - infra は標準 lib 優先（`net/http`, `database/sql`, `encoding/*` …）

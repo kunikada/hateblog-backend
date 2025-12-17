@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	appFavicon "hateblog/internal/app/favicon"
+	usecaseFavicon "hateblog/internal/usecase/favicon"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -48,14 +48,14 @@ func TestFaviconHandlerBadRequest(t *testing.T) {
 	}
 }
 
-func newTestService(data []byte, ctype string, fetchErr error) *appFavicon.Service {
+func newTestService(data []byte, ctype string, fetchErr error) *usecaseFavicon.Service {
 	fetcher := &testFetcher{
 		data:  data,
 		ctype: ctype,
 		err:   fetchErr,
 	}
 	cache := &testCache{}
-	return appFavicon.NewService(fetcher, cache, nil, nil)
+	return usecaseFavicon.NewService(fetcher, cache, nil, nil)
 }
 
 type testFetcher struct {
