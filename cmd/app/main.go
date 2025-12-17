@@ -7,8 +7,13 @@ import (
 	"net/http"
 	"os"
 
+	appArchive "hateblog/internal/app/archive"
 	appEntry "hateblog/internal/app/entry"
 	appFavicon "hateblog/internal/app/favicon"
+	appMetrics "hateblog/internal/app/metrics"
+	appRanking "hateblog/internal/app/ranking"
+	appSearch "hateblog/internal/app/search"
+	appTag "hateblog/internal/app/tag"
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
@@ -73,25 +78,48 @@ func run(ctx context.Context) error {
 	}()
 
 	entryRepo := infraPostgres.NewEntryRepository(db.Pool)
+	tagRepo := infraPostgres.NewTagRepository(db.Pool)
+	searchHistoryRepo := infraPostgres.NewSearchHistoryRepository(db.Pool)
+	clickMetricsRepo := infraPostgres.NewClickMetricsRepository(db.Pool)
 	entryCache := infraRedis.NewEntryListCache(redisClient, cfg.App.CacheTTL)
 	entryService := appEntry.NewService(entryRepo, entryCache, log)
+	archiveService := appArchive.NewService(entryRepo)
+	rankingService := appRanking.NewService(entryRepo)
+	tagService := appTag.NewService(tagRepo)
+	searchService := appSearch.NewService(entryRepo, searchHistoryRepo, log)
+	metricsService := appMetrics.NewService(entryRepo, clickMetricsRepo)
 
 	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
+	faviconLimiter := infraRedis.NewFaviconRateLimiter(redisClient, cfg.External.FaviconRateLimit)
 	googleClient := infraGoogle.NewClient(infraGoogle.Config{
 		HTTPClient: &http.Client{
 			Timeout: cfg.External.FaviconAPITimeout,
 		},
 		UserAgent: "hateblog-favicon-proxy",
 	})
-	faviconService := appFavicon.NewService(googleClient, faviconCache, log)
+	faviconService := appFavicon.NewService(googleClient, faviconCache, faviconLimiter, log)
 
 	entryHandler := handler.NewEntryHandler(entryService)
+	archiveHandler := handler.NewArchiveHandler(archiveService)
+	rankingHandler := handler.NewRankingHandler(rankingService)
+	tagHandler := handler.NewTagHandler(tagService, entryService)
+	searchHandler := handler.NewSearchHandler(searchService)
+	metricsHandler := handler.NewMetricsHandler(metricsService)
 	faviconHandler := handler.NewFaviconHandler(faviconService)
 	healthHandler := &handler.HealthHandler{
 		DB:    db,
 		Cache: redisClient,
 	}
-	router := handler.NewRouter(entryHandler, faviconHandler, healthHandler)
+	router := handler.NewRouter(handler.RouterConfig{
+		EntryHandler:   entryHandler,
+		ArchiveHandler: archiveHandler,
+		RankingHandler: rankingHandler,
+		TagHandler:     tagHandler,
+		SearchHandler:  searchHandler,
+		MetricsHandler: metricsHandler,
+		FaviconHandler: faviconHandler,
+		HealthHandler:  healthHandler,
+	})
 
 	srv := server.New(server.Config{
 		Address:      cfg.Server.Address(),

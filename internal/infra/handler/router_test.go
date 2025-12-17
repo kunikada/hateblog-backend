@@ -11,6 +11,7 @@ import (
 
 	appEntry "hateblog/internal/app/entry"
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/domain/repository"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -30,14 +31,13 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 		count: 1,
 	}, nil, nil)
 
-	router := NewRouter(
-		NewEntryHandler(svc),
-		nil,
-		&HealthHandler{
+	router := NewRouter(RouterConfig{
+		EntryHandler: NewEntryHandler(svc),
+		HealthHandler: &HealthHandler{
 			DB:    &fakeHealthChecker{},
 			Cache: &fakeHealthChecker{},
 		},
-	)
+	})
 
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -80,6 +80,9 @@ func (f *fakeRepo) Count(ctx context.Context, query domainEntry.ListQuery) (int6
 func (f *fakeRepo) Create(ctx context.Context, entry *domainEntry.Entry) error { return nil }
 func (f *fakeRepo) Update(ctx context.Context, entry *domainEntry.Entry) error { return nil }
 func (f *fakeRepo) Delete(ctx context.Context, id domainEntry.ID) error        { return nil }
+func (f *fakeRepo) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
+	return nil, nil
+}
 
 type fakeHealthChecker struct{}
 

@@ -173,6 +173,10 @@ type ListQuery struct {
 	Offset           int
 	Limit            int
 	Sort             SortType
+	Keyword          string
+	PostedAtFrom     time.Time
+	PostedAtTo       time.Time
+	MaxLimitOverride int
 }
 
 // Normalize validates and applies defaults to the query.
@@ -180,8 +184,12 @@ func (q *ListQuery) Normalize() error {
 	if q.Limit <= 0 {
 		q.Limit = DefaultLimit
 	}
-	if q.Limit > MaxLimit {
-		q.Limit = MaxLimit
+	limitCap := MaxLimit
+	if q.MaxLimitOverride > 0 {
+		limitCap = q.MaxLimitOverride
+	}
+	if q.Limit > limitCap {
+		q.Limit = limitCap
 	}
 	if q.Offset < 0 {
 		return fmt.Errorf("%w: offset must be >= 0", ErrInvalidListQuery)
@@ -189,6 +197,7 @@ func (q *ListQuery) Normalize() error {
 	if q.MinBookmarkCount < 0 {
 		return fmt.Errorf("%w: min_bookmark_count must be >= 0", ErrInvalidListQuery)
 	}
+	q.Keyword = strings.TrimSpace(q.Keyword)
 	switch q.Sort {
 	case SortNew, SortHot:
 		// ok
@@ -196,6 +205,16 @@ func (q *ListQuery) Normalize() error {
 		q.Sort = SortNew
 	default:
 		return fmt.Errorf("%w: unsupported sort %q", ErrInvalidListQuery, q.Sort)
+	}
+
+	if !q.PostedAtFrom.IsZero() {
+		q.PostedAtFrom = q.PostedAtFrom.UTC()
+	}
+	if !q.PostedAtTo.IsZero() {
+		q.PostedAtTo = q.PostedAtTo.UTC()
+	}
+	if !q.PostedAtFrom.IsZero() && !q.PostedAtTo.IsZero() && !q.PostedAtFrom.Before(q.PostedAtTo) {
+		return fmt.Errorf("%w: posted_at_from must be before posted_at_to", ErrInvalidListQuery)
 	}
 
 	for i, name := range q.Tags {

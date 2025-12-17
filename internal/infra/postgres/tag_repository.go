@@ -115,3 +115,20 @@ func (r *TagRepository) Delete(ctx context.Context, id tag.ID) error {
 	}
 	return nil
 }
+
+// IncrementViewHistory adds one view count for the specified tag/date.
+func (r *TagRepository) IncrementViewHistory(ctx context.Context, tagID tag.ID, viewedAt time.Time) error {
+	if tagID == uuid.Nil {
+		return fmt.Errorf("tag id is required")
+	}
+	date := viewedAt.UTC().Truncate(24 * time.Hour)
+	const query = `
+INSERT INTO tag_view_history (tag_id, viewed_at, count)
+VALUES ($1, $2, 1)
+ON CONFLICT (tag_id, viewed_at) DO UPDATE
+SET count = tag_view_history.count + 1`
+	if _, err := r.pool.Exec(ctx, query, tagID, date); err != nil {
+		return fmt.Errorf("increment tag view history: %w", err)
+	}
+	return nil
+}

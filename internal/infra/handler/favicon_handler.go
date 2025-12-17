@@ -38,6 +38,10 @@ func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request
 
 	data, contentType, err := h.service.Fetch(r.Context(), host)
 	if err != nil {
+		if errors.Is(err, appFavicon.ErrRateLimited) {
+			writeError(w, http.StatusTooManyRequests, err)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

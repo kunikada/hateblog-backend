@@ -140,94 +140,94 @@ hateblog バックエンドAPIの段階的な実装計画。
 ### 3.1 アーカイブ機能
 
 **実装内容**:
-- [ ] API エンドポイント: `GET /archive`
-- [ ] 年月日での階層フィルタ
-- [ ] 日付ごとのエントリー件数集計
+- [x] API エンドポイント: `GET /archive`
+- [x] 年月日での階層フィルタ
+- [x] 日付ごとのエントリー件数集計
 
 **検証**:
-- [ ] アーカイブAPIの動作確認
+- [x] アーカイブAPIの動作確認
 
 ### 3.2 ランキング機能
 
 **実装内容**:
-- [ ] API エンドポイント:
-  - [ ] `GET /rankings/yearly`
-  - [ ] `GET /rankings/monthly`
-  - [ ] `GET /rankings/weekly`
-- [ ] ブックマーク件数でのソート
-- [ ] 期間指定（年、月、週）
+- [x] API エンドポイント:
+  - [x] `GET /rankings/yearly`
+  - [x] `GET /rankings/monthly`
+  - [x] `GET /rankings/weekly`
+- [x] ブックマーク件数でのソート
+- [x] 期間指定（年、月、週）
 
 **検証**:
-- [ ] ランキングAPIの動作確認
+- [x] ランキングAPIの動作確認
 
 ### 3.3 タグ機能
 
 **実装内容**:
-- [ ] API エンドポイント:
-  - [ ] `GET /tags/{tag}/entries` - タグ別エントリー一覧
-  - [ ] `GET /tags` - タグ一覧取得
-- [ ] タグ別エントリー一覧取得
-- [ ] タグの正規化（小文字統一など）
-- [ ] タグ閲覧履歴の記録
+- [x] API エンドポイント:
+  - [x] `GET /tags/{tag}/entries` - タグ別エントリー一覧
+  - [x] `GET /tags` - タグ一覧取得
+- [x] タグ別エントリー一覧取得
+- [x] タグの正規化（小文字統一など）
+- [x] タグ閲覧履歴の記録
 
 **検証**:
-- [ ] タグAPIの動作確認
-- [ ] タグ閲覧履歴の記録確認
+- [x] タグAPIの動作確認
+- [x] タグ閲覧履歴の記録確認
 
 ### 3.4 検索機能
 
 **実装内容**:
-- [ ] API エンドポイント: `GET /search?q={keyword}`
-- [ ] 全文検索（タイトル、抜粋、タグ）
-- [ ] 検索履歴の記録（日別集計）
+- [x] API エンドポイント: `GET /search?q={keyword}`
+- [x] 全文検索（タイトル、抜粋、タグ）
+- [x] 検索履歴の記録（日別集計）
 - **実装方式**: PostgreSQL + `pg_bigm` 拡張
   - [x] `pg_bigm` 拡張のインストール（マイグレーション完了）
   - [x] GINインデックスの作成（title, excerpt - マイグレーション完了）
-  - [ ] 検索APIの実装（LIKE + ブックマーク件数ソート）
+  - [x] 検索APIの実装（LIKE + ブックマーク件数ソート）
   - 将来的にElasticsearchへの移行も可能
 
 **検証**:
-- [ ] 全文検索の動作確認
-- [ ] 日本語検索の精度確認
-- [ ] 検索履歴の記録確認
+- [x] 全文検索の動作確認
+- [x] 日本語検索の精度確認
+- [x] 検索履歴の記録確認
 
 **詳細**: [FULLTEXT_SEARCH_COMPARISON.md](FULLTEXT_SEARCH_COMPARISON.md) 参照
 
 ### 3.5 クリック計測
 
 **実装内容**:
-- [ ] API エンドポイント: `POST /metrics/clicks`
-- [ ] エントリーIDとタイムスタンプの記録
-- [ ] 日別集計処理（UPSERT with ON CONFLICT）
+- [x] API エンドポイント: `POST /metrics/clicks`
+- [x] エントリーIDとタイムスタンプの記録
+- [x] 日別集計処理（UPSERT with ON CONFLICT）
 - [x] 集計用テーブル（`click_metrics` - マイグレーション完了）
 
 **検証**:
-- [ ] クリック計測APIの動作確認
-- [ ] 日別集計の動作確認
+- [x] クリック計測APIの動作確認
+- [x] 日別集計の動作確認
 
 ### 3.6 Favicon プロキシ
 
 **目的**: ドメインのfaviconを取得・キャッシュするプロキシAPI
 
 **実装内容**:
-- [ ] API エンドポイント: `GET /favicons?domain={domain}`
-- [ ] Google の favicon サービスを利用: `https://www.google.com/s2/favicons?domain={domain}`
-- [ ] Redisにキャッシュ（TTL: 7日間など長めに設定）
-- [ ] アクセス制限:
-  - [ ] 同一ドメインへのリクエストは1秒以内に1回まで（Redis + rate limiting）
-  - [ ] キャッシュヒット時は外部APIを叩かない
-- [ ] エラーハンドリング:
-  - [ ] Google APIが落ちている場合のフォールバック（デフォルトアイコン）
-  - [ ] タイムアウト設定（3秒）
+- [x] API エンドポイント: `GET /favicons?domain={domain}`
+- [x] Google の favicon サービスを利用: `https://www.google.com/s2/favicons?domain={domain}`
+- [x] Redisにキャッシュ（TTL: 7日間など長めに設定）
+- [x] アクセス制限:
+  - [x] 同一ドメインへのリクエストは1秒以内に1回まで（Redis + rate limiting）
+  - [x] キャッシュヒット時は外部APIを叩かない
+- [x] エラーハンドリング:
+  - [x] Google APIが落ちている場合のフォールバック（デフォルトアイコン）
+  - [x] タイムアウト設定（3秒）
 
 **キャッシュキー設計**:
 - `favicon:{domain}` - favicon画像データ（バイナリ）
 - `favicon:ratelimit:{domain}` - レート制限用（TTL: 1秒）
 
 **検証**:
-- [ ] キャッシュヒット/ミスの確認
-- [ ] レート制限の動作確認
-- [ ] 外部API障害時のフォールバック確認
+- [x] キャッシュヒット/ミスの確認
+- [x] レート制限の動作確認
+- [x] 外部API障害時のフォールバック確認
 
 ## フェーズ4: 最適化とセキュリティ
 

@@ -11,6 +11,7 @@ import (
 
 	appEntry "hateblog/internal/app/entry"
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/domain/repository"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -88,4 +89,8 @@ func (m *mockEntryRepository) Update(ctx context.Context, entry *domainEntry.Ent
 
 func (m *mockEntryRepository) Delete(ctx context.Context, id domainEntry.ID) error {
 	return nil
+}
+
+func (m *mockEntryRepository) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
+	return nil, nil
 }

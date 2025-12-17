@@ -182,6 +182,39 @@ func (r *EntryRepository) Count(ctx context.Context, q entry.ListQuery) (int64, 
 	return count, nil
 }
 
+// ListArchiveCounts aggregates entries per day ordered by date desc.
+func (r *EntryRepository) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
+	if minBookmarkCount < 0 {
+		minBookmarkCount = 0
+	}
+	const query = `
+SELECT DATE(posted_at) AS day, COUNT(1)
+FROM entries
+WHERE bookmark_count >= $1
+GROUP BY day
+ORDER BY day DESC`
+
+	rows, err := r.pool.Query(ctx, query, minBookmarkCount)
+	if err != nil {
+		return nil, fmt.Errorf("archive counts: %w", err)
+	}
+	defer rows.Close()
+
+	var items []repository.ArchiveCount
+	for rows.Next() {
+		var day time.Time
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, fmt.Errorf("scan archive count: %w", err)
+		}
+		items = append(items, repository.ArchiveCount{
+			Date:  day,
+			Count: count,
+		})
+	}
+	return items, rows.Err()
+}
+
 func (r *EntryRepository) loadTags(ctx context.Context, entries []*entry.Entry) error {
 	ids := make([]uuid.UUID, 0, len(entries))
 	entryByID := make(map[uuid.UUID]*entry.Entry, len(entries))
@@ -253,6 +286,34 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 		)`, argPos))
 		args = append(args, q.Tags)
 		argPos++
+	}
+
+	if !q.PostedAtFrom.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("posted_at >= $%d", argPos))
+		args = append(args, q.PostedAtFrom)
+		argPos++
+	}
+
+	if !q.PostedAtTo.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("posted_at < $%d", argPos))
+		args = append(args, q.PostedAtTo)
+		argPos++
+	}
+
+	if q.Keyword != "" {
+		pattern := "%" + q.Keyword + "%"
+		conditions = append(conditions, fmt.Sprintf(`(
+			title ILIKE $%d OR
+			excerpt ILIKE $%d OR
+			subject ILIKE $%d OR
+			EXISTS (
+				SELECT 1 FROM entry_tags et
+				INNER JOIN tags t ON t.id = et.tag_id
+				WHERE et.entry_id = e.id AND t.name ILIKE $%d
+			)
+		)`, argPos, argPos+1, argPos+2, argPos+3))
+		args = append(args, pattern, pattern, pattern, pattern)
+		argPos += 4
 	}
 
 	if len(conditions) > 0 {

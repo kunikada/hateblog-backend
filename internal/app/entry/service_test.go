@@ -7,6 +7,7 @@ import (
 	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/domain/repository"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -41,6 +42,9 @@ func (s *stubEntryRepo) Update(ctx context.Context, entry *domainEntry.Entry) er
 }
 func (s *stubEntryRepo) Delete(ctx context.Context, id domainEntry.ID) error {
 	return nil
+}
+func (s *stubEntryRepo) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
+	return nil, nil
 }
 
 type stubCache struct {

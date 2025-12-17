@@ -36,6 +36,13 @@ func (c *EntryListCache) BuildKey(query entry.ListQuery) (string, error) {
 	if err := q.Normalize(); err != nil {
 		return "", err
 	}
+	var from, to string
+	if !q.PostedAtFrom.IsZero() {
+		from = q.PostedAtFrom.Format(time.RFC3339Nano)
+	}
+	if !q.PostedAtTo.IsZero() {
+		to = q.PostedAtTo.Format(time.RFC3339Nano)
+	}
 
 	parts := []string{
 		string(q.Sort),
@@ -43,6 +50,10 @@ func (c *EntryListCache) BuildKey(query entry.ListQuery) (string, error) {
 		strconv.Itoa(q.Offset),
 		strconv.Itoa(q.Limit),
 		strings.Join(q.Tags, ","),
+		from,
+		to,
+		q.Keyword,
+		strconv.Itoa(q.MaxLimitOverride),
 	}
 
 	sum := sha1.Sum([]byte(strings.Join(parts, "|")))

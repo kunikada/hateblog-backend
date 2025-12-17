@@ -55,7 +55,7 @@ func newTestService(data []byte, ctype string, fetchErr error) *appFavicon.Servi
 		err:   fetchErr,
 	}
 	cache := &testCache{}
-	return appFavicon.NewService(fetcher, cache, nil)
+	return appFavicon.NewService(fetcher, cache, nil, nil)
 }
 
 type testFetcher struct {

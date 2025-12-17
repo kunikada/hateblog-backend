@@ -1,0 +1,146 @@
+package handler
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	appEntry "hateblog/internal/app/entry"
+	appTag "hateblog/internal/app/tag"
+	domainTag "hateblog/internal/domain/tag"
+)
+
+const (
+	defaultTagLimit     = 25
+	maxTagLimit         = 100
+	defaultTagListLimit = 50
+	maxTagListLimit     = 200
+)
+
+// TagHandler exposes tag endpoints.
+type TagHandler struct {
+	tagService   *appTag.Service
+	entryService *appEntry.Service
+}
+
+// NewTagHandler builds a TagHandler.
+func NewTagHandler(tagService *appTag.Service, entryService *appEntry.Service) *TagHandler {
+	return &TagHandler{
+		tagService:   tagService,
+		entryService: entryService,
+	}
+}
+
+// RegisterRoutes wires tag endpoints.
+func (h *TagHandler) RegisterRoutes(r chiRouter) {
+	r.Get("/tags", h.handleListTags)
+	r.Get("/tags/{tag}/entries", h.handleTagEntries)
+}
+
+func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
+	if h.tagService == nil {
+		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		return
+	}
+	limit, err := readQueryInt(r, "limit", 1, maxTagListLimit, defaultTagListLimit)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	offset, err := readQueryInt(r, "offset", 0, 0, 0)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	tags, err := h.tagService.List(r.Context(), limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	resp := tagsResponse{
+		Tags:   make([]tagItemResponse, 0, len(tags)),
+		Limit:  limit,
+		Offset: offset,
+	}
+	for _, t := range tags {
+		resp.Tags = append(resp.Tags, tagItemResponse{
+			ID:   t.ID,
+			Name: t.Name,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
+	if h.tagService == nil || h.entryService == nil {
+		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		return
+	}
+	rawTag := chi.URLParam(r, "tag")
+	if rawTag == "" {
+		writeError(w, http.StatusBadRequest, errInvalidTag)
+		return
+	}
+
+	tagEntity, err := h.tagService.GetByName(r.Context(), rawTag)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+
+	limit, err := readQueryInt(r, "limit", 1, maxTagLimit, defaultTagLimit)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	offset, err := readQueryInt(r, "offset", 0, 0, 0)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultMin)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	params := appEntry.ListParams{
+		Tags:             []string{tagEntity.Name},
+		MinBookmarkCount: minUsers,
+		Limit:            limit,
+		Offset:           offset,
+	}
+	result, err := h.entryService.ListNewEntries(r.Context(), params)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := h.tagService.RecordView(r.Context(), tagEntity.ID, time.Now()); err != nil {
+		slog.Default().Warn("failed to record tag view", "tag", tagEntity.Name, "error", err)
+	}
+
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params))
+}
+
+var (
+	errServiceUnavailable = errors.New("service unavailable")
+	errInvalidTag         = errors.New("tag is required")
+)
+
+type tagsResponse struct {
+	Tags   []tagItemResponse `json:"tags"`
+	Limit  int               `json:"limit"`
+	Offset int               `json:"offset"`
+}
+
+type tagItemResponse struct {
+	ID   domainTag.ID `json:"id"`
+	Name string       `json:"name"`
+}
