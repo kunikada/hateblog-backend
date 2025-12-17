@@ -1,0 +1,314 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"net/http"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hateblog/internal/domain/tag"
+	"hateblog/internal/infra/external/hatena"
+	"hateblog/internal/infra/external/yahoo"
+	"hateblog/internal/infra/postgres"
+	"hateblog/internal/pkg/batchutil"
+	"hateblog/internal/platform/config"
+	"hateblog/internal/platform/database"
+	platformLogger "hateblog/internal/platform/logger"
+)
+
+func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	var (
+		lockName          = flag.String("lock", "fetcher", "advisory lock name")
+		maxEntries        = flag.Int("max-entries", 300, "maximum number of unique entries to process per run")
+		noTags            = flag.Bool("no-tags", false, "disable Yahoo keyphrase tagging even when YAHOO_API_KEY is set")
+		tagTopN           = flag.Int("tag-top", 5, "max number of tags to attach per inserted entry")
+		yahooMinInterval  = flag.Duration("yahoo-interval", 200*time.Millisecond, "minimum interval between Yahoo API requests")
+		executionDeadline = flag.Duration("deadline", 5*time.Minute, "overall execution deadline")
+	)
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), *executionDeadline)
+	defer cancel()
+
+	cfg, err := config.Load()
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	log := platformLogger.New(platformLogger.Config{
+		Level:  platformLogger.Level(cfg.App.LogLevel),
+		Format: platformLogger.Format(cfg.App.LogFormat),
+	})
+	platformLogger.SetDefault(log)
+
+	db, err := database.New(ctx, database.Config{
+		ConnectionString: cfg.Database.ConnectionString(),
+		MaxConns:         cfg.Database.MaxConns,
+		MinConns:         cfg.Database.MinConns,
+		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
+		ConnectTimeout:   cfg.Database.ConnectTimeout,
+	}, log)
+	if err != nil {
+		log.Error("db connect failed", "err", err)
+		return 1
+	}
+	defer db.Close()
+
+	locked, unlock, err := batchutil.TryAdvisoryLock(ctx, db.Pool, *lockName)
+	if err != nil {
+		log.Error("lock failed", "err", err)
+		return 1
+	}
+	if !locked {
+		log.Info("lock not acquired; skip")
+		return 0
+	}
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := unlock(unlockCtx); err != nil {
+			log.Warn("unlock failed", "err", err)
+		}
+	}()
+
+	httpClient := &http.Client{Timeout: cfg.External.HatenaAPITimeout}
+	hatenaClient := hatena.NewClient(hatena.ClientConfig{HTTPClient: httpClient})
+
+	feedEntries, err := fetchEntries(ctx, hatenaClient, cfg.External.HatenaRSSFeedURLs, *maxEntries)
+	if err != nil {
+		log.Error("fetch entries failed", "err", err)
+		return 1
+	}
+	log.Info("fetched entries", "count", len(feedEntries))
+
+	tagRepo := postgres.NewTagRepository(db.Pool)
+	yahooClient := yahoo.NewClient(yahoo.ClientConfig{AppID: cfg.External.YahooAPIKey})
+
+	inserted := 0
+	skipped := 0
+	tagged := 0
+	for _, item := range feedEntries {
+		select {
+		case <-ctx.Done():
+			log.Error("deadline exceeded", "err", ctx.Err())
+			return 1
+		default:
+		}
+
+		entryID, ok, err := insertEntry(ctx, db.Pool, item)
+		if err != nil {
+			log.Error("insert entry failed", "url", item.URL, "err", err)
+			return 1
+		}
+		if !ok {
+			skipped++
+			continue
+		}
+		inserted++
+
+		if *noTags || strings.TrimSpace(cfg.External.YahooAPIKey) == "" || *tagTopN <= 0 {
+			continue
+		}
+
+		tagCount, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entryID, item, *tagTopN)
+		if err != nil {
+			log.Error("attach tags failed", "url", item.URL, "err", err)
+			return 1
+		}
+		if tagCount > 0 {
+			tagged++
+		}
+		if *yahooMinInterval > 0 {
+			time.Sleep(*yahooMinInterval)
+		}
+	}
+
+	log.Info("fetcher finished", "inserted", inserted, "skipped", skipped, "tagged", tagged)
+	return 0
+}
+
+type feedItem struct {
+	Title         string
+	URL           string
+	Excerpt       string
+	Subject       string
+	BookmarkCount int
+	PostedAt      time.Time
+}
+
+func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string, max int) ([]feedItem, error) {
+	if max <= 0 {
+		max = 1
+	}
+	seen := make(map[string]feedItem, max)
+	for _, raw := range feedURLs {
+		u := strings.TrimSpace(raw)
+		if u == "" {
+			continue
+		}
+		feed, err := client.FetchFeed(ctx, u)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range feed.Entries {
+			url := strings.TrimSpace(e.URL)
+			if url == "" {
+				continue
+			}
+			if _, ok := seen[url]; ok {
+				continue
+			}
+			subject := strings.Join(e.Subjects, ",")
+			seen[url] = feedItem{
+				Title:         strings.TrimSpace(e.Title),
+				URL:           url,
+				Excerpt:       strings.TrimSpace(e.Excerpt),
+				Subject:       strings.TrimSpace(subject),
+				BookmarkCount: e.BookmarkCount,
+				PostedAt:      e.PublishedAt.UTC(),
+			}
+			if len(seen) >= max {
+				break
+			}
+		}
+		if len(seen) >= max {
+			break
+		}
+	}
+
+	items := make([]feedItem, 0, len(seen))
+	for _, v := range seen {
+		items = append(items, v)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].PostedAt.After(items[j].PostedAt)
+	})
+	return items, nil
+}
+
+func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, inserted bool, err error) {
+	if pool == nil {
+		return uuid.Nil, false, fmt.Errorf("pool is nil")
+	}
+	if strings.TrimSpace(item.URL) == "" {
+		return uuid.Nil, false, fmt.Errorf("url is required")
+	}
+	if item.PostedAt.IsZero() {
+		return uuid.Nil, false, fmt.Errorf("posted_at is required")
+	}
+
+	now := time.Now().UTC()
+	const q = `
+INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (url) DO NOTHING
+RETURNING id`
+
+	var entryID uuid.UUID
+	row := pool.QueryRow(ctx, q,
+		item.Title,
+		item.URL,
+		item.PostedAt,
+		item.BookmarkCount,
+		nullableText(item.Excerpt),
+		nullableText(item.Subject),
+		now,
+		now,
+	)
+	if err := row.Scan(&entryID); err != nil {
+		if err == pgx.ErrNoRows {
+			return uuid.Nil, false, nil
+		}
+		return uuid.Nil, false, err
+	}
+	return entryID, true, nil
+}
+
+func nullableText(s string) any {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
+func attachTags(
+	ctx context.Context,
+	tagRepo *postgres.TagRepository,
+	pool *pgxpool.Pool,
+	yahooClient *yahoo.Client,
+	entryID uuid.UUID,
+	item feedItem,
+	topN int,
+) (int, error) {
+	if pool == nil {
+		return 0, fmt.Errorf("pool is nil")
+	}
+	input := strings.TrimSpace(strings.Join([]string{item.Title, item.Excerpt}, "\n"))
+	phrases, err := yahooClient.Extract(ctx, input)
+	if err != nil {
+		return 0, err
+	}
+	if len(phrases) == 0 {
+		return 0, nil
+	}
+
+	sort.Slice(phrases, func(i, j int) bool { return phrases[i].Score > phrases[j].Score })
+	if topN > len(phrases) {
+		topN = len(phrases)
+	}
+	phrases = phrases[:topN]
+
+	maxScore := 0
+	for _, p := range phrases {
+		if p.Score > maxScore {
+			maxScore = p.Score
+		}
+	}
+
+	added := 0
+	for _, p := range phrases {
+		name := tag.NormalizeName(p.Text)
+		if name == "" {
+			continue
+		}
+		t := &tag.Tag{Name: name}
+		if err := tagRepo.Upsert(ctx, t); err != nil {
+			return added, err
+		}
+
+		score := 0.0
+		if maxScore > 0 {
+			score = float64(p.Score) / float64(maxScore)
+		}
+		if score < 0 {
+			score = 0
+		}
+		if score > 1 {
+			score = 1
+		}
+
+		const q = `
+INSERT INTO entry_tags (entry_id, tag_id, score)
+VALUES ($1, $2, $3)
+ON CONFLICT (entry_id, tag_id) DO NOTHING`
+		if _, err := pool.Exec(ctx, q, entryID, t.ID, score); err != nil {
+			return added, err
+		}
+		added++
+	}
+	return added, nil
+}
