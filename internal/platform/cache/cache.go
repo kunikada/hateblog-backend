@@ -91,6 +91,19 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 	return val, nil
 }
 
+// GetBytes retrieves a raw value from cache.
+func (c *Cache) GetBytes(ctx context.Context, key string) ([]byte, error) {
+	val, err := c.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, ErrCacheMiss
+	}
+	if err != nil {
+		c.logger.Error("failed to get cache bytes", "key", key, "error", err)
+		return nil, fmt.Errorf("failed to get cache bytes: %w", err)
+	}
+	return val, nil
+}
+
 // Set sets a value in cache with TTL
 func (c *Cache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	if err := c.client.Set(ctx, key, value, ttl).Err(); err != nil {
@@ -107,6 +120,35 @@ func (c *Cache) Delete(ctx context.Context, keys ...string) error {
 		return fmt.Errorf("failed to delete cache: %w", err)
 	}
 	return nil
+}
+
+// DeleteByPattern deletes keys that match the pattern using SCAN.
+func (c *Cache) DeleteByPattern(ctx context.Context, pattern string, batchSize int64) (int64, error) {
+	if batchSize <= 0 {
+		batchSize = 500
+	}
+	var cursor uint64
+	var deleted int64
+	for {
+		keys, next, err := c.client.Scan(ctx, cursor, pattern, batchSize).Result()
+		if err != nil {
+			c.logger.Error("failed to scan keys", "pattern", pattern, "error", err)
+			return deleted, fmt.Errorf("failed to scan keys: %w", err)
+		}
+		if len(keys) > 0 {
+			n, err := c.client.Del(ctx, keys...).Result()
+			if err != nil {
+				c.logger.Error("failed to delete keys", "pattern", pattern, "error", err)
+				return deleted, fmt.Errorf("failed to delete keys: %w", err)
+			}
+			deleted += n
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return deleted, nil
 }
 
 // Exists checks if a key exists in cache
@@ -134,6 +176,27 @@ func (c *Cache) Increment(ctx context.Context, key string) (int64, error) {
 	if err != nil {
 		c.logger.Error("failed to increment cache", "key", key, "error", err)
 		return 0, fmt.Errorf("failed to increment cache: %w", err)
+	}
+	return val, nil
+}
+
+var incrementWithTTLScript = redis.NewScript(`
+local v = redis.call('INCR', KEYS[1])
+if v == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return v
+`)
+
+// IncrementWithTTL increments a counter and sets TTL when the key is created.
+func (c *Cache) IncrementWithTTL(ctx context.Context, key string, ttl time.Duration) (int64, error) {
+	if ttl <= 0 {
+		return 0, fmt.Errorf("ttl must be positive")
+	}
+	val, err := incrementWithTTLScript.Run(ctx, c.client, []string{key}, ttl.Milliseconds()).Int64()
+	if err != nil {
+		c.logger.Error("failed to increment cache with ttl", "key", key, "error", err)
+		return 0, fmt.Errorf("failed to increment cache with ttl: %w", err)
 	}
 	return val, nil
 }

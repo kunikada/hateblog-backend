@@ -29,7 +29,7 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 			UpdatedAt:     time.Now(),
 		}},
 		count: 1,
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	router := NewRouter(RouterConfig{
 		EntryHandler: NewEntryHandler(svc),
@@ -42,7 +42,7 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 	server := httptest.NewServer(router)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/entries/new?limit=5")
+	resp, err := http.Get(server.URL + "/entries/new?date=20250105&limit=5")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)

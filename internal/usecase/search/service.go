@@ -41,14 +41,22 @@ type Result struct {
 type Service struct {
 	entries EntryRepository
 	history HistoryRepository
+	cache   ResultCache
 	logger  *slog.Logger
 }
 
+// ResultCache caches search results.
+type ResultCache interface {
+	Get(ctx context.Context, query string, minUsers, limit, offset int, out any) (bool, error)
+	Set(ctx context.Context, query string, minUsers, limit, offset int, value any) error
+}
+
 // NewService builds a search service.
-func NewService(entries EntryRepository, history HistoryRepository, logger *slog.Logger) *Service {
+func NewService(entries EntryRepository, history HistoryRepository, cache ResultCache, logger *slog.Logger) *Service {
 	return &Service{
 		entries: entries,
 		history: history,
+		cache:   cache,
 		logger:  logger,
 	}
 }
@@ -78,6 +86,21 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 		minUsers = 0
 	}
 
+	if s.cache != nil {
+		var cached Result
+		ok, err := s.cache.Get(ctx, norm, minUsers, limit, offset, &cached)
+		if err != nil {
+			s.logDebug("failed to get search cache", err)
+		} else if ok {
+			if s.history != nil {
+				if err := s.history.Record(ctx, norm, time.Now()); err != nil {
+					s.logDebug("failed to record search history", err)
+				}
+			}
+			return cached, nil
+		}
+	}
+
 	queryParams := domainEntry.ListQuery{
 		Keyword:          norm,
 		Limit:            limit,
@@ -86,11 +109,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 		MinBookmarkCount: minUsers,
 	}
 
-	entries, err := s.entries.List(ctx, queryParams)
-	if err != nil {
-		return Result{}, err
-	}
-	total, err := s.entries.Count(ctx, queryParams)
+	entries, total, err := s.listAndCount(ctx, queryParams)
 	if err != nil {
 		return Result{}, err
 	}
@@ -101,13 +120,39 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 		}
 	}
 
-	return Result{
+	result := Result{
 		Query:   norm,
 		Entries: entries,
 		Total:   total,
 		Limit:   limit,
 		Offset:  offset,
-	}, nil
+	}
+
+	if s.cache != nil {
+		if err := s.cache.Set(ctx, norm, minUsers, limit, offset, result); err != nil {
+			s.logDebug("failed to set search cache", err)
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Service) listAndCount(ctx context.Context, query domainEntry.ListQuery) ([]*domainEntry.Entry, int64, error) {
+	type listAndCounter interface {
+		ListAndCount(ctx context.Context, query domainEntry.ListQuery) ([]*domainEntry.Entry, int64, error)
+	}
+	if repo, ok := any(s.entries).(listAndCounter); ok {
+		return repo.ListAndCount(ctx, query)
+	}
+	entries, err := s.entries.List(ctx, query)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.entries.Count(ctx, query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return entries, total, nil
 }
 
 func (s *Service) logDebug(msg string, err error) {

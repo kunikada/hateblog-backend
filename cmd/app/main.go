@@ -15,6 +15,7 @@ import (
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	"hateblog/internal/platform/logger"
+	"hateblog/internal/platform/metrics"
 	"hateblog/internal/platform/server"
 	usecaseArchive "hateblog/internal/usecase/archive"
 	usecaseEntry "hateblog/internal/usecase/entry"
@@ -81,12 +82,21 @@ func run(ctx context.Context) error {
 	tagRepo := infraPostgres.NewTagRepository(db.Pool)
 	searchHistoryRepo := infraPostgres.NewSearchHistoryRepository(db.Pool)
 	clickMetricsRepo := infraPostgres.NewClickMetricsRepository(db.Pool)
-	entryCache := infraRedis.NewEntryListCache(redisClient, cfg.App.CacheTTL)
-	entryService := usecaseEntry.NewService(entryRepo, entryCache, log)
-	archiveService := usecaseArchive.NewService(entryRepo)
-	rankingService := usecaseRanking.NewService(entryRepo)
-	tagService := usecaseTag.NewService(tagRepo)
-	searchService := usecaseSearch.NewService(entryRepo, searchHistoryRepo, log)
+
+	dayEntriesCache := infraRedis.NewDayEntriesCache(redisClient)
+	tagEntriesCache := infraRedis.NewTagEntriesCache(redisClient)
+	searchCache := infraRedis.NewSearchCache(redisClient)
+	tagsListCache := infraRedis.NewTagsListCache(redisClient)
+	archiveCache := infraRedis.NewArchiveCache(redisClient)
+	yearlyRankingCache := infraRedis.NewYearlyRankingCache(redisClient)
+	monthlyRankingCache := infraRedis.NewMonthlyRankingCache(redisClient)
+	weeklyRankingCache := infraRedis.NewWeeklyRankingCache(redisClient)
+
+	entryService := usecaseEntry.NewService(entryRepo, dayEntriesCache, tagEntriesCache, log)
+	archiveService := usecaseArchive.NewService(entryRepo, archiveCache)
+	rankingService := usecaseRanking.NewService(entryRepo, yearlyRankingCache, monthlyRankingCache, weeklyRankingCache)
+	tagService := usecaseTag.NewService(tagRepo, tagsListCache)
+	searchService := usecaseSearch.NewService(entryRepo, searchHistoryRepo, searchCache, log)
 	metricsService := usecaseMetrics.NewService(entryRepo, clickMetricsRepo)
 
 	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
@@ -110,15 +120,46 @@ func run(ctx context.Context) error {
 		DB:    db,
 		Cache: redisClient,
 	}
+
+	var middlewares []func(http.Handler) http.Handler
+	var promHandler http.Handler
+	if cfg.App.EnableMetrics {
+		httpMetrics := metrics.NewHTTPMetrics()
+		middlewares = append(middlewares, httpMetrics.Middleware)
+		promHandler = httpMetrics.Handler()
+		if cfg.App.APIKeyRequired {
+			promHandler = server.APIKeyAuth(cfg.App.MasterAPIKey, log)(promHandler)
+		}
+	}
+	if cfg.App.RateLimitEnabled {
+		middlewares = append(middlewares, server.RateLimit(server.RateLimitConfig{
+			Cache:  redisClient,
+			Limit:  cfg.App.RateLimitMaxRequests,
+			Window: cfg.App.RateLimitWindow,
+			Logger: log,
+			Prefix: "http",
+			Skip: func(r *http.Request) bool {
+				switch r.URL.Path {
+				case "/health", "/observability/metrics":
+					return true
+				default:
+					return false
+				}
+			},
+		}))
+	}
+
 	router := handler.NewRouter(handler.RouterConfig{
-		EntryHandler:   entryHandler,
-		ArchiveHandler: archiveHandler,
-		RankingHandler: rankingHandler,
-		TagHandler:     tagHandler,
-		SearchHandler:  searchHandler,
-		MetricsHandler: metricsHandler,
-		FaviconHandler: faviconHandler,
-		HealthHandler:  healthHandler,
+		EntryHandler:      entryHandler,
+		ArchiveHandler:    archiveHandler,
+		RankingHandler:    rankingHandler,
+		TagHandler:        tagHandler,
+		SearchHandler:     searchHandler,
+		MetricsHandler:    metricsHandler,
+		FaviconHandler:    faviconHandler,
+		HealthHandler:     healthHandler,
+		Middlewares:       middlewares,
+		PrometheusHandler: promHandler,
 	})
 
 	srv := server.New(server.Config{

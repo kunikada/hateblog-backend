@@ -17,6 +17,9 @@ type RouterConfig struct {
 	MetricsHandler *MetricsHandler
 	FaviconHandler *FaviconHandler
 	HealthHandler  *HealthHandler
+
+	Middlewares       []func(http.Handler) http.Handler
+	PrometheusHandler http.Handler
 }
 
 // NewRouter wires handlers and middlewares.
@@ -26,6 +29,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Compress(5))
+
+	for _, mw := range cfg.Middlewares {
+		if mw == nil {
+			continue
+		}
+		r.Use(mw)
+	}
 
 	if cfg.EntryHandler != nil {
 		cfg.EntryHandler.RegisterRoutes(r)
@@ -50,6 +61,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 	if cfg.HealthHandler != nil {
 		r.Get("/health", cfg.HealthHandler.ServeHTTP)
+	}
+	if cfg.PrometheusHandler != nil {
+		r.Mount("/observability/metrics", cfg.PrometheusHandler)
 	}
 	return r
 }

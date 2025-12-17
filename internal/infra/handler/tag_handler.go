@@ -110,13 +110,11 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := usecaseEntry.ListParams{
-		Tags:             []string{tagEntity.Name},
+	result, err := h.entryService.ListTagEntries(r.Context(), tagEntity.Name, usecaseEntry.TagListParams{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,
-	}
-	result, err := h.entryService.ListNewEntries(r.Context(), params)
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -126,7 +124,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		slog.Default().Warn("failed to record tag view", "tag", tagEntity.Name, "error", err)
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, limit, offset))
 }
 
 var (

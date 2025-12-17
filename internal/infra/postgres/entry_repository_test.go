@@ -85,6 +85,22 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
+
+	entries, total, err := repo.ListAndCount(ctx, domainEntry.ListQuery{
+		Limit: 2,
+		Sort:  domainEntry.SortHot,
+	})
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	require.Equal(t, int64(2), total)
+
+	entries, total, err = repo.ListAndCount(ctx, domainEntry.ListQuery{
+		Keyword: "%' OR 1=1 --",
+		Limit:   10,
+	})
+	require.NoError(t, err)
+	require.Len(t, entries, 0)
+	require.Equal(t, int64(0), total)
 }
 
 func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {

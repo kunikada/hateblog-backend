@@ -2,26 +2,34 @@ package entry
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"sort"
+	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
 )
 
-// ListCache defines cache operations required by the service.
-type ListCache interface {
-	BuildKey(query domainEntry.ListQuery) (string, error)
-	Get(ctx context.Context, key string) ([]byte, bool, error)
-	Set(ctx context.Context, key string, payload []byte) error
+type DayEntriesCache interface {
+	Get(ctx context.Context, date string) ([]*domainEntry.Entry, bool, error)
+	Set(ctx context.Context, date string, entries []*domainEntry.Entry) error
+}
+
+type TagEntriesCache interface {
+	Get(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error)
+	Set(ctx context.Context, tagName string, entries []*domainEntry.Entry) error
 }
 
 // Service orchestrates entry use cases.
 type Service struct {
-	repo   repository.EntryRepository
-	cache  ListCache
-	logger *slog.Logger
+	repo          repository.EntryRepository
+	dayCache      DayEntriesCache
+	tagEntries    TagEntriesCache
+	logger        *slog.Logger
+	jstLocation   *time.Location
+	maxAllResults int
 }
 
 // ListResult represents query outcome.
@@ -30,88 +38,88 @@ type ListResult struct {
 	Total   int64                `json:"total"`
 }
 
-// ListParams represents user filters.
-type ListParams struct {
-	Tags             []string
+// DayListParams represents user filters for /entries endpoints.
+type DayListParams struct {
+	Date             string
+	MinBookmarkCount int
+	Offset           int
+	Limit            int
+}
+
+// TagListParams represents user filters for /tags/{tag}/entries.
+type TagListParams struct {
 	MinBookmarkCount int
 	Offset           int
 	Limit            int
 }
 
 // NewService instantiates the service.
-func NewService(repo repository.EntryRepository, cache ListCache, logger *slog.Logger) *Service {
+func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEntriesCache TagEntriesCache, logger *slog.Logger) *Service {
+	jst, _ := time.LoadLocation("Asia/Tokyo")
 	return &Service{
-		repo:   repo,
-		cache:  cache,
-		logger: logger,
+		repo:          repo,
+		dayCache:      dayCache,
+		tagEntries:    tagEntriesCache,
+		logger:        logger,
+		jstLocation:   jst,
+		maxAllResults: 100000,
 	}
 }
 
 // ListNewEntries returns entries ordered by posted_at DESC.
-func (s *Service) ListNewEntries(ctx context.Context, params ListParams) (ListResult, error) {
-	return s.listEntries(ctx, domainEntry.SortNew, params)
+func (s *Service) ListNewEntries(ctx context.Context, params DayListParams) (ListResult, error) {
+	return s.listDayEntries(ctx, domainEntry.SortNew, params)
 }
 
 // ListHotEntries returns entries ordered by bookmark count.
-func (s *Service) ListHotEntries(ctx context.Context, params ListParams) (ListResult, error) {
-	return s.listEntries(ctx, domainEntry.SortHot, params)
+func (s *Service) ListHotEntries(ctx context.Context, params DayListParams) (ListResult, error) {
+	return s.listDayEntries(ctx, domainEntry.SortHot, params)
 }
 
-func (s *Service) listEntries(ctx context.Context, sort domainEntry.SortType, params ListParams) (ListResult, error) {
+// ListTagEntries returns tag entries ordered by posted_at DESC.
+func (s *Service) ListTagEntries(ctx context.Context, tagName string, params TagListParams) (ListResult, error) {
+	if tagName == "" {
+		return ListResult{}, fmt.Errorf("tag is required")
+	}
+	all, err := s.loadAllTagEntries(ctx, tagName)
+	if err != nil {
+		return ListResult{}, err
+	}
+	filtered := filterByMinUsers(all, params.MinBookmarkCount)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].PostedAt.After(filtered[j].PostedAt)
+	})
+	total := int64(len(filtered))
+	paged := paginate(filtered, params.Offset, params.Limit)
+	return ListResult{Entries: paged, Total: total}, nil
+}
+
+func (s *Service) listDayEntries(ctx context.Context, sortType domainEntry.SortType, params DayListParams) (ListResult, error) {
 	var empty ListResult
-	query := domainEntry.ListQuery{
-		Tags:             params.Tags,
-		MinBookmarkCount: params.MinBookmarkCount,
-		Offset:           params.Offset,
-		Limit:            params.Limit,
-		Sort:             sort,
+	if params.Date == "" {
+		return empty, fmt.Errorf("date is required")
 	}
-
-	var cacheKey string
-	if s.cache != nil {
-		key, err := s.cache.BuildKey(query)
-		if err != nil {
-			return empty, err
-		}
-		cacheKey = key
-		if payload, ok, err := s.cache.Get(ctx, key); err == nil && ok {
-			var cached ListResult
-			if err := json.Unmarshal(payload, &cached); err == nil {
-				return cached, nil
+	all, err := s.loadAllDayEntries(ctx, params.Date)
+	if err != nil {
+		return empty, err
+	}
+	filtered := filterByMinUsers(all, params.MinBookmarkCount)
+	switch sortType {
+	case domainEntry.SortHot:
+		sort.Slice(filtered, func(i, j int) bool {
+			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
+				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
 			}
-			s.logDebug("failed to unmarshal cache payload", err)
-		} else if err != nil {
-			s.logDebug("cache lookup failed", err)
-		}
+			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+		})
+	default:
+		sort.Slice(filtered, func(i, j int) bool {
+			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+		})
 	}
-
-	entries, err := s.repo.List(ctx, query)
-	if err != nil {
-		return empty, err
-	}
-
-	total, err := s.repo.Count(ctx, query)
-	if err != nil {
-		return empty, err
-	}
-
-	result := ListResult{
-		Entries: entries,
-		Total:   total,
-	}
-
-	if s.cache != nil && cacheKey != "" {
-		payload, err := json.Marshal(result)
-		if err != nil {
-			s.logDebug("failed to marshal entries for cache", err)
-			return result, nil
-		}
-		if err := s.cache.Set(ctx, cacheKey, payload); err != nil {
-			s.logDebug("cache set failed", err)
-		}
-	}
-
-	return result, nil
+	total := int64(len(filtered))
+	paged := paginate(filtered, params.Offset, params.Limit)
+	return ListResult{Entries: paged, Total: total}, nil
 }
 
 func (s *Service) logDebug(msg string, err error) {
@@ -128,4 +136,105 @@ func (s *Service) logDebug(msg string, err error) {
 		unwrapped = errors.Unwrap(unwrapped)
 	}
 	s.logger.Debug(msg, attrs...)
+}
+
+func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domainEntry.Entry, error) {
+	if s.dayCache != nil {
+		if cached, ok, err := s.dayCache.Get(ctx, date); err == nil && ok {
+			return cached, nil
+		} else if err != nil {
+			s.logDebug("day cache lookup failed", err)
+		}
+	}
+	from, to, err := jstDayRange(date, s.jstLocation)
+	if err != nil {
+		return nil, err
+	}
+	query := domainEntry.ListQuery{
+		Sort:             domainEntry.SortNew,
+		Limit:            s.maxAllResults,
+		MaxLimitOverride: s.maxAllResults,
+		PostedAtFrom:     from,
+		PostedAtTo:       to,
+	}
+	entries, err := s.repo.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if s.dayCache != nil {
+		if err := s.dayCache.Set(ctx, date, entries); err != nil {
+			s.logDebug("day cache set failed", err)
+		}
+	}
+	return entries, nil
+}
+
+func (s *Service) loadAllTagEntries(ctx context.Context, tagName string) ([]*domainEntry.Entry, error) {
+	if s.tagEntries != nil {
+		if cached, ok, err := s.tagEntries.Get(ctx, tagName); err == nil && ok {
+			return cached, nil
+		} else if err != nil {
+			s.logDebug("tag entries cache lookup failed", err)
+		}
+	}
+	query := domainEntry.ListQuery{
+		Tags:             []string{tagName},
+		Sort:             domainEntry.SortNew,
+		Limit:            s.maxAllResults,
+		MaxLimitOverride: s.maxAllResults,
+	}
+	entries, err := s.repo.List(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if s.tagEntries != nil {
+		if err := s.tagEntries.Set(ctx, tagName, entries); err != nil {
+			s.logDebug("tag entries cache set failed", err)
+		}
+	}
+	return entries, nil
+}
+
+func filterByMinUsers(entries []*domainEntry.Entry, minUsers int) []*domainEntry.Entry {
+	if minUsers < 0 {
+		minUsers = 0
+	}
+	if minUsers == 0 {
+		return entries
+	}
+	out := make([]*domainEntry.Entry, 0, len(entries))
+	for _, e := range entries {
+		if e.BookmarkCount >= minUsers {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func paginate(entries []*domainEntry.Entry, offset, limit int) []*domainEntry.Entry {
+	if offset < 0 {
+		offset = 0
+	}
+	if limit <= 0 {
+		limit = domainEntry.DefaultLimit
+	}
+	if offset >= len(entries) {
+		return nil
+	}
+	end := offset + limit
+	if end > len(entries) {
+		end = len(entries)
+	}
+	return entries[offset:end]
+}
+
+func jstDayRange(date string, loc *time.Location) (time.Time, time.Time, error) {
+	if loc == nil {
+		loc = time.UTC
+	}
+	start, err := time.ParseInLocation("20060102", date, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid date: %s", date)
+	}
+	return start.UTC(), start.AddDate(0, 0, 1).UTC(), nil
 }

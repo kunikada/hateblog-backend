@@ -39,7 +39,7 @@ func (f *fakeRepo) IncrementViewHistory(ctx context.Context, tagID domainTag.ID,
 
 func TestGetByNameNormalizes(t *testing.T) {
 	repo := &fakeRepo{tag: domainTag.Tag{ID: uuid.New(), Name: "go"}}
-	svc := NewService(repo)
+	svc := NewService(repo, nil)
 
 	result, err := svc.GetByName(context.Background(), "  GoLang ")
 	require.NoError(t, err)

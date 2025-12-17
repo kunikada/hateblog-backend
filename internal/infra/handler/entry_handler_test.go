@@ -32,12 +32,12 @@ func TestHandleNewEntries(t *testing.T) {
 		countResult: 1,
 	}
 
-	service := usecaseEntry.NewService(repo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := usecaseEntry.NewService(repo, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	handler := NewEntryHandler(service)
 	r := chi.NewRouter()
 	handler.RegisterRoutes(r)
 
-	req := httptest.NewRequest("GET", "/entries/new?limit=10", nil)
+	req := httptest.NewRequest("GET", "/entries/new?date=20250105&limit=10", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -50,12 +50,12 @@ func TestHandleNewEntries(t *testing.T) {
 }
 
 func TestHandleNewEntries_InvalidParam(t *testing.T) {
-	service := usecaseEntry.NewService(&mockEntryRepository{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := usecaseEntry.NewService(&mockEntryRepository{}, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	handler := NewEntryHandler(service)
 	r := chi.NewRouter()
 	handler.RegisterRoutes(r)
 
-	req := httptest.NewRequest("GET", "/entries/new?limit=0", nil)
+	req := httptest.NewRequest("GET", "/entries/new?date=20250105&limit=0", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 

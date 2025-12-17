@@ -182,6 +182,61 @@ func (r *EntryRepository) Count(ctx context.Context, q entry.ListQuery) (int64, 
 	return count, nil
 }
 
+// ListAndCount returns entries and the total count. When the page has no rows, it falls back to Count.
+func (r *EntryRepository) ListAndCount(ctx context.Context, q entry.ListQuery) ([]*entry.Entry, int64, error) {
+	query := q
+	if err := query.Normalize(); err != nil {
+		return nil, 0, err
+	}
+	sql, args := buildListEntriesWithTotalSQL(query)
+	rows, err := r.pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list entries with total: %w", err)
+	}
+	defer rows.Close()
+
+	var (
+		entries []*entry.Entry
+		total   int64
+	)
+	for rows.Next() {
+		ent := &entry.Entry{}
+		var rowTotal int64
+		if err := rows.Scan(
+			&ent.ID,
+			&ent.Title,
+			&ent.URL,
+			&ent.PostedAt,
+			&ent.BookmarkCount,
+			&ent.Excerpt,
+			&ent.Subject,
+			&ent.CreatedAt,
+			&ent.UpdatedAt,
+			&rowTotal,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan entry with total: %w", err)
+		}
+		total = rowTotal
+		entries = append(entries, ent)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	if len(entries) == 0 {
+		count, err := r.Count(ctx, query)
+		if err != nil {
+			return nil, 0, err
+		}
+		return entries, count, nil
+	}
+
+	if err := r.loadTags(ctx, entries); err != nil {
+		return nil, 0, err
+	}
+	return entries, total, nil
+}
+
 // ListArchiveCounts aggregates entries per day ordered by date desc.
 func (r *EntryRepository) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
 	if minBookmarkCount < 0 {
@@ -323,6 +378,80 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 
 	if countOnly {
 		return builder.String(), args
+	}
+
+	switch q.Sort {
+	case entry.SortHot:
+		builder.WriteString(" ORDER BY bookmark_count DESC, posted_at DESC")
+	default:
+		builder.WriteString(" ORDER BY posted_at DESC")
+	}
+
+	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
+	args = append(args, q.Limit, q.Offset)
+
+	return builder.String(), args
+}
+
+func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
+	columns := "id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at, COUNT(1) OVER() AS total"
+
+	builder := strings.Builder{}
+	builder.WriteString("SELECT ")
+	builder.WriteString(columns)
+	builder.WriteString(" FROM entries e")
+
+	var conditions []string
+	var args []any
+	argPos := 1
+
+	if q.MinBookmarkCount > 0 {
+		conditions = append(conditions, fmt.Sprintf("bookmark_count >= $%d", argPos))
+		args = append(args, q.MinBookmarkCount)
+		argPos++
+	}
+
+	if len(q.Tags) > 0 {
+		conditions = append(conditions, fmt.Sprintf(`EXISTS (
+			SELECT 1 FROM entry_tags et
+			INNER JOIN tags t ON t.id = et.tag_id
+			WHERE et.entry_id = e.id AND t.name = ANY($%d)
+		)`, argPos))
+		args = append(args, q.Tags)
+		argPos++
+	}
+
+	if !q.PostedAtFrom.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("posted_at >= $%d", argPos))
+		args = append(args, q.PostedAtFrom)
+		argPos++
+	}
+
+	if !q.PostedAtTo.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("posted_at < $%d", argPos))
+		args = append(args, q.PostedAtTo)
+		argPos++
+	}
+
+	if q.Keyword != "" {
+		pattern := "%" + q.Keyword + "%"
+		conditions = append(conditions, fmt.Sprintf(`(
+			title ILIKE $%d OR
+			excerpt ILIKE $%d OR
+			subject ILIKE $%d OR
+			EXISTS (
+				SELECT 1 FROM entry_tags et
+				INNER JOIN tags t ON t.id = et.tag_id
+				WHERE et.entry_id = e.id AND t.name ILIKE $%d
+			)
+		)`, argPos, argPos+1, argPos+2, argPos+3))
+		args = append(args, pattern, pattern, pattern, pattern)
+		argPos += 4
+	}
+
+	if len(conditions) > 0 {
+		builder.WriteString(" WHERE ")
+		builder.WriteString(strings.Join(conditions, " AND "))
 	}
 
 	switch q.Sort {

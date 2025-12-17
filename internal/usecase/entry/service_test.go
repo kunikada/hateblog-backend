@@ -2,7 +2,6 @@ package entry
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -14,13 +13,10 @@ import (
 )
 
 type stubEntryRepo struct {
-	listResult  []*domainEntry.Entry
-	listErr     error
-	countResult int64
-	countErr    error
+	listResult []*domainEntry.Entry
+	listErr    error
 
-	listCalls  int
-	countCalls int
+	listCalls int
 }
 
 func (s *stubEntryRepo) Get(ctx context.Context, id domainEntry.ID) (*domainEntry.Entry, error) {
@@ -31,8 +27,7 @@ func (s *stubEntryRepo) List(ctx context.Context, query domainEntry.ListQuery) (
 	return s.listResult, s.listErr
 }
 func (s *stubEntryRepo) Count(ctx context.Context, query domainEntry.ListQuery) (int64, error) {
-	s.countCalls++
-	return s.countResult, s.countErr
+	return 0, nil
 }
 func (s *stubEntryRepo) Create(ctx context.Context, entry *domainEntry.Entry) error {
 	return nil
@@ -47,78 +42,105 @@ func (s *stubEntryRepo) ListArchiveCounts(ctx context.Context, minBookmarkCount 
 	return nil, nil
 }
 
-type stubCache struct {
-	store map[string][]byte
+type stubDayCache struct {
+	store    map[string][]*domainEntry.Entry
+	getCalls int
+	setCalls int
 }
 
-func newStubCache() *stubCache {
-	return &stubCache{store: make(map[string][]byte)}
+func newStubDayCache() *stubDayCache {
+	return &stubDayCache{store: make(map[string][]*domainEntry.Entry)}
 }
 
-func (c *stubCache) BuildKey(query domainEntry.ListQuery) (string, error) {
-	return string(query.Sort), nil
-}
-
-func (c *stubCache) Get(ctx context.Context, key string) ([]byte, bool, error) {
-	v, ok := c.store[key]
+func (c *stubDayCache) Get(ctx context.Context, date string) ([]*domainEntry.Entry, bool, error) {
+	c.getCalls++
+	v, ok := c.store[date]
 	return v, ok, nil
 }
 
-func (c *stubCache) Set(ctx context.Context, key string, payload []byte) error {
-	c.store[key] = payload
+func (c *stubDayCache) Set(ctx context.Context, date string, entries []*domainEntry.Entry) error {
+	c.setCalls++
+	c.store[date] = entries
 	return nil
 }
 
-func TestListNewEntriesUsesCache(t *testing.T) {
-	cache := newStubCache()
-	result := ListResult{
-		Entries: []*domainEntry.Entry{{
-			ID:            uuid.New(),
-			Title:         "title",
-			URL:           "https://example.com",
-			BookmarkCount: 10,
-			PostedAt:      time.Now(),
-			Tags:          []domainEntry.Tagging{},
-		}},
-		Total: 100,
-	}
-	payload, err := json.Marshal(result)
-	require.NoError(t, err)
-	cache.store["new"] = payload
-
-	repo := &stubEntryRepo{}
-	svc := NewService(repo, cache, nil)
-
-	out, err := svc.ListNewEntries(context.Background(), ListParams{})
-	require.NoError(t, err)
-	require.Equal(t, result.Total, out.Total)
-	require.Len(t, out.Entries, len(result.Entries))
-	require.Equal(t, result.Entries[0].ID, out.Entries[0].ID)
-	require.Equal(t, result.Entries[0].Title, out.Entries[0].Title)
-	require.Equal(t, 0, repo.listCalls)
-	require.Equal(t, 0, repo.countCalls)
+type stubTagCache struct {
+	store map[string][]*domainEntry.Entry
 }
 
-func TestListHotEntriesStoresCache(t *testing.T) {
-	cache := newStubCache()
-	entries := []*domainEntry.Entry{{
-		ID:            uuid.New(),
-		Title:         "title",
-		URL:           "https://example.com",
-		BookmarkCount: 20,
-		PostedAt:      time.Now(),
-	}}
-	repo := &stubEntryRepo{
-		listResult:  entries,
-		countResult: 10,
-	}
-	svc := NewService(repo, cache, nil)
+func (c *stubTagCache) Get(ctx context.Context, tag string) ([]*domainEntry.Entry, bool, error) {
+	v, ok := c.store[tag]
+	return v, ok, nil
+}
 
-	result, err := svc.ListHotEntries(context.Background(), ListParams{MinBookmarkCount: 5})
+func (c *stubTagCache) Set(ctx context.Context, tag string, entries []*domainEntry.Entry) error {
+	c.store[tag] = entries
+	return nil
+}
+
+func TestListNewEntriesUsesDayCache(t *testing.T) {
+	dayCache := newStubDayCache()
+	tagCache := &stubTagCache{store: map[string][]*domainEntry.Entry{}}
+	now := time.Now()
+	dayCache.store["20250105"] = []*domainEntry.Entry{{
+		ID:            uuid.New(),
+		Title:         "cached",
+		URL:           "https://example.com",
+		BookmarkCount: 10,
+		PostedAt:      now,
+	}}
+
+	repo := &stubEntryRepo{}
+	svc := NewService(repo, dayCache, tagCache, nil)
+
+	out, err := svc.ListNewEntries(context.Background(), DayListParams{
+		Date:             "20250105",
+		MinBookmarkCount: 0,
+		Limit:            25,
+		Offset:           0,
+	})
 	require.NoError(t, err)
-	require.Equal(t, entries, result.Entries)
-	require.Equal(t, int64(10), result.Total)
+	require.Equal(t, int64(1), out.Total)
+	require.Len(t, out.Entries, 1)
+	require.Equal(t, "cached", out.Entries[0].Title)
+	require.Equal(t, 0, repo.listCalls)
+	require.Equal(t, 1, dayCache.getCalls)
+}
+
+func TestListHotEntriesStoresDayCacheAndSorts(t *testing.T) {
+	dayCache := newStubDayCache()
+	tagCache := &stubTagCache{store: map[string][]*domainEntry.Entry{}}
+	now := time.Now()
+	entries := []*domainEntry.Entry{
+		{
+			ID:            uuid.New(),
+			Title:         "a",
+			URL:           "https://example.com/a",
+			BookmarkCount: 10,
+			PostedAt:      now.Add(-1 * time.Hour),
+		},
+		{
+			ID:            uuid.New(),
+			Title:         "b",
+			URL:           "https://example.com/b",
+			BookmarkCount: 50,
+			PostedAt:      now,
+		},
+	}
+	repo := &stubEntryRepo{listResult: entries}
+	svc := NewService(repo, dayCache, tagCache, nil)
+
+	out, err := svc.ListHotEntries(context.Background(), DayListParams{
+		Date:             "20250105",
+		MinBookmarkCount: 5,
+		Limit:            25,
+		Offset:           0,
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), out.Total)
+	require.Len(t, out.Entries, 2)
+	require.Equal(t, "b", out.Entries[0].Title)
 	require.Equal(t, 1, repo.listCalls)
-	require.Equal(t, 1, repo.countCalls)
-	require.Contains(t, cache.store, "hot")
+	require.Equal(t, 1, dayCache.setCalls)
+	require.Contains(t, dayCache.store, "20250105")
 }

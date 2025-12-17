@@ -20,7 +20,6 @@
       "hateblog/internal/platform": "usecase層はplatform層へ直接依存できません"
     }
   },
-
   "PlatformIsolation": {
     "files": [
       "**/internal/platform/**/*.go"

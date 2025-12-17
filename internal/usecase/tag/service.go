@@ -17,12 +17,18 @@ type Repository interface {
 
 // Service exposes tag operations.
 type Service struct {
-	repo Repository
+	repo  Repository
+	cache ListCache
+}
+
+type ListCache interface {
+	Get(ctx context.Context, limit, offset int, out any) (bool, error)
+	Set(ctx context.Context, limit, offset int, value any) error
 }
 
 // NewService builds a tag service.
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository, cache ListCache) *Service {
+	return &Service{repo: repo, cache: cache}
 }
 
 // GetByName returns tag metadata.
@@ -42,7 +48,26 @@ func (s *Service) List(ctx context.Context, limit, offset int) ([]tag.Tag, error
 	if offset < 0 {
 		offset = 0
 	}
-	return s.repo.List(ctx, limit, offset)
+	if s.cache != nil {
+		var cached []tag.Tag
+		ok, err := s.cache.Get(ctx, limit, offset, &cached)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return cached, nil
+		}
+	}
+	tags, err := s.repo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	if s.cache != nil {
+		if err := s.cache.Set(ctx, limit, offset, tags); err != nil {
+			return tags, nil
+		}
+	}
+	return tags, nil
 }
 
 // RecordView increments the view counter for the tag.

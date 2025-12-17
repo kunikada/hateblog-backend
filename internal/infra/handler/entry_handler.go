@@ -35,7 +35,7 @@ func (h *EntryHandler) RegisterRoutes(r chiRouter) {
 }
 
 func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) {
-	params, err := buildListParams(r)
+	params, err := buildDayListParams(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -47,11 +47,11 @@ func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset))
 }
 
 func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) {
-	params, err := buildListParams(r)
+	params, err := buildDayListParams(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -63,15 +63,15 @@ func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset))
 }
 
-func buildEntryListResponse(result usecaseEntry.ListResult, params usecaseEntry.ListParams) entryListResponse {
+func buildEntryListResponse(result usecaseEntry.ListResult, limit, offset int) entryListResponse {
 	resp := entryListResponse{
 		Entries: make([]entryResponse, 0, len(result.Entries)),
 		Total:   result.Total,
-		Limit:   params.Limit,
-		Offset:  params.Offset,
+		Limit:   limit,
+		Offset:  offset,
 	}
 
 	for _, ent := range result.Entries {
@@ -114,19 +114,28 @@ func toEntryResponse(ent *domainEntry.Entry) entryResponse {
 	return resp
 }
 
-func buildListParams(r *http.Request) (usecaseEntry.ListParams, error) {
-	params := usecaseEntry.ListParams{
+func buildDayListParams(r *http.Request) (usecaseEntry.DayListParams, error) {
+	params := usecaseEntry.DayListParams{
 		Limit:  defaultLimit,
 		Offset: 0,
 	}
 
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		return usecaseEntry.DayListParams{}, fmt.Errorf("date is required")
+	}
+	if !isValidDate(date) {
+		return usecaseEntry.DayListParams{}, fmt.Errorf("date must be YYYYMMDD")
+	}
+	params.Date = date
+
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
-			return usecaseEntry.ListParams{}, fmt.Errorf("invalid limit")
+			return usecaseEntry.DayListParams{}, fmt.Errorf("invalid limit")
 		}
 		if limit < 1 || limit > domainEntry.MaxLimit {
-			return usecaseEntry.ListParams{}, fmt.Errorf("limit must be between 1 and %d", domainEntry.MaxLimit)
+			return usecaseEntry.DayListParams{}, fmt.Errorf("limit must be between 1 and %d", domainEntry.MaxLimit)
 		}
 		params.Limit = limit
 	} else {
@@ -136,7 +145,7 @@ func buildListParams(r *http.Request) (usecaseEntry.ListParams, error) {
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
 		offset, err := strconv.Atoi(offsetStr)
 		if err != nil || offset < 0 {
-			return usecaseEntry.ListParams{}, fmt.Errorf("offset must be >= 0")
+			return usecaseEntry.DayListParams{}, fmt.Errorf("offset must be >= 0")
 		}
 		params.Offset = offset
 	}
@@ -145,17 +154,11 @@ func buildListParams(r *http.Request) (usecaseEntry.ListParams, error) {
 	if minStr := r.URL.Query().Get("min_users"); minStr != "" {
 		min, err := strconv.Atoi(minStr)
 		if err != nil || min < 0 {
-			return usecaseEntry.ListParams{}, fmt.Errorf("min_users must be >= 0")
+			return usecaseEntry.DayListParams{}, fmt.Errorf("min_users must be >= 0")
 		}
 		minUsers = min
 	}
 	params.MinBookmarkCount = minUsers
-
-	if date := r.URL.Query().Get("date"); date != "" {
-		if !isValidDate(date) {
-			return usecaseEntry.ListParams{}, fmt.Errorf("date must be YYYYMMDD")
-		}
-	}
 
 	return params, nil
 }

@@ -49,8 +49,8 @@ paths:
       parameters:
         - name: date
           in: query
-          description: 取得対象日付（YYYYMMDD形式）。未指定の場合は今日の日付。
-          required: false
+          description: 取得対象日付（YYYYMMDD形式）
+          required: true
           schema:
             type: string
             pattern: '^\d{8}$'
@@ -117,8 +117,8 @@ paths:
       parameters:
         - name: date
           in: query
-          description: 取得対象日付（YYYYMMDD形式）。未指定の場合は今日の日付。
-          required: false
+          description: 取得対象日付（YYYYMMDD形式）
+          required: true
           schema:
             type: string
             pattern: '^\d{8}$'

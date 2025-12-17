@@ -42,7 +42,7 @@ func (f *fakeHistory) Record(ctx context.Context, query string, searchedAt time.
 func TestSearchValidatesQuery(t *testing.T) {
 	repo := &fakeEntryRepo{}
 	history := &fakeHistory{err: errors.New("boom")}
-	svc := NewService(repo, history, nil)
+	svc := NewService(repo, history, nil, nil)
 
 	_, err := svc.Search(context.Background(), " ", Params{})
 	require.Error(t, err)

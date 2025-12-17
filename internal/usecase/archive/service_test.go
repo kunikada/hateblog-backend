@@ -22,7 +22,7 @@ func TestServiceListNormalizesMinUsers(t *testing.T) {
 	items := []repository.ArchiveCount{
 		{Date: time.Now(), Count: 10},
 	}
-	svc := NewService(&stubRepo{items: items})
+	svc := NewService(&stubRepo{items: items}, nil)
 
 	got, err := svc.List(context.Background(), -10)
 	require.NoError(t, err)

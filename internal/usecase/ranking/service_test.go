@@ -32,7 +32,7 @@ func (s *stubEntryRepo) Count(ctx context.Context, query domainEntry.ListQuery) 
 
 func TestYearlyRankingClampsLimit(t *testing.T) {
 	repo := &stubEntryRepo{}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil, nil)
 
 	result, err := svc.Yearly(context.Background(), 2024, 1000, -5)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestYearlyRankingClampsLimit(t *testing.T) {
 
 func TestWeeklyRankingRejectsInvalidWeek(t *testing.T) {
 	repo := &stubEntryRepo{}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil, nil)
 
 	_, err := svc.Weekly(context.Background(), 2024, 54, 10, 0)
 	require.Error(t, err)

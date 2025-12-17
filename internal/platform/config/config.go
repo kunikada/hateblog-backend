@@ -94,6 +94,10 @@ type AppConfig struct {
 	AllowedOrigins  []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
 	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
 	MasterAPIKey    string        `env:"APP_MASTER_API_KEY" envDefault:""`
+
+	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`
+	RateLimitWindow      time.Duration `env:"APP_RATE_LIMIT_WINDOW" envDefault:"1m"`
+	RateLimitMaxRequests int           `env:"APP_RATE_LIMIT_MAX_REQUESTS" envDefault:"120"`
 }
 
 // IsDevelopment returns true if the environment is development
@@ -202,6 +206,14 @@ func (c *Config) Validate() error {
 	// Validate API key requirement
 	if c.App.APIKeyRequired && c.App.MasterAPIKey == "" {
 		return fmt.Errorf("master API key is required when API key authentication is enabled")
+	}
+	if c.App.RateLimitEnabled {
+		if c.App.RateLimitWindow <= 0 {
+			return fmt.Errorf("rate limit window must be positive")
+		}
+		if c.App.RateLimitMaxRequests <= 0 {
+			return fmt.Errorf("rate limit max requests must be positive")
+		}
 	}
 
 	return nil
