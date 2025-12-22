@@ -385,3 +385,179 @@ func TestTagHandler_BoundaryValues(t *testing.T) {
 		})
 	}
 }
+
+func TestTagHandler_ListTags(t *testing.T) {
+	tag1 := newTestTag(uuid.New(), "programming")
+	tag2 := newTestTag(uuid.New(), "golang")
+	tag3 := newTestTag(uuid.New(), "tech")
+
+	tests := []struct {
+		name        string
+		queryParams string
+		mockTags    []domainTag.Tag
+		mockError   error
+		wantStatus  int
+		wantCount   int
+		wantLimit   int
+		wantOffset  int
+	}{
+		{
+			name:        "success with default parameters",
+			queryParams: "",
+			mockTags: []domainTag.Tag{
+				*tag1, *tag2, *tag3,
+			},
+			wantStatus: http.StatusOK,
+			wantCount:  3,
+			wantLimit:  defaultTagListLimit,
+			wantOffset: 0,
+		},
+		{
+			name:        "success with custom limit",
+			queryParams: "?limit=10",
+			mockTags: []domainTag.Tag{
+				*tag1, *tag2,
+			},
+			wantStatus: http.StatusOK,
+			wantCount:  2,
+			wantLimit:  10,
+			wantOffset: 0,
+		},
+		{
+			name:        "success with limit and offset",
+			queryParams: "?limit=20&offset=5",
+			mockTags: []domainTag.Tag{
+				*tag1,
+			},
+			wantStatus: http.StatusOK,
+			wantCount:  1,
+			wantLimit:  20,
+			wantOffset: 5,
+		},
+		{
+			name:        "success with empty result",
+			queryParams: "",
+			mockTags:    []domainTag.Tag{},
+			wantStatus:  http.StatusOK,
+			wantCount:   0,
+			wantLimit:   defaultTagListLimit,
+			wantOffset:  0,
+		},
+		{
+			name:        "error: invalid limit format",
+			queryParams: "?limit=abc",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: limit too small",
+			queryParams: "?limit=0",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: limit too large",
+			queryParams: "?limit=201",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: invalid offset format",
+			queryParams: "?offset=xyz",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: negative offset",
+			queryParams: "?offset=-1",
+			wantStatus:  http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockTagRepository{
+				tags: tt.mockTags,
+				err:  tt.mockError,
+			}
+			if tt.mockError != nil {
+				mockRepo.listFunc = func(ctx context.Context, limit, offset int) ([]domainTag.Tag, error) {
+					return nil, tt.mockError
+				}
+			}
+
+			tagService := newTestTagService(mockRepo)
+			handler := NewTagHandler(tagService, nil)
+
+			ts := newTestServer(RouterConfig{
+				TagHandler: handler,
+			})
+			defer ts.Close()
+
+			resp := ts.get(t, "/tags"+tt.queryParams)
+			defer resp.Body.Close()
+
+			if tt.wantStatus != http.StatusOK {
+				assertErrorResponse(t, resp, tt.wantStatus)
+				return
+			}
+
+			assertStatus(t, resp, http.StatusOK)
+			assertContentType(t, resp, "application/json")
+
+			var result tagsResponse
+			decodeJSON(t, resp, &result)
+
+			if len(result.Tags) != tt.wantCount {
+				t.Errorf("got %d tags, want %d", len(result.Tags), tt.wantCount)
+			}
+			if result.Limit != tt.wantLimit {
+				t.Errorf("limit = %d, want %d", result.Limit, tt.wantLimit)
+			}
+			if result.Offset != tt.wantOffset {
+				t.Errorf("offset = %d, want %d", result.Offset, tt.wantOffset)
+			}
+
+			// Verify tag structure
+			for i, tag := range result.Tags {
+				if tag.ID == uuid.Nil {
+					t.Errorf("tag %d: ID should not be nil", i)
+				}
+				if tag.Name == "" {
+					t.Errorf("tag %d: Name should not be empty", i)
+				}
+			}
+		})
+	}
+}
+
+func TestTagHandler_ListTags_ServiceError(t *testing.T) {
+	mockRepo := &mockTagRepository{
+		listFunc: func(ctx context.Context, limit, offset int) ([]domainTag.Tag, error) {
+			return nil, fmt.Errorf("database error")
+		},
+	}
+
+	tagService := newTestTagService(mockRepo)
+	handler := NewTagHandler(tagService, nil)
+
+	ts := newTestServer(RouterConfig{
+		TagHandler: handler,
+	})
+	defer ts.Close()
+
+	resp := ts.get(t, "/tags")
+	defer resp.Body.Close()
+
+	assertErrorResponse(t, resp, http.StatusInternalServerError)
+}
+
+func TestTagHandler_ListTags_NilService(t *testing.T) {
+	handler := NewTagHandler(nil, nil)
+
+	ts := newTestServer(RouterConfig{
+		TagHandler: handler,
+	})
+	defer ts.Close()
+
+	resp := ts.get(t, "/tags")
+	defer resp.Body.Close()
+
+	assertErrorResponse(t, resp, http.StatusInternalServerError)
+}

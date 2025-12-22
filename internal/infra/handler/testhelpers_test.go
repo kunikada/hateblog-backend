@@ -77,12 +77,22 @@ func assertContentType(t *testing.T, resp *http.Response, want string) {
 type mockEntryRepository struct {
 	listFunc  func(ctx context.Context, query domainEntry.ListQuery) ([]*domainEntry.Entry, error)
 	countFunc func(ctx context.Context, query domainEntry.ListQuery) (int64, error)
+	getFunc   func(ctx context.Context, id domainEntry.ID) (*domainEntry.Entry, error)
 	entries   []*domainEntry.Entry
 	total     int64
 }
 
 func (m *mockEntryRepository) Get(ctx context.Context, id domainEntry.ID) (*domainEntry.Entry, error) {
-	return nil, nil
+	if m.getFunc != nil {
+		return m.getFunc(ctx, id)
+	}
+	// Find entry by ID in entries slice
+	for _, entry := range m.entries {
+		if entry.ID == id {
+			return entry, nil
+		}
+	}
+	return nil, fmt.Errorf("entry not found")
 }
 
 func (m *mockEntryRepository) List(ctx context.Context, query domainEntry.ListQuery) ([]*domainEntry.Entry, error) {
@@ -117,9 +127,11 @@ func (m *mockEntryRepository) ListArchiveCounts(ctx context.Context, minBookmark
 
 // mockTagRepository is a mock implementation of tag repository.
 type mockTagRepository struct {
-	getByNameFunc           func(ctx context.Context, name string) (*domainTag.Tag, error)
-	listFunc                func(ctx context.Context, limit, offset int) ([]domainTag.Tag, error)
+	getByNameFunc            func(ctx context.Context, name string) (*domainTag.Tag, error)
+	listFunc                 func(ctx context.Context, limit, offset int) ([]domainTag.Tag, error)
 	incrementViewHistoryFunc func(ctx context.Context, tagID domainTag.ID, viewedAt time.Time) error
+	tags                     []domainTag.Tag
+	err                      error
 }
 
 func (m *mockTagRepository) GetByName(ctx context.Context, name string) (*domainTag.Tag, error) {
@@ -133,7 +145,10 @@ func (m *mockTagRepository) List(ctx context.Context, limit, offset int) ([]doma
 	if m.listFunc != nil {
 		return m.listFunc(ctx, limit, offset)
 	}
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.tags, nil
 }
 
 func (m *mockTagRepository) IncrementViewHistory(ctx context.Context, tagID domainTag.ID, viewedAt time.Time) error {
