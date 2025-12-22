@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -80,7 +81,7 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 		},
 		{
 			name:           "success with trimmed query",
-			queryParams:    "?q=  golang  ",
+			queryParams:    "?q=%20%20golang%20%20",
 			mockEntries:    []*domainEntry.Entry{entry1},
 			mockTotal:      1,
 			wantStatus:     http.StatusOK,
@@ -97,7 +98,7 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 		},
 		{
 			name:        "error: whitespace only query",
-			queryParams: "?q=   ",
+			queryParams: "?q=%20%20%20",
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -482,7 +483,7 @@ func TestSearchHandler_SpecialCharacters(t *testing.T) {
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/search?q=%s", tt.query)
+			path := fmt.Sprintf("/search?q=%s", url.QueryEscape(tt.query))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 

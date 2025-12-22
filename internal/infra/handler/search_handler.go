@@ -39,7 +39,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	offset, err := readQueryInt(r, "offset", 0, 0, 0)
+	offset, err := readQueryInt(r, "offset", 0, -1, 0)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

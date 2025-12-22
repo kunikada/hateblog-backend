@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	domainEntry "hateblog/internal/domain/entry"
@@ -20,31 +18,6 @@ import (
 	usecaseSearch "hateblog/internal/usecase/search"
 	usecaseTag "hateblog/internal/usecase/tag"
 )
-
-// chiRouter is the subset of chi.Router methods used by handlers.
-type chiRouter interface {
-	Get(pattern string, h http.HandlerFunc)
-	Mount(pattern string, h http.Handler)
-}
-
-// readQueryInt parses a query parameter as integer with validation.
-func readQueryInt(r *http.Request, key string, minVal, maxVal, defaultVal int) (int, error) {
-	str := r.URL.Query().Get(key)
-	if str == "" {
-		return defaultVal, nil
-	}
-	val, err := strconv.Atoi(str)
-	if err != nil {
-		return 0, fmt.Errorf("invalid %s", key)
-	}
-	if minVal > 0 && val < minVal {
-		return 0, fmt.Errorf("%s must be >= %d", key, minVal)
-	}
-	if maxVal > 0 && val > maxVal {
-		return 0, fmt.Errorf("%s must be <= %d", key, maxVal)
-	}
-	return val, nil
-}
 
 // testServer wraps httptest.Server for integration testing.
 type testServer struct {

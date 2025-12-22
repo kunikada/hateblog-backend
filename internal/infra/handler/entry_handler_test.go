@@ -39,13 +39,28 @@ func TestEntryHandler_NewEntries(t *testing.T) {
 		},
 		{
 			name:        "success with custom limit and offset",
-			queryParams: "?date=20240101&limit=10&offset=5",
+			queryParams: "?date=20240101&limit=10&offset=5&min_users=0",
 			mockResult: buildTestListResult([]*domainEntry.Entry{
 				newTestEntry(uuid.New(), "Entry 1", 100),
-			}, 100),
+				newTestEntry(uuid.New(), "Entry 2", 90),
+				newTestEntry(uuid.New(), "Entry 3", 80),
+				newTestEntry(uuid.New(), "Entry 4", 70),
+				newTestEntry(uuid.New(), "Entry 5", 60),
+				newTestEntry(uuid.New(), "Entry 6", 50),
+				newTestEntry(uuid.New(), "Entry 7", 40),
+				newTestEntry(uuid.New(), "Entry 8", 30),
+				newTestEntry(uuid.New(), "Entry 9", 20),
+				newTestEntry(uuid.New(), "Entry 10", 10),
+				newTestEntry(uuid.New(), "Entry 11", 5),
+				newTestEntry(uuid.New(), "Entry 12", 3),
+				newTestEntry(uuid.New(), "Entry 13", 2),
+				newTestEntry(uuid.New(), "Entry 14", 1),
+				newTestEntry(uuid.New(), "Entry 15", 1),
+				newTestEntry(uuid.New(), "Entry 16", 1),
+			}, 16),
 			wantStatus:     http.StatusOK,
-			wantEntryCount: 1,
-			wantTotal:      100,
+			wantEntryCount: 10,
+			wantTotal:      16,
 			wantLimit:      10,
 			wantOffset:     5,
 		},
@@ -247,13 +262,17 @@ func TestEntryHandler_HotEntries(t *testing.T) {
 		},
 		{
 			name:        "success with pagination",
-			queryParams: "?date=20240101&limit=20&offset=40",
-			mockResult: buildTestListResult([]*domainEntry.Entry{
-				newTestEntry(uuid.New(), "Entry", 100),
-			}, 100),
+			queryParams: "?date=20240101&limit=20&offset=40&min_users=0",
+			mockResult: func() usecaseEntry.ListResult {
+				entries := make([]*domainEntry.Entry, 50)
+				for i := 0; i < 50; i++ {
+					entries[i] = newTestEntry(uuid.New(), fmt.Sprintf("Entry %d", i+1), 1000-i*10)
+				}
+				return buildTestListResult(entries, 50)
+			}(),
 			wantStatus:     http.StatusOK,
-			wantEntryCount: 1,
-			wantTotal:      100,
+			wantEntryCount: 10,
+			wantTotal:      50,
 			wantLimit:      20,
 			wantOffset:     40,
 		},

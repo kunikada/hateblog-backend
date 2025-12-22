@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	domainEntry "hateblog/internal/domain/entry"
 	domainTag "hateblog/internal/domain/tag"
-	usecaseEntry "hateblog/internal/usecase/entry"
 )
 
 func TestTagHandler_GetEntriesByTag(t *testing.T) {
@@ -48,15 +48,31 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 			wantOffset:     0,
 		},
 		{
-			name:           "success with custom limit and offset",
-			tagPath:        tagName,
-			queryParams:    "?limit=10&offset=5",
-			mockTag:        newTestTag(tagID, tagName),
-			mockEntries:    []*domainEntry.Entry{entry1},
-			mockTotal:      100,
+			name:        "success with custom limit and offset",
+			tagPath:     tagName,
+			queryParams: "?limit=10&offset=5&min_users=0",
+			mockTag:     newTestTag(tagID, tagName),
+			mockEntries: []*domainEntry.Entry{
+				newTestEntry(uuid.New(), "Entry 1", 100),
+				newTestEntry(uuid.New(), "Entry 2", 90),
+				newTestEntry(uuid.New(), "Entry 3", 80),
+				newTestEntry(uuid.New(), "Entry 4", 70),
+				newTestEntry(uuid.New(), "Entry 5", 60),
+				newTestEntry(uuid.New(), "Entry 6", 50),
+				newTestEntry(uuid.New(), "Entry 7", 40),
+				newTestEntry(uuid.New(), "Entry 8", 30),
+				newTestEntry(uuid.New(), "Entry 9", 20),
+				newTestEntry(uuid.New(), "Entry 10", 10),
+				newTestEntry(uuid.New(), "Entry 11", 5),
+				newTestEntry(uuid.New(), "Entry 12", 3),
+				newTestEntry(uuid.New(), "Entry 13", 2),
+				newTestEntry(uuid.New(), "Entry 14", 1),
+				newTestEntry(uuid.New(), "Entry 15", 1),
+			},
+			mockTotal:      15,
 			wantStatus:     http.StatusOK,
-			wantEntryCount: 1,
-			wantTotal:      100,
+			wantEntryCount: 10,
+			wantTotal:      15,
 			wantLimit:      10,
 			wantOffset:     5,
 		},
