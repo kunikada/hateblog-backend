@@ -4,7 +4,8 @@
       "Bash(test:*)",
       "Bash(cat:*)",
       "Bash(go get:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []
