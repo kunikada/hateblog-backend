@@ -44,5 +44,5 @@ temp/
 
 # Backups
 backups/
-*.sql
-*.sql.gz
+backups/*.sql
+backups/*.sql.gz
