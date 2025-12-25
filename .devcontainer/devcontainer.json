@@ -7,6 +7,10 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
+  "runServices": [
+    "postgres",
+    "redis"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -27,7 +31,10 @@
         "editor.codeActionsOnSave": {
           "source.organizeImports": "explicit"
         },
-        "go.testFlags": ["-v", "-race"],
+        "go.testFlags": [
+          "-v",
+          "-race"
+        ],
         "[go]": {
           "editor.defaultFormatter": "golang.go",
           "editor.tabSize": 4,
@@ -39,5 +46,6 @@
       }
     }
   },
-  "postCreateCommand": "go mod tidy && go mod download || true"
+  "postCreateCommand": "go mod download",
+  "waitFor": "postCreateCommand"
 }

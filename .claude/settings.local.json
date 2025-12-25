@@ -5,7 +5,10 @@
       "Bash(cat:*)",
       "Bash(go get:*)",
       "Bash(docker compose:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(make deps-outdated:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go test:*)"
     ],
     "deny": [],
     "ask": []

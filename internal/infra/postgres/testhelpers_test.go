@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,46 +12,86 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/tag"
 )
 
-// setupPostgres starts a PostgreSQL container, runs migrations, and returns a pool and cleanup function.
+// setupPostgres connects to a PostgreSQL database for testing.
+// Uses TEST_POSTGRES_URL environment variable if set, otherwise uses default connection for Dev Container.
+// Automatically runs migrations if needed.
 func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
-	ctx := context.Background()
-	container, err := tcpostgres.RunContainer(ctx,
-		testcontainers.WithImage("postgres:16"),
-		tcpostgres.WithDatabase("test"),
-		tcpostgres.WithUsername("test"),
-		tcpostgres.WithPassword("test"),
-	)
-	if err != nil {
-		t.Skipf("skipping postgres integration test: %v", err)
+	connStr := os.Getenv("TEST_POSTGRES_URL")
+	if connStr == "" {
+		// Default connection for Dev Container (postgres, redis are running via docker-compose)
+		connStr = "postgresql://hateblog:changeme@postgres:5432/hateblog?sslmode=disable"
 	}
 
-	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-
+	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, connStr)
-	require.NoError(t, err)
+	if err != nil {
+		t.Skipf("failed to connect to test database: %v", err)
+	}
+
+	// Verify connection with retries (container might still be starting)
+	for i := 0; i < 30; i++ {
+		if err := pool.Ping(ctx); err == nil {
+			break
+		}
+		if i == 29 {
+			pool.Close()
+			t.Skipf("failed to ping test database after retries: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Apply migrations if needed
+	if err := applyTestMigrations(ctx, pool); err != nil {
+		pool.Close()
+		t.Fatalf("failed to apply migrations: %v", err)
+	}
 
 	return pool, func() {
 		pool.Close()
-		_ = container.Terminate(context.Background())
 	}
 }
 
 // applyTestMigrations runs the schema migrations from the migrations directory.
 func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	// Check if migrations already applied by looking for tables
+	var count int
+	err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name = 'entries'
+	`).Scan(&count)
+	if err == nil && count > 0 {
+		// Migrations already applied
+		return nil
+	}
+
+	// Find the migrations directory from current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	// Try to find migrations directory starting from cwd and going up
+	migrationsDir := filepath.Join(cwd, "migrations")
+	for i := 0; i < 5; i++ {
+		if _, err := os.Stat(migrationsDir); err == nil {
+			break
+		}
+		cwd = filepath.Dir(cwd)
+		migrationsDir = filepath.Join(cwd, "migrations")
+	}
+
 	files := []string{
-		"migrations/000001_create_entries.up.sql",
-		"migrations/000002_create_tags.up.sql",
-		"migrations/000003_create_entry_tags.up.sql",
+		filepath.Join(migrationsDir, "000001_create_entries.up.sql"),
+		filepath.Join(migrationsDir, "000002_create_tags.up.sql"),
+		filepath.Join(migrationsDir, "000003_create_entry_tags.up.sql"),
 	}
 	for _, file := range files {
 		if err := executeSQLFile(ctx, pool, file); err != nil {

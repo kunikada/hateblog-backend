@@ -5,6 +5,43 @@
 このバックエンドは**API中心のアーキテクチャ**であるため、テスト戦略もAPIテストを中心に据える。
 コアロジック（domain層）には最低限のユニットテストを用意し、主な品質保証はAPIレベルの統合テストで行う。
 
+## Quick Start
+
+```bash
+# 全テスト実行（Dev Container内で推奨）
+# PostgreSQL/Redisは自動的に起動済み
+make test
+
+# カバレッジレポート生成
+make cover
+
+# 特定のパッケージのみテスト
+go test ./internal/domain/... -v
+```
+
+**Dev Container**: PostgreSQLとRedisはdocker-composeで自動起動されます。テストは特別な設定なしで実行できます。
+
+**ホストマシン**: PostgreSQLとRedisを手動で起動する必要があります：
+```bash
+# PostgreSQLとRedisを起動
+docker compose up -d postgres redis
+
+# マイグレーション実行
+DB_URL="postgresql://hateblog:changeme@localhost:5432/hateblog?sslmode=disable" make migrate-up
+
+# localhostを使う場合は環境変数で接続先を上書き
+TEST_POSTGRES_URL="postgresql://hateblog:changeme@localhost:5432/hateblog?sslmode=disable" go test ./...
+```
+
+### PostgreSQL統合テストについて
+
+現在、以下のテストがPostgreSQL統合テストとして実装されています：
+
+- `internal/infra/postgres/entry_repository_test.go` - エントリーリポジトリの全CRUD操作
+- `internal/infra/postgres/tag_repository_test.go` - タグリポジトリの全操作
+
+Dev Container内ではデフォルトで `postgres:5432` に接続します。ホストマシンで実行する場合は `TEST_POSTGRES_URL` 環境変数で接続先を指定してください。
+
 ## Testing Pyramid
 
 ```
@@ -29,7 +66,7 @@
 - OpenAPI仕様との整合性
 
 **ツール・手法**:
-- `testcontainers-go` で PostgreSQL / Redis を起動
+- Docker ComposeでPostgreSQL/Redisが起動済み（Dev Container）
 - 実際のHTTPリクエストを発行してレスポンスを検証
 - `github.com/stretchr/testify/assert` でアサーション
 - テストデータは各テストで prepare/cleanup（トランザクションロールバックまたは明示的削除）
@@ -104,6 +141,51 @@ func TestUser_Validate(t *testing.T) {
 **カバレッジ目標**:
 - domain層の重要ロジック: 70%以上
 - それ以外: カバレッジを追わない（APIテストで間接的にカバー）
+
+---
+
+## Manual API Testing
+
+開発中の手動APIテスト手順。
+
+### 前提
+- Dev Container起動済み
+- PostgreSQL/Redisは自動起動済み
+- `.env.example` を `.env` にコピー済み（`APP_API_KEY_REQUIRED=false` がデフォルト）
+
+### 手順
+1. Dev Container内でアプリケーションを起動
+   ```bash
+   go run ./cmd/app/main.go
+   ```
+
+2. テストデータ投入（2024-12-01/02 のエントリー4件を投入）
+   ```bash
+   ./scripts/seed_manual.sh
+   ```
+   - 環境変数で上書き可能: `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `POSTGRES_SERVICE`, `SQL_FILE`
+
+3. APIを叩く例
+   - 新着:
+     ```bash
+     curl "http://localhost:8080/entries/new?date=20241202&min_users=5&limit=20"
+     ```
+   - 人気順:
+     ```bash
+     curl "http://localhost:8080/entries/hot?date=20241202&min_users=10"
+     ```
+   - タグ別:
+     ```bash
+     curl "http://localhost:8080/tags/go/entries?limit=20"
+     ```
+   - クリック記録（必要に応じて）:
+     ```bash
+     curl -X POST "http://localhost:8080/metrics/clicks" \
+       -H "Content-Type: application/json" \
+       -d '{"entry_id":"aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1"}'
+     ```
+
+**Note**: データをリセットしたい場合は再度 `./scripts/seed_manual.sh` を実行してください。
 
 ---
 
