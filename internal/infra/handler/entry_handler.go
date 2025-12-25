@@ -207,9 +207,9 @@ type entryResponse struct {
 }
 
 type entryTagResponse struct {
-	TagID tag.ID  `json:"tag_id"`
-	Name  string  `json:"tag_name"`
-	Score int     `json:"score"`
+	TagID tag.ID `json:"tag_id"`
+	Name  string `json:"tag_name"`
+	Score int    `json:"score"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,5 +30,5 @@ func TestHTTPMetrics_MiddlewareAndHandler(t *testing.T) {
 	require.NoError(t, err)
 	text := string(body)
 	require.Contains(t, text, "http_requests_total")
-	require.True(t, strings.Contains(text, `method="GET",path="/test",status="201"`) || strings.Contains(text, `method="GET",path="/test",status="201"`))
+	require.Contains(t, text, `method="GET",path="/test",status="201"`)
 }

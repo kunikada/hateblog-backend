@@ -12,9 +12,13 @@ import (
 type Level string
 
 const (
+	// LevelDebug enables debug logs.
 	LevelDebug Level = "debug"
-	LevelInfo  Level = "info"
-	LevelWarn  Level = "warn"
+	// LevelInfo enables info logs.
+	LevelInfo Level = "info"
+	// LevelWarn enables warning logs.
+	LevelWarn Level = "warn"
+	// LevelError enables error logs.
 	LevelError Level = "error"
 )
 
@@ -22,7 +26,9 @@ const (
 type Format string
 
 const (
+	// FormatText renders logs as colored text.
 	FormatText Format = "text"
+	// FormatJSON renders logs as JSON.
 	FormatJSON Format = "json"
 )
 

@@ -32,6 +32,7 @@ type DayEntriesCache struct {
 	cache *snappyJSONCache
 }
 
+// NewDayEntriesCache builds a day entries cache.
 func NewDayEntriesCache(client bytesCacheClient) *DayEntriesCache {
 	return &DayEntriesCache{cache: newSnappyJSONCache(client, entriesDayTTL)}
 }
@@ -40,12 +41,14 @@ func (c *DayEntriesCache) key(date string) string {
 	return fmt.Sprintf("hateblog:entries:%s:all", date)
 }
 
+// Get returns cached day entries for the given date.
 func (c *DayEntriesCache) Get(ctx context.Context, date string) ([]*domainEntry.Entry, bool, error) {
 	var out []*domainEntry.Entry
 	ok, err := c.cache.Get(ctx, c.key(date), &out)
 	return out, ok, err
 }
 
+// Set stores day entries for the given date.
 func (c *DayEntriesCache) Set(ctx context.Context, date string, entries []*domainEntry.Entry) error {
 	return c.cache.Set(ctx, c.key(date), entries)
 }
@@ -55,6 +58,7 @@ type TagEntriesCache struct {
 	cache *snappyJSONCache
 }
 
+// NewTagEntriesCache builds a tag entries cache.
 func NewTagEntriesCache(client bytesCacheClient) *TagEntriesCache {
 	return &TagEntriesCache{cache: newSnappyJSONCache(client, tagEntriesTTL)}
 }
@@ -64,12 +68,14 @@ func (c *TagEntriesCache) key(tagName string) string {
 	return fmt.Sprintf("hateblog:tags:%s:entries:all", url.QueryEscape(norm))
 }
 
+// Get returns cached tag entries for the given tag name.
 func (c *TagEntriesCache) Get(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error) {
 	var out []*domainEntry.Entry
 	ok, err := c.cache.Get(ctx, c.key(tagName), &out)
 	return out, ok, err
 }
 
+// Set stores tag entries for the given tag name.
 func (c *TagEntriesCache) Set(ctx context.Context, tagName string, entries []*domainEntry.Entry) error {
 	return c.cache.Set(ctx, c.key(tagName), entries)
 }
@@ -79,6 +85,7 @@ type SearchCache struct {
 	cache *snappyJSONCache
 }
 
+// NewSearchCache builds a search cache.
 func NewSearchCache(client bytesCacheClient) *SearchCache {
 	return &SearchCache{cache: newSnappyJSONCache(client, searchTTL)}
 }
@@ -88,10 +95,12 @@ func (c *SearchCache) key(query string, minUsers, limit, offset int) string {
 	return "hateblog:search:" + hash + ":" + strconv.Itoa(minUsers) + ":" + strconv.Itoa(limit) + ":" + strconv.Itoa(offset)
 }
 
+// Get returns cached search results for the given query parameters.
 func (c *SearchCache) Get(ctx context.Context, query string, minUsers, limit, offset int, out any) (bool, error) {
 	return c.cache.Get(ctx, c.key(query, minUsers, limit, offset), out)
 }
 
+// Set stores search results for the given query parameters.
 func (c *SearchCache) Set(ctx context.Context, query string, minUsers, limit, offset int, value any) error {
 	return c.cache.Set(ctx, c.key(query, minUsers, limit, offset), value)
 }
@@ -101,6 +110,7 @@ type TagsListCache struct {
 	cache *snappyJSONCache
 }
 
+// NewTagsListCache builds a tags list cache.
 func NewTagsListCache(client bytesCacheClient) *TagsListCache {
 	return &TagsListCache{cache: newSnappyJSONCache(client, tagsListTTL)}
 }
@@ -109,10 +119,12 @@ func (c *TagsListCache) key(limit, offset int) string {
 	return fmt.Sprintf("hateblog:tags:list:%d:%d", limit, offset)
 }
 
+// Get returns cached tag list responses.
 func (c *TagsListCache) Get(ctx context.Context, limit, offset int, out any) (bool, error) {
 	return c.cache.Get(ctx, c.key(limit, offset), out)
 }
 
+// Set stores tag list responses.
 func (c *TagsListCache) Set(ctx context.Context, limit, offset int, value any) error {
 	return c.cache.Set(ctx, c.key(limit, offset), value)
 }
@@ -122,6 +134,7 @@ type ArchiveCache struct {
 	cache *snappyJSONCache
 }
 
+// NewArchiveCache builds an archive cache.
 func NewArchiveCache(client bytesCacheClient) *ArchiveCache {
 	return &ArchiveCache{cache: newSnappyJSONCache(client, archiveTTL)}
 }
@@ -130,10 +143,12 @@ func (c *ArchiveCache) key(minUsers int) string {
 	return fmt.Sprintf("hateblog:archive:all:%d", minUsers)
 }
 
+// Get returns cached archive responses.
 func (c *ArchiveCache) Get(ctx context.Context, minUsers int, out any) (bool, error) {
 	return c.cache.Get(ctx, c.key(minUsers), out)
 }
 
+// Set stores archive responses.
 func (c *ArchiveCache) Set(ctx context.Context, minUsers int, value any) error {
 	return c.cache.Set(ctx, c.key(minUsers), value)
 }
@@ -143,6 +158,7 @@ type YearlyRankingCache struct {
 	client bytesCacheClient
 }
 
+// NewYearlyRankingCache builds a yearly ranking cache.
 func NewYearlyRankingCache(client bytesCacheClient) *YearlyRankingCache {
 	return &YearlyRankingCache{client: client}
 }
@@ -158,10 +174,12 @@ func (c *YearlyRankingCache) ttl(year int, now time.Time) time.Duration {
 	return yearlyRankingPastTTL
 }
 
+// Get returns cached yearly rankings.
 func (c *YearlyRankingCache) Get(ctx context.Context, year, minUsers int, out any) (bool, error) {
 	return newSnappyJSONCache(c.client, c.ttl(year, time.Now())).Get(ctx, c.key(year, minUsers), out)
 }
 
+// Set stores yearly rankings.
 func (c *YearlyRankingCache) Set(ctx context.Context, year, minUsers int, value any) error {
 	return newSnappyJSONCache(c.client, c.ttl(year, time.Now())).Set(ctx, c.key(year, minUsers), value)
 }
@@ -171,6 +189,7 @@ type MonthlyRankingCache struct {
 	client bytesCacheClient
 }
 
+// NewMonthlyRankingCache builds a monthly ranking cache.
 func NewMonthlyRankingCache(client bytesCacheClient) *MonthlyRankingCache {
 	return &MonthlyRankingCache{client: client}
 }
@@ -186,10 +205,12 @@ func (c *MonthlyRankingCache) ttl(year, month int, now time.Time) time.Duration 
 	return monthlyRankingPastTTL
 }
 
+// Get returns cached monthly rankings.
 func (c *MonthlyRankingCache) Get(ctx context.Context, year, month, minUsers int, out any) (bool, error) {
 	return newSnappyJSONCache(c.client, c.ttl(year, month, time.Now())).Get(ctx, c.key(year, month, minUsers), out)
 }
 
+// Set stores monthly rankings.
 func (c *MonthlyRankingCache) Set(ctx context.Context, year, month, minUsers int, value any) error {
 	return newSnappyJSONCache(c.client, c.ttl(year, month, time.Now())).Set(ctx, c.key(year, month, minUsers), value)
 }
@@ -199,6 +220,7 @@ type WeeklyRankingCache struct {
 	client bytesCacheClient
 }
 
+// NewWeeklyRankingCache builds a weekly ranking cache.
 func NewWeeklyRankingCache(client bytesCacheClient) *WeeklyRankingCache {
 	return &WeeklyRankingCache{client: client}
 }
@@ -215,10 +237,12 @@ func (c *WeeklyRankingCache) ttl(year, week int, now time.Time) time.Duration {
 	return weeklyRankingPastTTL
 }
 
+// Get returns cached weekly rankings.
 func (c *WeeklyRankingCache) Get(ctx context.Context, year, week, minUsers int, out any) (bool, error) {
 	return newSnappyJSONCache(c.client, c.ttl(year, week, time.Now())).Get(ctx, c.key(year, week, minUsers), out)
 }
 
+// Set stores weekly rankings.
 func (c *WeeklyRankingCache) Set(ctx context.Context, year, week, minUsers int, value any) error {
 	return newSnappyJSONCache(c.client, c.ttl(year, week, time.Now())).Set(ctx, c.key(year, week, minUsers), value)
 }

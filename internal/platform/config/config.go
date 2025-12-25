@@ -7,6 +7,7 @@ import (
 	"github.com/caarlos0/env/v10"
 )
 
+// DefaultAPIBasePath is the fallback base path for the HTTP API.
 const DefaultAPIBasePath = "/api/v1"
 
 // Config holds all configuration for the application

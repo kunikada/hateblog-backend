@@ -96,7 +96,9 @@ func (c *Client) Extract(ctx context.Context, text string) ([]Keyphrase, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("yahoo: keyphrase request failed: status %d", resp.StatusCode)

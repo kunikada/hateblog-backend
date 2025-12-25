@@ -12,11 +12,13 @@ import (
 	"hateblog/internal/domain/repository"
 )
 
+// DayEntriesCache stores entries by date.
 type DayEntriesCache interface {
 	Get(ctx context.Context, date string) ([]*domainEntry.Entry, bool, error)
 	Set(ctx context.Context, date string, entries []*domainEntry.Entry) error
 }
 
+// TagEntriesCache stores entries by tag.
 type TagEntriesCache interface {
 	Get(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error)
 	Set(ctx context.Context, tagName string, entries []*domainEntry.Entry) error

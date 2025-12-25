@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test cover build run clean docker-build docker-run security migrate-up migrate-down migrate-create generate generate-install deps-outdated depguard
+.PHONY: help fmt lint test cover build run clean security migrate-up migrate-down migrate-create generate generate-install deps-outdated depguard
 
 # Default target
 .DEFAULT_GOAL := help
@@ -7,8 +7,6 @@
 APP_NAME := hateblog-backend
 CMD_DIR := ./cmd/app
 BUILD_DIR := ./bin
-DOCKER_IMAGE := $(APP_NAME)
-DOCKER_TAG := latest
 MIGRATE_DIR := ./migrations
 OPENAPI_SPEC := ./openapi.yaml
 OPENAPI_CONFIG := ./oapi-codegen.yaml
@@ -58,7 +56,7 @@ cover:
 security:
 	@echo "==> Running security checks..."
 	@echo "--> Running gosec..."
-	gosec -quiet ./...
+	gosec -quiet -exclude-dir=internal/infra/handler/openapi ./...
 	@echo "--> Running govulncheck..."
 	govulncheck ./...
 	@echo "✓ Security checks complete"
@@ -87,7 +85,7 @@ deps-outdated:
 ## depguard: Enforce dependency boundaries
 depguard:
 	@echo "==> Checking dependency boundaries..."
-	CGO_ENABLED=0 go run github.com/OpenPeeDeeP/depguard/cmd/depguard@v1.1.1 -c depguard.json ./...
+	CGO_ENABLED=0 go run github.com/OpenPeeDeeP/depguard/cmd/depguard@latest -c depguard.json ./...
 	@echo "✓ Dependency boundaries respected"
 
 ## clean: Clean build artifacts and caches
@@ -117,35 +115,6 @@ generate-install:
 	@echo "==> Installing oapi-codegen..."
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	@echo "✓ oapi-codegen installed"
-
-## docker-build: Build Docker image
-docker-build:
-	@echo "==> Building Docker image..."
-	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-	@echo "✓ Docker image built: $(DOCKER_IMAGE):$(DOCKER_TAG)"
-
-## docker-run: Run Docker container locally
-docker-run:
-	@echo "==> Running Docker container..."
-	docker run --rm -p 8080:8080 \
-		--env-file .env \
-		$(DOCKER_IMAGE):$(DOCKER_TAG)
-
-## compose-up: Start all services with Docker Compose
-compose-up:
-	@echo "==> Starting services..."
-	docker compose up -d
-	@echo "✓ Services started"
-
-## compose-down: Stop all services
-compose-down:
-	@echo "==> Stopping services..."
-	docker compose down
-	@echo "✓ Services stopped"
-
-## compose-logs: Show logs from all services
-compose-logs:
-	docker compose logs -f
 
 ## migrate-create: Create a new migration file (usage: make migrate-create name=create_users_table)
 migrate-create:
@@ -212,5 +181,5 @@ dev: deps
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-	go install github.com/OpenPeeDeeP/depguard/cmd/depguard@v1.1.1
+	go install github.com/OpenPeeDeeP/depguard/cmd/depguard@latest
 	@echo "✓ Development environment ready"

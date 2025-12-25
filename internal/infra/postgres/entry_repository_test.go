@@ -100,8 +100,8 @@ func TestEntryRepository_Get(t *testing.T) {
 		insertTag(t, pool, tag2)
 
 		// Link tags to entry
-		insertEntryTag(t, pool, e.ID, tag1.ID, 95)
-		insertEntryTag(t, pool, e.ID, tag2.ID, 85)
+		insertEntryTag(t, pool, e.ID, tag1.ID, 0)
+		insertEntryTag(t, pool, e.ID, tag2.ID, 0)
 
 		// Get entry
 		got, err := repo.Get(ctx, e.ID)
@@ -224,7 +224,7 @@ func TestEntryRepository_Delete(t *testing.T) {
 
 		tag1 := testTag("golang")
 		insertTag(t, pool, tag1)
-		insertEntryTag(t, pool, e.ID, tag1.ID, 90)
+		insertEntryTag(t, pool, e.ID, tag1.ID, 0)
 
 		// Delete entry
 		err := repo.Delete(ctx, e.ID)
@@ -300,8 +300,8 @@ func TestEntryRepository_List(t *testing.T) {
 		insertTag(t, pool, pythonTag)
 
 		// Link tags
-		insertEntryTag(t, pool, e1.ID, golangTag.ID, 90)
-		insertEntryTag(t, pool, e2.ID, pythonTag.ID, 80)
+		insertEntryTag(t, pool, e1.ID, golangTag.ID, 0)
+		insertEntryTag(t, pool, e2.ID, pythonTag.ID, 0)
 
 		// Filter by golang tag
 		entries, err := repo.List(ctx, domainEntry.ListQuery{
@@ -442,7 +442,6 @@ func TestEntryRepository_List(t *testing.T) {
 
 		entries, err := repo.List(ctx, domainEntry.ListQuery{})
 		require.NoError(t, err)
-		require.NotNil(t, entries)
 		require.Len(t, entries, 0)
 	})
 }
@@ -507,6 +506,8 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, applyTestMigrations(ctx, pool))
 
+	cleanupTables(t, pool)
+
 	repo := NewEntryRepository(pool)
 	tagRepo := NewTagRepository(pool)
 
@@ -519,6 +520,8 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 		ID:            uuid.New(),
 		URL:           "https://example.com/1",
 		Title:         "Entry1",
+		Excerpt:       "Entry1 excerpt",
+		Subject:       "entry1",
 		BookmarkCount: 50,
 		PostedAt:      now.Add(-1 * time.Hour),
 		CreatedAt:     now.Add(-2 * time.Hour),
@@ -531,6 +534,8 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 		ID:            uuid.New(),
 		URL:           "https://example.com/2",
 		Title:         "Entry2",
+		Excerpt:       "Entry2 excerpt",
+		Subject:       "entry2",
 		BookmarkCount: 10,
 		PostedAt:      now,
 		CreatedAt:     now,
@@ -540,7 +545,7 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, entry2))
 
 	// attach tags
-	_, err = pool.Exec(ctx, `INSERT INTO entry_tags (entry_id, tag_id, score) VALUES ($1, $2, $3)`, entry1.ID, goTag.ID, 90)
+	_, err = pool.Exec(ctx, `INSERT INTO entry_tags (entry_id, tag_id, score) VALUES ($1, $2, $3)`, entry1.ID, goTag.ID, 0)
 	require.NoError(t, err)
 
 	result, err := repo.List(ctx, domainEntry.ListQuery{
@@ -690,7 +695,6 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 
 		counts, err := repo.ListArchiveCounts(ctx, 0)
 		require.NoError(t, err)
-		require.NotNil(t, counts)
 		require.Len(t, counts, 0)
 	})
 

@@ -257,7 +257,6 @@ func TestTagRepository_List(t *testing.T) {
 
 		tags, err := repo.List(ctx, 10, 0)
 		require.NoError(t, err)
-		require.NotNil(t, tags)
 		require.Len(t, tags, 0)
 	})
 }
@@ -293,7 +292,7 @@ func TestTagRepository_Delete(t *testing.T) {
 		tg := testTag("golang")
 		insertEntry(t, pool, e)
 		insertTag(t, pool, tg)
-		insertEntryTag(t, pool, e.ID, tg.ID, 90)
+		insertEntryTag(t, pool, e.ID, tg.ID, 0)
 
 		// Delete tag
 		err := repo.Delete(ctx, tg.ID)

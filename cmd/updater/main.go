@@ -199,4 +199,3 @@ WHERE url = $3`
 	}
 	return updated, missing, nil
 }
-

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"math"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -12,7 +13,9 @@ import (
 func LockID(name string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(name))
-	return int64(h.Sum64())
+	sum := h.Sum64()
+	// #nosec G115 -- mask to 63-bit to fit advisory lock range.
+	return int64(sum & math.MaxInt64)
 }
 
 // TryAdvisoryLock tries to acquire a Postgres advisory lock and returns an unlock function on success.
@@ -40,4 +43,3 @@ func TryAdvisoryLock(ctx context.Context, pool *pgxpool.Pool, name string) (lock
 		return nil
 	}, nil
 }
-

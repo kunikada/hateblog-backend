@@ -155,16 +155,19 @@ func (s *Service) Weekly(ctx context.Context, year, week, limit, minUsers int) (
 	}, nil
 }
 
+// CacheYearly stores yearly ranking payloads.
 type CacheYearly interface {
 	Get(ctx context.Context, year, minUsers int, out any) (bool, error)
 	Set(ctx context.Context, year, minUsers int, value any) error
 }
 
+// CacheMonthly stores monthly ranking payloads.
 type CacheMonthly interface {
 	Get(ctx context.Context, year, month, minUsers int, out any) (bool, error)
 	Set(ctx context.Context, year, month, minUsers int, value any) error
 }
 
+// CacheWeekly stores weekly ranking payloads.
 type CacheWeekly interface {
 	Get(ctx context.Context, year, week, minUsers int, out any) (bool, error)
 	Set(ctx context.Context, year, week, minUsers int, value any) error

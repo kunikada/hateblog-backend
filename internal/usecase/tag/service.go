@@ -21,6 +21,7 @@ type Service struct {
 	cache ListCache
 }
 
+// ListCache stores tag list payloads.
 type ListCache interface {
 	Get(ctx context.Context, limit, offset int, out any) (bool, error)
 	Set(ctx context.Context, limit, offset int, value any) error

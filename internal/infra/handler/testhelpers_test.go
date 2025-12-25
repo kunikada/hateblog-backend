@@ -241,13 +241,6 @@ func newTestEntry(id domainEntry.ID, title string, bookmarkCount int) *domainEnt
 	}
 }
 
-// newTestEntryWithTags creates a test entry with custom tags.
-func newTestEntryWithTags(id domainEntry.ID, title string, bookmarkCount int, tags []domainEntry.Tagging) *domainEntry.Entry {
-	entry := newTestEntry(id, title, bookmarkCount)
-	entry.Tags = tags
-	return entry
-}
-
 // newTestTag creates a test tag.
 func newTestTag(id domainTag.ID, name string) *domainTag.Tag {
 	return &domainTag.Tag{
@@ -270,17 +263,6 @@ func buildTestListResult(entries []*domainEntry.Entry, total int64) usecaseEntry
 	return usecaseEntry.ListResult{
 		Entries: entries,
 		Total:   total,
-	}
-}
-
-// buildTestSearchResult creates a test search result.
-func buildTestSearchResult(query string, entries []*domainEntry.Entry, total int64, limit, offset int) usecaseSearch.Result {
-	return usecaseSearch.Result{
-		Query:   query,
-		Entries: entries,
-		Total:   total,
-		Limit:   limit,
-		Offset:  offset,
 	}
 }
 
@@ -309,26 +291,6 @@ func assertErrorResponse(t *testing.T, resp *http.Response, expectedStatus int) 
 		t.Error("error response missing 'error' field")
 	}
 	return result
-}
-
-// assertEntryResponse validates a single entry response.
-func assertEntryResponse(t *testing.T, got entryResponse, want *domainEntry.Entry) {
-	t.Helper()
-	if got.ID != want.ID {
-		t.Errorf("ID = %v, want %v", got.ID, want.ID)
-	}
-	if got.Title != want.Title {
-		t.Errorf("Title = %q, want %q", got.Title, want.Title)
-	}
-	if got.URL != want.URL {
-		t.Errorf("URL = %q, want %q", got.URL, want.URL)
-	}
-	if got.BookmarkCount != want.BookmarkCount {
-		t.Errorf("BookmarkCount = %d, want %d", got.BookmarkCount, want.BookmarkCount)
-	}
-	if len(got.Tags) != len(want.Tags) {
-		t.Errorf("Tags count = %d, want %d", len(got.Tags), len(want.Tags))
-	}
 }
 
 // assertPagination validates pagination fields.

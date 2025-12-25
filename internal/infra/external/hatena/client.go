@@ -130,7 +130,9 @@ func (c *Client) FetchFeed(ctx context.Context, feedURL string) (*Feed, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("rss request failed: status %d", resp.StatusCode)
 	}

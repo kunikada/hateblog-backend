@@ -21,18 +21,18 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 	entry2 := newTestEntry(uuid.New(), "Programming Entry 2", 50)
 
 	tests := []struct {
-		name            string
-		tagPath         string
-		queryParams     string
-		mockTag         *domainTag.Tag
-		mockTagError    error
-		mockEntries     []*domainEntry.Entry
-		mockTotal       int64
-		wantStatus      int
-		wantEntryCount  int
-		wantTotal       int64
-		wantLimit       int
-		wantOffset      int
+		name           string
+		tagPath        string
+		queryParams    string
+		mockTag        *domainTag.Tag
+		mockTagError   error
+		mockEntries    []*domainEntry.Entry
+		mockTotal      int64
+		wantStatus     int
+		wantEntryCount int
+		wantTotal      int64
+		wantLimit      int
+		wantOffset     int
 	}{
 		{
 			name:           "success with default parameters",

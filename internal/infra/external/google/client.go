@@ -80,7 +80,9 @@ func (c *Client) Fetch(ctx context.Context, domain string) ([]byte, string, erro
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
 		return nil, "", fmt.Errorf("google favicon: unexpected status %d", resp.StatusCode)

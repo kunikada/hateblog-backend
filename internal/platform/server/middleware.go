@@ -55,7 +55,9 @@ func Recoverer(logger *slog.Logger) func(next http.Handler) http.Handler {
 					)
 
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+					if _, err := w.Write([]byte(http.StatusText(http.StatusInternalServerError))); err != nil && logger != nil {
+						logger.Debug("failed to write error response", "error", err)
+					}
 				}
 			}()
 
@@ -111,7 +113,9 @@ func APIKeyAuth(validAPIKey string, logger *slog.Logger) func(next http.Handler)
 				logger.Warn("missing API key", "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte(`{"error":"UNAUTHORIZED","message":"Missing API key"}`))
+				if _, err := w.Write([]byte(`{"error":"UNAUTHORIZED","message":"Missing API key"}`)); err != nil && logger != nil {
+					logger.Debug("failed to write error response", "error", err)
+				}
 				return
 			}
 
@@ -119,7 +123,9 @@ func APIKeyAuth(validAPIKey string, logger *slog.Logger) func(next http.Handler)
 				logger.Warn("invalid API key", "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte(`{"error":"UNAUTHORIZED","message":"Invalid API key"}`))
+				if _, err := w.Write([]byte(`{"error":"UNAUTHORIZED","message":"Invalid API key"}`)); err != nil && logger != nil {
+					logger.Debug("failed to write error response", "error", err)
+				}
 				return
 			}
 

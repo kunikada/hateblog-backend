@@ -2,7 +2,7 @@ package redis
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"strconv"
@@ -56,7 +56,7 @@ func (c *EntryListCache) BuildKey(query entry.ListQuery) (string, error) {
 		strconv.Itoa(q.MaxLimitOverride),
 	}
 
-	sum := sha1.Sum([]byte(strings.Join(parts, "|")))
+	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
 	return "entry:list:" + hex.EncodeToString(sum[:]), nil
 }
 

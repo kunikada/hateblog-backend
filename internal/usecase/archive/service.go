@@ -17,6 +17,7 @@ type Service struct {
 	cache Cache
 }
 
+// Cache stores archive aggregates.
 type Cache interface {
 	Get(ctx context.Context, minUsers int, out any) (bool, error)
 	Set(ctx context.Context, minUsers int, value any) error

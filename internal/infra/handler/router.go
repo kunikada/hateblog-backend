@@ -18,7 +18,7 @@ type RouterConfig struct {
 	FaviconHandler *FaviconHandler
 	HealthHandler  *HealthHandler
 
-	APIBasePath string
+	APIBasePath       string
 	Middlewares       []func(http.Handler) http.Handler
 	PrometheusHandler http.Handler
 }

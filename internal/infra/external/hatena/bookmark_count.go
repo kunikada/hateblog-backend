@@ -59,7 +59,9 @@ func (c *Client) requestBookmarkCount(ctx context.Context, urls []string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("hatena: bookmark count request failed: status %d", resp.StatusCode)
