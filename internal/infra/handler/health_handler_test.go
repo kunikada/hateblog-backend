@@ -29,7 +29,7 @@ func TestHealthHandler_Healthy(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -85,7 +85,7 @@ func TestHealthHandler_UnhealthyDB(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusServiceUnavailable)
@@ -145,7 +145,7 @@ func TestHealthHandler_UnhealthyCache(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusServiceUnavailable)
@@ -205,7 +205,7 @@ func TestHealthHandler_AllUnhealthy(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusServiceUnavailable)
@@ -250,7 +250,7 @@ func TestHealthHandler_NilDependencies(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -283,7 +283,7 @@ func TestHealthHandler_ResponseFields(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/health")
+	resp := ts.get(t, "/api/v1/health")
 	defer resp.Body.Close()
 
 	var result map[string]interface{}

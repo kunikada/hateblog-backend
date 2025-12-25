@@ -8,7 +8,16 @@
       "Bash(touch:*)",
       "Bash(make deps-outdated:*)",
       "Bash(go mod tidy:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(./scripts/seed_manual.sh:*)",
+      "Bash(PGPASSWORD=changeme psql:*)",
+      "Bash(for file in migrations/000004_create_click_metrics.up.sql migrations/000005_create_tag_view_history.up.sql migrations/000006_create_search_history.up.sql migrations/000007_create_api_keys.up.sql migrations/000008_enable_pg_bigm.up.sql migrations/000009_create_fulltext_indexes.up.sql migrations/000010_create_tags_fulltext_indexes.up.sql)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

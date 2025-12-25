@@ -191,7 +191,7 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/tags/%s/entries%s", tt.tagPath, tt.queryParams)
+			path := fmt.Sprintf("/api/v1/tags/%s/entries%s", tt.tagPath, tt.queryParams)
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -235,7 +235,7 @@ func TestTagHandler_GetEntriesByTag_ServiceError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/tags/programming/entries")
+	resp := ts.get(t, "/api/v1/tags/programming/entries")
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -276,7 +276,7 @@ func TestTagHandler_GetEntriesByTag_RecordView(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/tags/programming/entries")
+	resp := ts.get(t, "/api/v1/tags/programming/entries")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -313,7 +313,7 @@ func TestTagHandler_GetEntriesByTag_RecordViewError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/tags/programming/entries")
+	resp := ts.get(t, "/api/v1/tags/programming/entries")
 	defer resp.Body.Close()
 
 	// Should still return 200 even if recording view fails
@@ -373,7 +373,7 @@ func TestTagHandler_BoundaryValues(t *testing.T) {
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/tags/test/entries?limit=%d", tt.limit)
+			path := fmt.Sprintf("/api/v1/tags/test/entries?limit=%d", tt.limit)
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -490,7 +490,7 @@ func TestTagHandler_ListTags(t *testing.T) {
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/tags"+tt.queryParams)
+			resp := ts.get(t, "/api/v1/tags"+tt.queryParams)
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -542,7 +542,7 @@ func TestTagHandler_ListTags_ServiceError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/tags")
+	resp := ts.get(t, "/api/v1/tags")
 	defer resp.Body.Close()
 
 	assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -556,7 +556,7 @@ func TestTagHandler_ListTags_NilService(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/tags")
+	resp := ts.get(t, "/api/v1/tags")
 	defer resp.Body.Close()
 
 	assertErrorResponse(t, resp, http.StatusInternalServerError)

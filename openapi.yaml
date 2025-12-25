@@ -848,8 +848,8 @@ components:
         favicon_url:
           type: string
           format: uri
-          description: Favicon URL（Google Favicon API経由）
-          example: "https://www.google.com/s2/favicons?domain=example.com"
+          description: Favicon URL（FaviconプロキシAPI）
+          example: "/api/v1/favicons?domain=example.com"
         created_at:
           type: string
           format: date-time

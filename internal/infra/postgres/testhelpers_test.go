@@ -92,14 +92,20 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		filepath.Join(migrationsDir, "000001_create_entries.up.sql"),
 		filepath.Join(migrationsDir, "000002_create_tags.up.sql"),
 		filepath.Join(migrationsDir, "000003_create_entry_tags.up.sql"),
+		filepath.Join(migrationsDir, "000004_create_click_metrics.up.sql"),
+		filepath.Join(migrationsDir, "000005_create_tag_view_history.up.sql"),
+		filepath.Join(migrationsDir, "000006_create_search_history.up.sql"),
+		filepath.Join(migrationsDir, "000007_create_api_keys.up.sql"),
+		filepath.Join(migrationsDir, "000008_enable_pg_bigm.up.sql"),
+		filepath.Join(migrationsDir, "000009_create_fulltext_indexes.up.sql"),
+		filepath.Join(migrationsDir, "000010_create_tags_fulltext_indexes.up.sql"),
 	}
 	for _, file := range files {
 		if err := executeSQLFile(ctx, pool, file); err != nil {
 			return err
 		}
 	}
-	// Create tag_view_history table (not in migration files yet)
-	return createTagViewHistoryTable(ctx, pool)
+	return nil
 }
 
 // executeSQLFile reads and executes a SQL file.
@@ -146,19 +152,6 @@ func splitStatements(sql string) []string {
 		statements = append(statements, residual)
 	}
 	return statements
-}
-
-// createTagViewHistoryTable creates the tag_view_history table if it doesn't exist.
-func createTagViewHistoryTable(ctx context.Context, pool *pgxpool.Pool) error {
-	query := `CREATE TABLE IF NOT EXISTS tag_view_history (
-		tag_id UUID NOT NULL,
-		viewed_at DATE NOT NULL,
-		count INTEGER NOT NULL DEFAULT 0,
-		PRIMARY KEY (tag_id, viewed_at),
-		FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-	)`
-	_, err := pool.Exec(ctx, query)
-	return err
 }
 
 // cleanupTables removes all data from test tables.

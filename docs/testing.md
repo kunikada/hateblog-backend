@@ -21,15 +21,15 @@ go test ./internal/domain/... -v
 
 **Dev Container**: PostgreSQLとRedisはdocker-composeで自動起動されます。テストは特別な設定なしで実行できます。
 
-**ホストマシン**: PostgreSQLとRedisを手動で起動する必要があります：
+**ホストマシン**: PostgreSQLとRedisは Docker Compose で起動し、マイグレーションは自動実行されます：
 ```bash
-# PostgreSQLとRedisを起動
-docker compose up -d postgres redis
+# コンテナ起動（PostgreSQL・Redis・アプリケーションが起動し、マイグレーション自動実行）
+docker compose up -d
 
-# マイグレーション実行
-DB_URL="postgresql://hateblog:changeme@localhost:5432/hateblog?sslmode=disable" make migrate-up
+# テスト実行（デフォルトは postgres:5432 に接続）
+go test ./...
 
-# localhostを使う場合は環境変数で接続先を上書き
+# ホストマシンの localhost:5432 を使う場合は環境変数で接続先を上書き
 TEST_POSTGRES_URL="postgresql://hateblog:changeme@localhost:5432/hateblog?sslmode=disable" go test ./...
 ```
 
@@ -149,21 +149,26 @@ func TestUser_Validate(t *testing.T) {
 開発中の手動APIテスト手順。
 
 ### 前提
-- Dev Container起動済み
-- PostgreSQL/Redisは自動起動済み
+- Dev Container起動済み（またはホストマシンで `docker compose up -d` 実行済み）
+- PostgreSQL/Redis が起動済み
+- PostgreSQL マイグレーションが完了済み（自動実行）
 - `.env.example` を `.env` にコピー済み（`APP_API_KEY_REQUIRED=false` がデフォルト）
 
 ### 手順
-1. Dev Container内でアプリケーションを起動
+
+1. **アプリケーション起動**
    ```bash
+   # Dev Container 内または docker compose で既に起動している場合はスキップ
    go run ./cmd/app/main.go
    ```
 
-2. テストデータ投入（2024-12-01/02 のエントリー4件を投入）
+2. **テストデータ投入** (オプション)
    ```bash
    ./scripts/seed_manual.sh
    ```
-   - 環境変数で上書き可能: `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `POSTGRES_SERVICE`, `SQL_FILE`
+   - 環境変数で接続先を上書き可能: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SQL_FILE`, `REDIS_HOST`, `REDIS_PORT`
+   - **注意**: マイグレーションが既に実行されていることが前提（compose.yaml で自動実行）
+   - **重要**: データ投入後、自動的にRedisキャッシュもクリアされます（古いデータが表示される問題を回避）
 
 3. APIを叩く例
    - 新着:
@@ -185,7 +190,16 @@ func TestUser_Validate(t *testing.T) {
        -d '{"entry_id":"aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1"}'
      ```
 
-**Note**: データをリセットしたい場合は再度 `./scripts/seed_manual.sh` を実行してください。
+**Note**: データをリセットしたい場合は再度 `./scripts/seed_manual.sh` を実行してください（自動的にキャッシュもクリアされます）。
+
+**キャッシュのみクリアしたい場合**:
+```bash
+./scripts/clear_cache.sh
+```
+または
+```bash
+redis-cli -h redis -p 6379 FLUSHDB
+```
 
 ---
 
@@ -214,20 +228,45 @@ func TestUser_Validate(t *testing.T) {
 
 ---
 
-## CI/CD Integration
+## CI/CD Integration と デプロイ
 
-### CI Pipeline
-```yaml
-test:
-  - go test ./...                    # ユニットテスト
-  - go test -tags=integration ./...  # APIテスト（testcontainers 使用）
-  - golangci-lint run                # 静的解析
-  - govulncheck ./...                # 脆弱性チェック
+### デプロイフロー
+
+**本番環境への展開**:
+```bash
+# VPS サーバー上
+cd /opt/hateblog
+git pull origin main
+docker compose up -d --build
 ```
 
-### CD Pipeline
-- E2Eテストをステージング環境で実行
-- 成功後にプロダクション環境へデプロイ
+**起動時の自動処理**:
+1. PostgreSQL コンテナが起動
+2. Redis コンテナが起動
+3. アプリケーションコンテナが起動（ヘルスチェック完了まで待機）
+4. PostgreSQL初期化時に migrations ディレクトリのSQLファイルが自動実行
+   - 000001_create_entries.up.sql
+   - 000002_create_tags.up.sql
+   - ...
+   - 000010_create_tags_fulltext_indexes.up.sql
+5. アプリケーション起動完了
+
+**データベース初期化の仕組み**:
+- PostgreSQL公式イメージは `/docker-entrypoint-initdb.d/` にマウントされたSQLファイルを自動実行
+- `compose.yaml` で `./migrations:/docker-entrypoint-initdb.d:ro` を指定
+- ファイル名がアルファベット順に実行される（000001... 000002... など）
+
+詳細は [DEPLOYMENT.md](./deployment.md) を参照
+
+### ローカルテストの流れ
+
+ローカル開発時は以下の流れで動作確認を行う：
+
+1. Dev Container 内で `make test` を実行
+2. テスト成功後、git push
+3. VPS で `git pull && docker compose up -d --build` を実行
+
+**注意**: GitHub Actions などの CI/CD ツールは使用していません。ローカルテストで十分な品質確保を行います。
 
 ---
 

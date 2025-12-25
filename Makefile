@@ -205,6 +205,10 @@ dev: deps
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/cweill/gotests/gotests@latest
+	go install github.com/josharian/impl@latest
+	go install github.com/haya14busa/goplay/cmd/goplay@latest
+	go install github.com/go-delve/delve/cmd/dlv@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest

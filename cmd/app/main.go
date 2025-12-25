@@ -140,7 +140,7 @@ func run(ctx context.Context) error {
 			Prefix: "http",
 			Skip: func(r *http.Request) bool {
 				switch r.URL.Path {
-				case "/health", "/observability/metrics":
+				case "/api/v1/health":
 					return true
 				default:
 					return false

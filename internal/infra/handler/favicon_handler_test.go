@@ -15,9 +15,11 @@ import (
 func TestFaviconHandlerSuccess(t *testing.T) {
 	handler := NewFaviconHandler(newTestService([]byte{1, 2}, "image/png", nil))
 	r := chi.NewRouter()
-	handler.RegisterRoutes(r)
+	r.Route("/api/v1", func(r chi.Router) {
+		handler.RegisterRoutes(r)
+	})
 
-	req := httptest.NewRequest(http.MethodGet, "/favicons?domain=example.com", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/favicons?domain=example.com", nil)
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -36,9 +38,11 @@ func TestFaviconHandlerSuccess(t *testing.T) {
 func TestFaviconHandlerBadRequest(t *testing.T) {
 	handler := NewFaviconHandler(newTestService(nil, "", nil))
 	r := chi.NewRouter()
-	handler.RegisterRoutes(r)
+	r.Route("/api/v1", func(r chi.Router) {
+		handler.RegisterRoutes(r)
+	})
 
-	req := httptest.NewRequest(http.MethodGet, "/favicons?domain="+url.QueryEscape("bad host"), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/favicons?domain="+url.QueryEscape("bad host"), nil)
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)

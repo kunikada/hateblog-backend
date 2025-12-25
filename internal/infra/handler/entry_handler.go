@@ -177,7 +177,7 @@ func buildFaviconURL(raw string) string {
 		return ""
 	}
 	host := u.Hostname()
-	return fmt.Sprintf("https://www.google.com/s2/favicons?sz=64&domain=%s", host)
+	return fmt.Sprintf("/api/v1/favicons?domain=%s", host)
 }
 
 // entryListResponse matches EntryListResponse schema.

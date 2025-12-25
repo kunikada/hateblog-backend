@@ -38,32 +38,31 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		r.Use(mw)
 	}
 
-	if cfg.EntryHandler != nil {
-		cfg.EntryHandler.RegisterRoutes(r)
-	}
-	if cfg.ArchiveHandler != nil {
-		cfg.ArchiveHandler.RegisterRoutes(r)
-	}
-	if cfg.RankingHandler != nil {
-		cfg.RankingHandler.RegisterRoutes(r)
-	}
-	if cfg.TagHandler != nil {
-		cfg.TagHandler.RegisterRoutes(r)
-	}
-	if cfg.SearchHandler != nil {
-		cfg.SearchHandler.RegisterRoutes(r)
-	}
-	if cfg.MetricsHandler != nil {
-		cfg.MetricsHandler.RegisterRoutes(r)
-	}
-	if cfg.FaviconHandler != nil {
-		cfg.FaviconHandler.RegisterRoutes(r)
-	}
-	if cfg.HealthHandler != nil {
-		r.Get("/health", cfg.HealthHandler.ServeHTTP)
-	}
-	if cfg.PrometheusHandler != nil {
-		r.Mount("/observability/metrics", cfg.PrometheusHandler)
-	}
+	r.Route("/api/v1", func(api chi.Router) {
+		if cfg.EntryHandler != nil {
+			cfg.EntryHandler.RegisterRoutes(api)
+		}
+		if cfg.ArchiveHandler != nil {
+			cfg.ArchiveHandler.RegisterRoutes(api)
+		}
+		if cfg.RankingHandler != nil {
+			cfg.RankingHandler.RegisterRoutes(api)
+		}
+		if cfg.TagHandler != nil {
+			cfg.TagHandler.RegisterRoutes(api)
+		}
+		if cfg.SearchHandler != nil {
+			cfg.SearchHandler.RegisterRoutes(api)
+		}
+		if cfg.MetricsHandler != nil {
+			cfg.MetricsHandler.RegisterRoutes(api)
+		}
+		if cfg.FaviconHandler != nil {
+			cfg.FaviconHandler.RegisterRoutes(api)
+		}
+		if cfg.HealthHandler != nil {
+			api.Get("/health", cfg.HealthHandler.ServeHTTP)
+		}
+	})
 	return r
 }

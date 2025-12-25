@@ -134,7 +134,7 @@ func TestRankingHandler_Yearly(t *testing.T) {
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/rankings/yearly"+tt.queryParams)
+			resp := ts.get(t, "/api/v1/rankings/yearly"+tt.queryParams)
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -271,7 +271,7 @@ func TestRankingHandler_Monthly(t *testing.T) {
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/rankings/monthly"+tt.queryParams)
+			resp := ts.get(t, "/api/v1/rankings/monthly"+tt.queryParams)
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -398,7 +398,7 @@ func TestRankingHandler_Weekly(t *testing.T) {
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/rankings/weekly"+tt.queryParams)
+			resp := ts.get(t, "/api/v1/rankings/weekly"+tt.queryParams)
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {

@@ -92,7 +92,7 @@ func TestArchiveHandler_List(t *testing.T) {
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/archive"+tt.queryParams)
+			resp := ts.get(t, "/api/v1/archive"+tt.queryParams)
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -138,7 +138,7 @@ func TestArchiveHandler_ServiceError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/archive")
+	resp := ts.get(t, "/api/v1/archive")
 	defer resp.Body.Close()
 
 	assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -159,7 +159,7 @@ func TestArchiveHandler_ResponseFormat(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/archive")
+	resp := ts.get(t, "/api/v1/archive")
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
