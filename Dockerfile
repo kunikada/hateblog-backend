@@ -1,12 +1,14 @@
 # Build stage
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-bookworm AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata sudo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates tzdata sudo && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for development (UID 1000)
-RUN addgroup -g 1000 vscode && \
-    adduser -D -u 1000 -G vscode vscode && \
+RUN groupadd -g 1000 vscode && \
+    useradd -m -d /home/vscode -u 1000 -g vscode vscode && \
     echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode && \
     chmod 0440 /etc/sudoers.d/vscode
 
