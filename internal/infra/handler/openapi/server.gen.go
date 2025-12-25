@@ -194,7 +194,7 @@ type EntryListResponse struct {
 // EntryTag エントリーに紐づくタグ（スコア付き）
 type EntryTag struct {
 	// Score タグのスコア（Yahoo! キーフレーズ抽出APIから取得した重要度）
-	Score float32 `json:"score"`
+	Score int `json:"score"`
 
 	// TagId タグID
 	TagId openapi_types.UUID `json:"tag_id"`

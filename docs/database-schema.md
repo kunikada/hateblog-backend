@@ -87,14 +87,14 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 |---------|---------|------|-----------|------|
 | entry_id | UUID | NOT NULL | - | エントリーID（外部キー） |
 | tag_id | UUID | NOT NULL | - | タグID（外部キー） |
-| score | REAL | NOT NULL | 0.0 | タグのスコア（Yahoo! APIから取得した重要度） |
+| score | INTEGER | NOT NULL | 0 | タグのスコア（Yahoo! APIから取得した重要度） |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時 |
 
 **制約:**
 - PRIMARY KEY: `(entry_id, tag_id)`
 - FOREIGN KEY: `entry_id` REFERENCES `entries(id)` ON DELETE CASCADE
 - FOREIGN KEY: `tag_id` REFERENCES `tags(id)` ON DELETE CASCADE
-- CHECK: `score >= 0.0 AND score <= 1.0`
+- CHECK: `score >= 0 AND score <= 100`
 
 **インデックス:**
 - `idx_entry_tags_entry_id` - entry_id（主キーにより自動作成）
@@ -102,7 +102,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `idx_entry_tags_score` - entry_id, score DESC（エントリー内でのタグスコア順）
 
 **備考:**
-- `score` はYahoo! キーフレーズ抽出APIが返すスコア値（0.0〜1.0）を保存
+- `score` はYahoo! キーフレーズ抽出APIが返すスコア値（0〜100）を保存
 - スコアが高いほど、そのエントリーにとって重要なタグであることを示す
 
 ---

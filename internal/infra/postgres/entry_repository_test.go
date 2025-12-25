@@ -100,8 +100,8 @@ func TestEntryRepository_Get(t *testing.T) {
 		insertTag(t, pool, tag2)
 
 		// Link tags to entry
-		insertEntryTag(t, pool, e.ID, tag1.ID, 0.95)
-		insertEntryTag(t, pool, e.ID, tag2.ID, 0.85)
+		insertEntryTag(t, pool, e.ID, tag1.ID, 95)
+		insertEntryTag(t, pool, e.ID, tag2.ID, 85)
 
 		// Get entry
 		got, err := repo.Get(ctx, e.ID)
@@ -224,7 +224,7 @@ func TestEntryRepository_Delete(t *testing.T) {
 
 		tag1 := testTag("golang")
 		insertTag(t, pool, tag1)
-		insertEntryTag(t, pool, e.ID, tag1.ID, 0.9)
+		insertEntryTag(t, pool, e.ID, tag1.ID, 90)
 
 		// Delete entry
 		err := repo.Delete(ctx, e.ID)
@@ -300,8 +300,8 @@ func TestEntryRepository_List(t *testing.T) {
 		insertTag(t, pool, pythonTag)
 
 		// Link tags
-		insertEntryTag(t, pool, e1.ID, golangTag.ID, 0.9)
-		insertEntryTag(t, pool, e2.ID, pythonTag.ID, 0.8)
+		insertEntryTag(t, pool, e1.ID, golangTag.ID, 90)
+		insertEntryTag(t, pool, e2.ID, pythonTag.ID, 80)
 
 		// Filter by golang tag
 		entries, err := repo.List(ctx, domainEntry.ListQuery{
@@ -540,7 +540,7 @@ func TestEntryRepository_ListAndCount(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, entry2))
 
 	// attach tags
-	_, err = pool.Exec(ctx, `INSERT INTO entry_tags (entry_id, tag_id, score) VALUES ($1, $2, $3)`, entry1.ID, goTag.ID, 0.9)
+	_, err = pool.Exec(ctx, `INSERT INTO entry_tags (entry_id, tag_id, score) VALUES ($1, $2, $3)`, entry1.ID, goTag.ID, 90)
 	require.NoError(t, err)
 
 	result, err := repo.List(ctx, domainEntry.ListQuery{

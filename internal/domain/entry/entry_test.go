@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 					{
 						TagID: validTagID,
 						Name:  "golang",
-						Score: 0.8,
+						Score: 80,
 					},
 				},
 				CreatedAt: now,
@@ -126,7 +126,7 @@ func TestNew(t *testing.T) {
 					{
 						TagID: uuid.Nil,
 						Name:  "golang",
-						Score: 0.8,
+						Score: 80,
 					},
 				},
 			},
@@ -145,7 +145,7 @@ func TestNew(t *testing.T) {
 					{
 						TagID: validTagID,
 						Name:  "",
-						Score: 0.8,
+						Score: 80,
 					},
 				},
 			},
@@ -164,12 +164,12 @@ func TestNew(t *testing.T) {
 					{
 						TagID: validTagID,
 						Name:  "golang",
-						Score: -0.1,
+						Score: -1,
 					},
 				},
 			},
 			wantErr: true,
-			errMsg:  "tag score must be between 0 and 1",
+			errMsg:  "tag score must be between 0 and 100",
 		},
 		{
 			name: "invalid tag - score too high",
@@ -183,12 +183,12 @@ func TestNew(t *testing.T) {
 					{
 						TagID: validTagID,
 						Name:  "golang",
-						Score: 1.1,
+						Score: 101,
 					},
 				},
 			},
 			wantErr: true,
-			errMsg:  "tag score must be between 0 and 1",
+			errMsg:  "tag score must be between 0 and 100",
 		},
 		{
 			name: "trims whitespace from title",
@@ -246,7 +246,7 @@ func TestEntry_Update(t *testing.T) {
 			{
 				TagID: validTagID,
 				Name:  "initial",
-				Score: 0.5,
+				Score: 50,
 			},
 		},
 		CreatedAt: now,
@@ -273,7 +273,7 @@ func TestEntry_Update(t *testing.T) {
 					{
 						TagID: validTagID,
 						Name:  "updated",
-						Score: 0.9,
+						Score: 90,
 					},
 				},
 				UpdatedAt: now.Add(time.Hour),
@@ -361,7 +361,7 @@ func TestEntry_Update(t *testing.T) {
 					{
 						TagID: uuid.Nil,
 						Name:  "invalid",
-						Score: 0.5,
+						Score: 50,
 					},
 				},
 				UpdatedAt: now,
@@ -417,24 +417,24 @@ func TestNormalizeTaggings(t *testing.T) {
 				{
 					TagID: tagID1,
 					Name:  "  Golang  ",
-					Score: 0.8,
+					Score: 80,
 				},
 				{
 					TagID: tagID2,
 					Name:  "PROGRAMMING",
-					Score: 0.6,
+					Score: 60,
 				},
 			},
 			want: []Tagging{
 				{
 					TagID: tagID1,
 					Name:  "golang",
-					Score: 0.8,
+					Score: 80,
 				},
 				{
 					TagID: tagID2,
 					Name:  "programming",
-					Score: 0.6,
+					Score: 60,
 				},
 			},
 		},
@@ -444,14 +444,14 @@ func TestNormalizeTaggings(t *testing.T) {
 				{
 					TagID: tagID1,
 					Name:  "Test",
-					Score: 0.95,
+					Score: 95,
 				},
 			},
 			want: []Tagging{
 				{
 					TagID: tagID1,
 					Name:  "test",
-					Score: 0.95,
+					Score: 95,
 				},
 			},
 		},

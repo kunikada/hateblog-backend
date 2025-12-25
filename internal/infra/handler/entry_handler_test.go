@@ -359,8 +359,8 @@ func TestEntryHandler_ResponseFormat(t *testing.T) {
 	entry.Excerpt = excerpt
 	entry.Subject = subject
 	entry.Tags = []domainEntry.Tagging{
-		newTestTagging(tagID, "tech", 0.9),
-		newTestTagging(uuid.New(), "programming", 0.8),
+		newTestTagging(tagID, "tech", 90),
+		newTestTagging(uuid.New(), "programming", 80),
 	}
 
 	mockRepo := &mockEntryRepository{
@@ -408,8 +408,8 @@ func TestEntryHandler_ResponseFormat(t *testing.T) {
 	if got.Tags[0].Name != "tech" {
 		t.Errorf("Tags[0].Name = %q, want %q", got.Tags[0].Name, "tech")
 	}
-	if got.Tags[0].Score != 0.9 {
-		t.Errorf("Tags[0].Score = %f, want %f", got.Tags[0].Score, 0.9)
+	if got.Tags[0].Score != 90 {
+		t.Errorf("Tags[0].Score = %d, want %d", got.Tags[0].Score, 90)
 	}
 	if got.FaviconURL == "" {
 		t.Error("FaviconURL should not be empty")

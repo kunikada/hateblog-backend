@@ -293,7 +293,7 @@ func TestTagRepository_Delete(t *testing.T) {
 		tg := testTag("golang")
 		insertEntry(t, pool, e)
 		insertTag(t, pool, tg)
-		insertEntryTag(t, pool, e.ID, tg.ID, 0.9)
+		insertEntryTag(t, pool, e.ID, tg.ID, 90)
 
 		// Delete tag
 		err := repo.Delete(ctx, tg.ID)

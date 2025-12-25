@@ -294,7 +294,7 @@ WHERE et.entry_id = ANY($1)`
 		var entryID uuid.UUID
 		var tagID uuid.UUID
 		var name string
-		var score float64
+		var score int
 		if err := rows.Scan(&entryID, &tagID, &name, &score); err != nil {
 			return fmt.Errorf("scan entry tags: %w", err)
 		}

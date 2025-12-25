@@ -239,7 +239,7 @@ func insertTag(t *testing.T, pool *pgxpool.Pool, tg *tag.Tag) {
 }
 
 // insertEntryTag inserts an entry-tag relationship directly into the database.
-func insertEntryTag(t *testing.T, pool *pgxpool.Pool, entryID uuid.UUID, tagID uuid.UUID, score float64) {
+func insertEntryTag(t *testing.T, pool *pgxpool.Pool, entryID uuid.UUID, tagID uuid.UUID, score int) {
 	t.Helper()
 
 	ctx := context.Background()

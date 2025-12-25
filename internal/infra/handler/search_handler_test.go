@@ -306,7 +306,7 @@ func TestSearchHandler_ResponseFormat(t *testing.T) {
 
 	entry := newTestEntry(entryID, "Go Programming", 100)
 	entry.Tags = []domainEntry.Tagging{
-		newTestTagging(tagID, "golang", 0.9),
+		newTestTagging(tagID, "golang", 90),
 	}
 
 	mockEntryRepo := &mockEntryRepository{

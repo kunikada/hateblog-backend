@@ -841,10 +841,10 @@ components:
           example:
             - tag_id: "123e4567-e89b-12d3-a456-426614174000"
               tag_name: "Go"
-              score: 0.95
+              score: 95
             - tag_id: "223e4567-e89b-12d3-a456-426614174001"
               tag_name: "プログラミング"
-              score: 0.85
+              score: 85
         favicon_url:
           type: string
           format: uri
@@ -880,12 +880,11 @@ components:
           description: タグ名
           example: "Go"
         score:
-          type: number
-          format: float
-          minimum: 0.0
-          maximum: 1.0
-          description: タグのスコア（Yahoo! キーフレーズ抽出APIから取得した重要度）
-          example: 0.95
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: タグのスコア（Yahoo! キーフレーズ抽出APIから取得した重要度、0〜100）
+          example: 95
 
     EntryListResponse:
       type: object

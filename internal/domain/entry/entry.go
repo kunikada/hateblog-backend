@@ -57,7 +57,7 @@ type Entry struct {
 type Tagging struct {
 	TagID tag.ID
 	Name  string
-	Score float64
+	Score int
 }
 
 // Params represents the input values required to create/update an Entry.
@@ -144,8 +144,8 @@ func validateTaggings(tags []Tagging) error {
 		if strings.TrimSpace(t.Name) == "" {
 			return fmt.Errorf("%w: tag name is required", ErrInvalidEntry)
 		}
-		if t.Score < 0 || t.Score > 1 {
-			return fmt.Errorf("%w: tag score must be between 0 and 1", ErrInvalidEntry)
+		if t.Score < 0 || t.Score > 100 {
+			return fmt.Errorf("%w: tag score must be between 0 and 100", ErrInvalidEntry)
 		}
 	}
 	return nil

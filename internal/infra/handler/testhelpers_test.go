@@ -233,7 +233,7 @@ func newTestEntry(id domainEntry.ID, title string, bookmarkCount int) *domainEnt
 			{
 				TagID: uuid.New(),
 				Name:  "tech",
-				Score: 0.8,
+				Score: 80,
 			},
 		},
 		CreatedAt: now,
@@ -257,7 +257,7 @@ func newTestTag(id domainTag.ID, name string) *domainTag.Tag {
 }
 
 // newTestTagging creates a test tagging relationship.
-func newTestTagging(tagID domainTag.ID, name string, score float64) domainEntry.Tagging {
+func newTestTagging(tagID domainTag.ID, name string, score int) domainEntry.Tagging {
 	return domainEntry.Tagging{
 		TagID: tagID,
 		Name:  name,
