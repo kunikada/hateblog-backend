@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
@@ -99,6 +100,18 @@ func run(ctx context.Context) error {
 	searchService := usecaseSearch.NewService(entryRepo, searchHistoryRepo, searchCache, log)
 	metricsService := usecaseMetrics.NewService(entryRepo, clickMetricsRepo)
 
+	apiBasePath := strings.TrimSpace(cfg.App.APIBasePath)
+	if apiBasePath == "" {
+		apiBasePath = "/"
+	} else {
+		if !strings.HasPrefix(apiBasePath, "/") {
+			apiBasePath = "/" + apiBasePath
+		}
+		if apiBasePath != "/" {
+			apiBasePath = strings.TrimRight(apiBasePath, "/")
+		}
+	}
+
 	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
 	faviconLimiter := infraRedis.NewFaviconRateLimiter(redisClient, cfg.External.FaviconRateLimit)
 	googleClient := infraGoogle.NewClient(infraGoogle.Config{
@@ -109,11 +122,11 @@ func run(ctx context.Context) error {
 	})
 	faviconService := usecaseFavicon.NewService(googleClient, faviconCache, faviconLimiter, log)
 
-	entryHandler := handler.NewEntryHandler(entryService)
+	entryHandler := handler.NewEntryHandler(entryService, apiBasePath)
 	archiveHandler := handler.NewArchiveHandler(archiveService)
-	rankingHandler := handler.NewRankingHandler(rankingService)
-	tagHandler := handler.NewTagHandler(tagService, entryService)
-	searchHandler := handler.NewSearchHandler(searchService)
+	rankingHandler := handler.NewRankingHandler(rankingService, apiBasePath)
+	tagHandler := handler.NewTagHandler(tagService, entryService, apiBasePath)
+	searchHandler := handler.NewSearchHandler(searchService, apiBasePath)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
 	faviconHandler := handler.NewFaviconHandler(faviconService)
 	healthHandler := &handler.HealthHandler{
@@ -132,6 +145,10 @@ func run(ctx context.Context) error {
 		}
 	}
 	if cfg.App.RateLimitEnabled {
+		healthPath := apiBasePath + "/health"
+		if apiBasePath == "/" {
+			healthPath = "/health"
+		}
 		middlewares = append(middlewares, server.RateLimit(server.RateLimitConfig{
 			Cache:  redisClient,
 			Limit:  cfg.App.RateLimitMaxRequests,
@@ -140,7 +157,7 @@ func run(ctx context.Context) error {
 			Prefix: "http",
 			Skip: func(r *http.Request) bool {
 				switch r.URL.Path {
-				case "/api/v1/health":
+				case healthPath:
 					return true
 				default:
 					return false
@@ -158,6 +175,7 @@ func run(ctx context.Context) error {
 		MetricsHandler:    metricsHandler,
 		FaviconHandler:    faviconHandler,
 		HealthHandler:     healthHandler,
+		APIBasePath:       apiBasePath,
 		Middlewares:       middlewares,
 		PrometheusHandler: promHandler,
 	})

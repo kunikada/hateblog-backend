@@ -18,6 +18,7 @@ type RouterConfig struct {
 	FaviconHandler *FaviconHandler
 	HealthHandler  *HealthHandler
 
+	APIBasePath string
 	Middlewares       []func(http.Handler) http.Handler
 	PrometheusHandler http.Handler
 }
@@ -38,7 +39,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		r.Use(mw)
 	}
 
-	r.Route("/api/v1", func(api chi.Router) {
+	apiBasePath := normalizeAPIBasePath(cfg.APIBasePath)
+	if apiBasePath == "" {
+		apiBasePath = "/"
+	}
+	r.Route(apiBasePath, func(api chi.Router) {
 		if cfg.EntryHandler != nil {
 			cfg.EntryHandler.RegisterRoutes(api)
 		}

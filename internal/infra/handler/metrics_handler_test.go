@@ -95,7 +95,7 @@ func TestMetricsHandler_RecordClick(t *testing.T) {
 				}
 			}
 
-			req, err := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/metrics/clicks", bytes.NewReader(body))
+			req, err := http.NewRequest(http.MethodPost, ts.URL+apiPath("/metrics/clicks"), bytes.NewReader(body))
 			if err != nil {
 				t.Fatalf("failed to create request: %v", err)
 			}
@@ -147,7 +147,7 @@ func TestMetricsHandler_ServiceError(t *testing.T) {
 		EntryID: validEntryID,
 	})
 
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/metrics/clicks", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+apiPath("/metrics/clicks"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -173,7 +173,7 @@ func TestMetricsHandler_NilService(t *testing.T) {
 		EntryID: uuid.New(),
 	})
 
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/metrics/clicks", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+apiPath("/metrics/clicks"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -198,13 +198,14 @@ func TestMetricsHandler_ResponseFormat(t *testing.T) {
 
 	router := NewRouter(RouterConfig{
 		MetricsHandler: handler,
+		APIBasePath:    testAPIBasePath,
 	})
 
 	body, _ := json.Marshal(clickMetricsRequest{
 		EntryID: entryID,
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/clicks", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, apiPath("/metrics/clicks"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 

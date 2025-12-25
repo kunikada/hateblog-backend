@@ -184,14 +184,14 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 
 			tagService := newTestTagService(mockTagRepo)
 			entryService := newTestEntryService(mockEntryRepo)
-			handler := NewTagHandler(tagService, entryService)
+			handler := NewTagHandler(tagService, entryService, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				TagHandler: handler,
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/api/v1/tags/%s/entries%s", tt.tagPath, tt.queryParams)
+			path := apiPath(fmt.Sprintf("/tags/%s/entries%s", tt.tagPath, tt.queryParams))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -228,14 +228,14 @@ func TestTagHandler_GetEntriesByTag_ServiceError(t *testing.T) {
 
 	tagService := newTestTagService(mockTagRepo)
 	entryService := newTestEntryService(mockEntryRepo)
-	handler := NewTagHandler(tagService, entryService)
+	handler := NewTagHandler(tagService, entryService, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		TagHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/tags/programming/entries")
+	resp := ts.get(t, apiPath("/tags/programming/entries"))
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -269,14 +269,14 @@ func TestTagHandler_GetEntriesByTag_RecordView(t *testing.T) {
 
 	tagService := newTestTagService(mockTagRepo)
 	entryService := newTestEntryService(mockEntryRepo)
-	handler := NewTagHandler(tagService, entryService)
+	handler := NewTagHandler(tagService, entryService, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		TagHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/tags/programming/entries")
+	resp := ts.get(t, apiPath("/tags/programming/entries"))
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -306,14 +306,14 @@ func TestTagHandler_GetEntriesByTag_RecordViewError(t *testing.T) {
 
 	tagService := newTestTagService(mockTagRepo)
 	entryService := newTestEntryService(mockEntryRepo)
-	handler := NewTagHandler(tagService, entryService)
+	handler := NewTagHandler(tagService, entryService, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		TagHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/tags/programming/entries")
+	resp := ts.get(t, apiPath("/tags/programming/entries"))
 	defer resp.Body.Close()
 
 	// Should still return 200 even if recording view fails
@@ -366,14 +366,14 @@ func TestTagHandler_BoundaryValues(t *testing.T) {
 
 			tagService := newTestTagService(mockTagRepo)
 			entryService := newTestEntryService(mockEntryRepo)
-			handler := NewTagHandler(tagService, entryService)
+			handler := NewTagHandler(tagService, entryService, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				TagHandler: handler,
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/api/v1/tags/test/entries?limit=%d", tt.limit)
+			path := apiPath(fmt.Sprintf("/tags/test/entries?limit=%d", tt.limit))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -483,14 +483,14 @@ func TestTagHandler_ListTags(t *testing.T) {
 			}
 
 			tagService := newTestTagService(mockRepo)
-			handler := NewTagHandler(tagService, nil)
+			handler := NewTagHandler(tagService, nil, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				TagHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/tags"+tt.queryParams)
+			resp := ts.get(t, apiPath("/tags"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -535,28 +535,28 @@ func TestTagHandler_ListTags_ServiceError(t *testing.T) {
 	}
 
 	tagService := newTestTagService(mockRepo)
-	handler := NewTagHandler(tagService, nil)
+	handler := NewTagHandler(tagService, nil, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		TagHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/tags")
+	resp := ts.get(t, apiPath("/tags"))
 	defer resp.Body.Close()
 
 	assertErrorResponse(t, resp, http.StatusInternalServerError)
 }
 
 func TestTagHandler_ListTags_NilService(t *testing.T) {
-	handler := NewTagHandler(nil, nil)
+	handler := NewTagHandler(nil, nil, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		TagHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/tags")
+	resp := ts.get(t, apiPath("/tags"))
 	defer resp.Body.Close()
 
 	assertErrorResponse(t, resp, http.StatusInternalServerError)

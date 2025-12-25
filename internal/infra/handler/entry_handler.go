@@ -20,12 +20,16 @@ const (
 
 // EntryHandler exposes entry endpoints.
 type EntryHandler struct {
-	service *usecaseEntry.Service
+	service     *usecaseEntry.Service
+	apiBasePath string
 }
 
 // NewEntryHandler creates a new EntryHandler.
-func NewEntryHandler(service *usecaseEntry.Service) *EntryHandler {
-	return &EntryHandler{service: service}
+func NewEntryHandler(service *usecaseEntry.Service, apiBasePath string) *EntryHandler {
+	return &EntryHandler{
+		service:     service,
+		apiBasePath: normalizeAPIBasePath(apiBasePath),
+	}
 }
 
 // RegisterRoutes registers entry handlers on the router.
@@ -47,7 +51,7 @@ func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset, h.apiBasePath))
 }
 
 func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) {
@@ -63,10 +67,10 @@ func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset, h.apiBasePath))
 }
 
-func buildEntryListResponse(result usecaseEntry.ListResult, limit, offset int) entryListResponse {
+func buildEntryListResponse(result usecaseEntry.ListResult, limit, offset int, apiBasePath string) entryListResponse {
 	resp := entryListResponse{
 		Entries: make([]entryResponse, 0, len(result.Entries)),
 		Total:   result.Total,
@@ -75,13 +79,13 @@ func buildEntryListResponse(result usecaseEntry.ListResult, limit, offset int) e
 	}
 
 	for _, ent := range result.Entries {
-		resp.Entries = append(resp.Entries, toEntryResponse(ent))
+		resp.Entries = append(resp.Entries, toEntryResponse(ent, apiBasePath))
 	}
 
 	return resp
 }
 
-func toEntryResponse(ent *domainEntry.Entry) entryResponse {
+func toEntryResponse(ent *domainEntry.Entry, apiBasePath string) entryResponse {
 	resp := entryResponse{
 		ID:            ent.ID,
 		Title:         ent.Title,
@@ -91,7 +95,7 @@ func toEntryResponse(ent *domainEntry.Entry) entryResponse {
 		Tags:          make([]entryTagResponse, 0, len(ent.Tags)),
 		CreatedAt:     ent.CreatedAt,
 		UpdatedAt:     ent.UpdatedAt,
-		FaviconURL:    buildFaviconURL(ent.URL),
+		FaviconURL:    buildFaviconURL(ent.URL, apiBasePath),
 	}
 
 	if ent.Excerpt != "" {
@@ -171,13 +175,13 @@ func isValidDate(value string) bool {
 	return err == nil
 }
 
-func buildFaviconURL(raw string) string {
+func buildFaviconURL(raw, apiBasePath string) string {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
 		return ""
 	}
 	host := u.Hostname()
-	return fmt.Sprintf("/api/v1/favicons?domain=%s", host)
+	return fmt.Sprintf("%s?domain=%s", joinAPIPath(apiBasePath, "favicons"), host)
 }
 
 // entryListResponse matches EntryListResponse schema.

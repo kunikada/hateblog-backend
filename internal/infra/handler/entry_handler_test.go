@@ -156,13 +156,13 @@ func TestEntryHandler_NewEntries(t *testing.T) {
 			}
 
 			service := newTestEntryService(mockRepo)
-			handler := NewEntryHandler(service)
+			handler := NewEntryHandler(service, testAPIBasePath)
 			ts := newTestServer(RouterConfig{
 				EntryHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/entries/new"+tt.queryParams)
+			resp := ts.get(t, apiPath("/entries/new"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -208,13 +208,13 @@ func TestEntryHandler_NewEntries_ServiceError(t *testing.T) {
 	}
 
 	service := newTestEntryService(mockRepo)
-	handler := NewEntryHandler(service)
+	handler := NewEntryHandler(service, testAPIBasePath)
 	ts := newTestServer(RouterConfig{
 		EntryHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/entries/new?date=20240101")
+	resp := ts.get(t, apiPath("/entries/new?date=20240101"))
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -301,13 +301,13 @@ func TestEntryHandler_HotEntries(t *testing.T) {
 			}
 
 			service := newTestEntryService(mockRepo)
-			handler := NewEntryHandler(service)
+			handler := NewEntryHandler(service, testAPIBasePath)
 			ts := newTestServer(RouterConfig{
 				EntryHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/entries/hot"+tt.queryParams)
+			resp := ts.get(t, apiPath("/entries/hot"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -333,13 +333,13 @@ func TestEntryHandler_HotEntries_ServiceError(t *testing.T) {
 	}
 
 	service := newTestEntryService(mockRepo)
-	handler := NewEntryHandler(service)
+	handler := NewEntryHandler(service, testAPIBasePath)
 	ts := newTestServer(RouterConfig{
 		EntryHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/entries/hot?date=20240101")
+	resp := ts.get(t, apiPath("/entries/hot?date=20240101"))
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -369,13 +369,13 @@ func TestEntryHandler_ResponseFormat(t *testing.T) {
 	}
 
 	service := newTestEntryService(mockRepo)
-	handler := NewEntryHandler(service)
+	handler := NewEntryHandler(service, testAPIBasePath)
 	ts := newTestServer(RouterConfig{
 		EntryHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/entries/new?date=20240101")
+	resp := ts.get(t, apiPath("/entries/new?date=20240101"))
 	defer resp.Body.Close()
 
 	result := assertEntryListResponse(t, resp)
@@ -452,13 +452,13 @@ func TestEntryHandler_BoundaryValues(t *testing.T) {
 			}
 
 			service := newTestEntryService(mockRepo)
-			handler := NewEntryHandler(service)
+			handler := NewEntryHandler(service, testAPIBasePath)
 			ts := newTestServer(RouterConfig{
 				EntryHandler: handler,
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/api/v1/entries/new?date=20240101&limit=%d", tt.limit)
+			path := apiPath(fmt.Sprintf("/entries/new?date=20240101&limit=%d", tt.limit))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 

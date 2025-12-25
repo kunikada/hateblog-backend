@@ -127,14 +127,14 @@ func TestRankingHandler_Yearly(t *testing.T) {
 				err:    tt.mockError,
 			}
 			service := usecaseRanking.NewService(mockRepo, nil, nil, nil)
-			handler := NewRankingHandler(service)
+			handler := NewRankingHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				RankingHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/rankings/yearly"+tt.queryParams)
+			resp := ts.get(t, apiPath("/rankings/yearly"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -264,14 +264,14 @@ func TestRankingHandler_Monthly(t *testing.T) {
 				err:    tt.mockError,
 			}
 			service := usecaseRanking.NewService(mockRepo, nil, nil, nil)
-			handler := NewRankingHandler(service)
+			handler := NewRankingHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				RankingHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/rankings/monthly"+tt.queryParams)
+			resp := ts.get(t, apiPath("/rankings/monthly"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -391,14 +391,14 @@ func TestRankingHandler_Weekly(t *testing.T) {
 				err:    tt.mockError,
 			}
 			service := usecaseRanking.NewService(mockRepo, nil, nil, nil)
-			handler := NewRankingHandler(service)
+			handler := NewRankingHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				RankingHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/rankings/weekly"+tt.queryParams)
+			resp := ts.get(t, apiPath("/rankings/weekly"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {

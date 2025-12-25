@@ -24,13 +24,15 @@ const (
 type TagHandler struct {
 	tagService   *usecaseTag.Service
 	entryService *usecaseEntry.Service
+	apiBasePath  string
 }
 
 // NewTagHandler builds a TagHandler.
-func NewTagHandler(tagService *usecaseTag.Service, entryService *usecaseEntry.Service) *TagHandler {
+func NewTagHandler(tagService *usecaseTag.Service, entryService *usecaseEntry.Service, apiBasePath string) *TagHandler {
 	return &TagHandler{
 		tagService:   tagService,
 		entryService: entryService,
+		apiBasePath:  normalizeAPIBasePath(apiBasePath),
 	}
 }
 
@@ -124,7 +126,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		slog.Default().Warn("failed to record tag view", "tag", tagEntity.Name, "error", err)
 	}
 
-	writeJSON(w, http.StatusOK, buildEntryListResponse(result, limit, offset))
+	writeJSON(w, http.StatusOK, buildEntryListResponse(result, limit, offset, h.apiBasePath))
 }
 
 var (

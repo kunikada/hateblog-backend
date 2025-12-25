@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,10 +15,23 @@ import (
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
 	domainTag "hateblog/internal/domain/tag"
+	"hateblog/internal/platform/config"
 	usecaseEntry "hateblog/internal/usecase/entry"
 	usecaseSearch "hateblog/internal/usecase/search"
 	usecaseTag "hateblog/internal/usecase/tag"
 )
+
+const testAPIBasePath = config.DefaultAPIBasePath
+
+func apiPath(path string) string {
+	if path == "" {
+		return testAPIBasePath
+	}
+	if strings.HasPrefix(path, "/") {
+		return testAPIBasePath + path
+	}
+	return testAPIBasePath + "/" + path
+}
 
 // testServer wraps httptest.Server for integration testing.
 type testServer struct {
@@ -27,6 +41,9 @@ type testServer struct {
 
 // newTestServer creates a test HTTP server with the given handlers.
 func newTestServer(cfg RouterConfig) *testServer {
+	if cfg.APIBasePath == "" {
+		cfg.APIBasePath = testAPIBasePath
+	}
 	router := NewRouter(cfg)
 	srv := httptest.NewServer(router)
 	return &testServer{

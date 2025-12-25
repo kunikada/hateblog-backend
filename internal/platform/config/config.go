@@ -7,6 +7,8 @@ import (
 	"github.com/caarlos0/env/v10"
 )
 
+const DefaultAPIBasePath = "/api/v1"
+
 // Config holds all configuration for the application
 type Config struct {
 	// Server configuration
@@ -92,6 +94,7 @@ type AppConfig struct {
 	EnableMetrics   bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
 	EnableCORS      bool          `env:"APP_ENABLE_CORS" envDefault:"true"`
 	AllowedOrigins  []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
+	APIBasePath     string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
 	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
 	MasterAPIKey    string        `env:"APP_MASTER_API_KEY" envDefault:""`
 

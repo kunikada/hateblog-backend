@@ -10,12 +10,16 @@ import (
 
 // SearchHandler serves /search endpoint.
 type SearchHandler struct {
-	service *usecaseSearch.Service
+	service     *usecaseSearch.Service
+	apiBasePath string
 }
 
 // NewSearchHandler builds a SearchHandler.
-func NewSearchHandler(service *usecaseSearch.Service) *SearchHandler {
-	return &SearchHandler{service: service}
+func NewSearchHandler(service *usecaseSearch.Service, apiBasePath string) *SearchHandler {
+	return &SearchHandler{
+		service:     service,
+		apiBasePath: normalizeAPIBasePath(apiBasePath),
+	}
 }
 
 // RegisterRoutes adds search routes.
@@ -68,7 +72,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Offset:  result.Offset,
 	}
 	for _, ent := range result.Entries {
-		resp.Entries = append(resp.Entries, toEntryResponse(ent))
+		resp.Entries = append(resp.Entries, toEntryResponse(ent, h.apiBasePath))
 	}
 
 	writeJSON(w, http.StatusOK, resp)

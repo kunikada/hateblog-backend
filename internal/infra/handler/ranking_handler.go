@@ -16,12 +16,16 @@ const (
 
 // RankingHandler serves ranking endpoints.
 type RankingHandler struct {
-	service *usecaseRanking.Service
+	service     *usecaseRanking.Service
+	apiBasePath string
 }
 
 // NewRankingHandler builds a RankingHandler.
-func NewRankingHandler(service *usecaseRanking.Service) *RankingHandler {
-	return &RankingHandler{service: service}
+func NewRankingHandler(service *usecaseRanking.Service, apiBasePath string) *RankingHandler {
+	return &RankingHandler{
+		service:     service,
+		apiBasePath: normalizeAPIBasePath(apiBasePath),
+	}
 }
 
 // RegisterRoutes registers ranking endpoints.
@@ -54,7 +58,7 @@ func (h *RankingHandler) handleYearly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildRankingResponse("yearly", year, nil, nil, result))
+	writeJSON(w, http.StatusOK, buildRankingResponse("yearly", year, nil, nil, result, h.apiBasePath))
 }
 
 func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +89,7 @@ func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildRankingResponse("monthly", year, &month, nil, result))
+	writeJSON(w, http.StatusOK, buildRankingResponse("monthly", year, &month, nil, result, h.apiBasePath))
 }
 
 func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
@@ -116,10 +120,10 @@ func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result))
+	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result, h.apiBasePath))
 }
 
-func buildRankingResponse(periodType string, year int, month, week *int, result usecaseRanking.Result) rankingResponse {
+func buildRankingResponse(periodType string, year int, month, week *int, result usecaseRanking.Result, apiBasePath string) rankingResponse {
 	resp := rankingResponse{
 		PeriodType: periodType,
 		Year:       year,
@@ -135,7 +139,7 @@ func buildRankingResponse(periodType string, year int, month, week *int, result 
 	for i, ent := range result.Entries {
 		resp.Entries = append(resp.Entries, rankingEntryResponse{
 			Rank:  i + 1,
-			Entry: toEntryResponse(ent),
+			Entry: toEntryResponse(ent, apiBasePath),
 		})
 	}
 	return resp

@@ -32,17 +32,18 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 	}, nil, nil, nil)
 
 	router := NewRouter(RouterConfig{
-		EntryHandler: NewEntryHandler(svc),
+		EntryHandler: NewEntryHandler(svc, testAPIBasePath),
 		HealthHandler: &HealthHandler{
 			DB:    &fakeHealthChecker{},
 			Cache: &fakeHealthChecker{},
 		},
+		APIBasePath: testAPIBasePath,
 	})
 
 	server := httptest.NewServer(router)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/api/v1/entries/new?date=20250105&limit=5")
+	resp, err := http.Get(server.URL + apiPath("/entries/new?date=20250105&limit=5"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -54,7 +55,7 @@ func TestRouter_EndToEndEntriesAndHealth(t *testing.T) {
 	require.Equal(t, int64(1), entryResp.Total)
 	require.Len(t, entryResp.Entries, 1)
 
-	healthResp, err := http.Get(server.URL + "/api/v1/health")
+	healthResp, err := http.Get(server.URL + apiPath("/health"))
 	require.NoError(t, err)
 	defer healthResp.Body.Close()
 	require.Equal(t, http.StatusOK, healthResp.StatusCode)

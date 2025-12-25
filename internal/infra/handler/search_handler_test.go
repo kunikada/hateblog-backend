@@ -162,14 +162,14 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 
 			mockHistoryRepo := &mockSearchHistoryRepository{}
 			service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-			handler := NewSearchHandler(service)
+			handler := NewSearchHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				SearchHandler: handler,
 			})
 			defer ts.Close()
 
-			resp := ts.get(t, "/api/v1/search"+tt.queryParams)
+			resp := ts.get(t, apiPath("/search"+tt.queryParams))
 			defer resp.Body.Close()
 
 			if tt.wantStatus != http.StatusOK {
@@ -218,14 +218,14 @@ func TestSearchHandler_SearchEntries_ServiceError(t *testing.T) {
 
 	mockHistoryRepo := &mockSearchHistoryRepository{}
 	service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-	handler := NewSearchHandler(service)
+	handler := NewSearchHandler(service, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		SearchHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/search?q=golang")
+	resp := ts.get(t, apiPath("/search?q=golang"))
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusBadRequest)
@@ -253,14 +253,14 @@ func TestSearchHandler_SearchEntries_RecordHistory(t *testing.T) {
 	}
 
 	service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-	handler := NewSearchHandler(service)
+	handler := NewSearchHandler(service, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		SearchHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/search?q=golang")
+	resp := ts.get(t, apiPath("/search?q=golang"))
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -286,14 +286,14 @@ func TestSearchHandler_SearchEntries_HistoryError(t *testing.T) {
 	}
 
 	service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-	handler := NewSearchHandler(service)
+	handler := NewSearchHandler(service, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		SearchHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/search?q=golang")
+	resp := ts.get(t, apiPath("/search?q=golang"))
 	defer resp.Body.Close()
 
 	// Should still return 200 even if recording history fails
@@ -316,14 +316,14 @@ func TestSearchHandler_ResponseFormat(t *testing.T) {
 
 	mockHistoryRepo := &mockSearchHistoryRepository{}
 	service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-	handler := NewSearchHandler(service)
+	handler := NewSearchHandler(service, testAPIBasePath)
 
 	ts := newTestServer(RouterConfig{
 		SearchHandler: handler,
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, "/api/v1/search?q=golang")
+	resp := ts.get(t, apiPath("/search?q=golang"))
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -419,14 +419,14 @@ func TestSearchHandler_BoundaryValues(t *testing.T) {
 
 			mockHistoryRepo := &mockSearchHistoryRepository{}
 			service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-			handler := NewSearchHandler(service)
+			handler := NewSearchHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				SearchHandler: handler,
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/api/v1/search?q=%s&limit=%d", tt.query, tt.limit)
+			path := apiPath(fmt.Sprintf("/search?q=%s&limit=%d", tt.query, tt.limit))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -476,14 +476,14 @@ func TestSearchHandler_SpecialCharacters(t *testing.T) {
 
 			mockHistoryRepo := &mockSearchHistoryRepository{}
 			service := newTestSearchService(mockEntryRepo, mockHistoryRepo)
-			handler := NewSearchHandler(service)
+			handler := NewSearchHandler(service, testAPIBasePath)
 
 			ts := newTestServer(RouterConfig{
 				SearchHandler: handler,
 			})
 			defer ts.Close()
 
-			path := fmt.Sprintf("/api/v1/search?q=%s", url.QueryEscape(tt.query))
+			path := apiPath(fmt.Sprintf("/search?q=%s", url.QueryEscape(tt.query)))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
