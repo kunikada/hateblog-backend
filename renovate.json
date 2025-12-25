@@ -1,0 +1,12 @@
+{
+  "extends": [
+    "config:base",
+    "group:all",
+    "schedule:weekly",
+    ":dependencyDashboard",
+    ":automergePatch"
+  ],
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "postUpdateOptions": ["gomodTidy"]
+}

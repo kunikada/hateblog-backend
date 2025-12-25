@@ -58,11 +58,9 @@
 ## Dependencies
 - 標準ライブラリ優先。外部は厳選・少数・更新容易。
 - 破壊的変更のある lib は `internal/adapter` で吸収。
-- 依存更新フロー:
-  1. `make deps-outdated` で更新候補を確認
-  2. `go get example.com/mod@vX.Y.Z` で個別に上げる（`go get -u ./...` は慎重に）
-  3. `go mod tidy` ＋ `go test ./...` で差分と動作を確認
-  4. `go.mod` / `go.sum` の diff が最小になっているかをチェック
+- 依存更新は Renovate の PR を起点に行う。
+  - PR の内容（更新理由/影響/リスク）を確認し、必要なら `go test ./...` を実行
+  - 例外的な手動更新が必要な場合のみ、`go get` と `go mod tidy` を実施
 
 ## API/CLI 契約
 - 入出力は明確・最小。**Breaking change は Release Note 必須**。
