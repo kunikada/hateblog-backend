@@ -1,0 +1,25 @@
+# PostgreSQL with pg_bigm extension for Japanese full-text search
+FROM postgres:18-bookworm
+
+# Build and install pg_bigm from source (apt package for PG18 is unavailable)
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    postgresql-server-dev-18 \
+    ca-certificates \
+    curl; \
+    curl -fL https://github.com/pgbigm/pg_bigm/archive/refs/tags/v1.2-20250903.tar.gz -o /tmp/pg_bigm.tar.gz; \
+    tar -xf /tmp/pg_bigm.tar.gz -C /tmp; \
+    pg_bigm_dir="$(find /tmp -maxdepth 1 -type d -name 'pg_bigm-*' | head -n 1)"; \
+    if [ -z "$pg_bigm_dir" ]; then \
+        echo "pg_bigm source directory not found under /tmp" >&2; \
+        exit 1; \
+    fi; \
+    cd "$pg_bigm_dir" && make USE_PGXS=1 && make USE_PGXS=1 install; \
+    apt-get purge -y --auto-remove build-essential; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Set locale to support UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8

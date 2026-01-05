@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
@@ -17,6 +18,7 @@ import (
 	"hateblog/internal/platform/database"
 	"hateblog/internal/platform/logger"
 	"hateblog/internal/platform/metrics"
+	"hateblog/internal/platform/migration"
 	"hateblog/internal/platform/server"
 	usecaseArchive "hateblog/internal/usecase/archive"
 	usecaseEntry "hateblog/internal/usecase/entry"
@@ -27,7 +29,133 @@ import (
 	usecaseTag "hateblog/internal/usecase/tag"
 )
 
+// runMigrate handles migration subcommands.
+func runMigrate(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: migrate <up|down|version|force <version>>")
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	log := logger.New(logger.Config{
+		Level:  logger.Level(cfg.App.LogLevel),
+		Format: logger.Format(cfg.App.LogFormat),
+	})
+
+	migrator, err := migration.New(migration.Config{
+		DatabaseURL:    cfg.Database.ConnectionString(),
+		MigrationsPath: "file://migrations",
+		Logger:         log,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+	defer migrator.Close()
+
+	switch args[0] {
+	case "up":
+		log.Info("running migrations up")
+		if err := migrator.Up(); err != nil {
+			return fmt.Errorf("migration up failed: %w", err)
+		}
+		log.Info("migrations completed successfully")
+
+	case "down":
+		log.Info("rolling back one migration")
+		if err := migrator.Down(); err != nil {
+			return fmt.Errorf("migration down failed: %w", err)
+		}
+		log.Info("migration rolled back successfully")
+
+	case "version":
+		version, dirty, err := migrator.Version()
+		if err != nil {
+			return fmt.Errorf("failed to get version: %w", err)
+		}
+		if dirty {
+			log.Info("current migration version", "version", version, "dirty", true)
+		} else {
+			log.Info("current migration version", "version", version)
+		}
+
+	case "force":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: migrate force <version>")
+		}
+		var version int
+		if _, err := fmt.Sscanf(args[1], "%d", &version); err != nil {
+			return fmt.Errorf("invalid version number: %w", err)
+		}
+		log.Info("forcing migration version", "version", version)
+		if err := migrator.Force(version); err != nil {
+			return fmt.Errorf("migration force failed: %w", err)
+		}
+		log.Info("migration version forced successfully")
+
+	default:
+		return fmt.Errorf("unknown command: %s (available: up, down, version, force)", args[0])
+	}
+
+	return nil
+}
+
+// healthcheck performs a health check by calling the /health endpoint.
+func healthcheck() error {
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	apiBasePath := strings.TrimSpace(os.Getenv("APP_API_BASE_PATH"))
+	if apiBasePath == "" {
+		apiBasePath = "/api/v1"
+	}
+	if !strings.HasPrefix(apiBasePath, "/") {
+		apiBasePath = "/" + apiBasePath
+	}
+	if apiBasePath != "/" {
+		apiBasePath = strings.TrimRight(apiBasePath, "/")
+	}
+
+	healthPath := apiBasePath + "/health"
+	url := fmt.Sprintf("http://localhost:%s%s", port, healthPath)
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to call health endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unhealthy status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func main() {
+	// Handle subcommands
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "healthcheck":
+			if err := healthcheck(); err != nil {
+				slog.Error("healthcheck failed", "error", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		case "migrate":
+			if err := runMigrate(os.Args[2:]); err != nil {
+				slog.Error("migration command failed", "error", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+	}
+
 	if err := run(context.Background()); err != nil {
 		slog.Error("application error", "error", err)
 		os.Exit(1)
@@ -58,6 +186,22 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("connect database: %w", err)
 	}
 	defer db.Close()
+
+	// Run database migrations
+	log.Info("running database migrations")
+	migrator, err := migration.New(migration.Config{
+		DatabaseURL:    cfg.Database.ConnectionString(),
+		MigrationsPath: "file://migrations",
+		Logger:         log,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+	defer migrator.Close()
+
+	if err := migrator.Up(); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	redisClient, err := cache.New(cache.Config{
 		Address:      cfg.Redis.Address(),

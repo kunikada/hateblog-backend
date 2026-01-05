@@ -39,6 +39,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the binary
 COPY --from=builder /build/app /app
 
+# Copy migrations
+COPY --from=builder /build/migrations /migrations
+
 # Run as non-root user (nonroot user in distroless has UID 65532)
 USER nonroot:nonroot
 

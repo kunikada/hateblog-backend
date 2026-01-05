@@ -165,7 +165,7 @@ func TestDatabaseConfig_ConnectionString(t *testing.T) {
 		SSLMode:        "disable",
 		ConnectTimeout: 10 * time.Second,
 	}
-	expected := "host=localhost port=5432 user=user password=pass dbname=dbname sslmode=disable connect_timeout=10"
+	expected := "postgresql://user:pass@localhost:5432/dbname?sslmode=disable&connect_timeout=10"
 	assert.Equal(t, expected, cfg.ConnectionString())
 }
 

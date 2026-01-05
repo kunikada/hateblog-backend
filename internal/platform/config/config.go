@@ -57,11 +57,11 @@ type DatabaseConfig struct {
 	ConnectTimeout  time.Duration `env:"DB_CONNECT_TIMEOUT" envDefault:"10s"`
 }
 
-// ConnectionString returns the PostgreSQL connection string
+// ConnectionString returns the PostgreSQL connection string in URL format
 func (d DatabaseConfig) ConnectionString() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
-		d.Host, d.Port, d.User, d.Password, d.Database, d.SSLMode,
+		"postgresql://%s:%s@%s:%d/%s?sslmode=%s&connect_timeout=%d",
+		d.User, d.Password, d.Host, d.Port, d.Database, d.SSLMode,
 		int(d.ConnectTimeout.Seconds()),
 	)
 }
