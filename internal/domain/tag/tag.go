@@ -36,3 +36,19 @@ func New(id ID, name string) (Tag, error) {
 		Name: norm,
 	}, nil
 }
+
+// TrendingTag represents a tag with its occurrence count in recent entries.
+type TrendingTag struct {
+	ID              ID
+	Name            string
+	OccurrenceCount int // Number of entries with this tag in the specified period
+	EntryCount      int // Total number of entries with this tag
+}
+
+// ClickedTag represents a tag with its click count from recent entries.
+type ClickedTag struct {
+	ID         ID
+	Name       string
+	ClickCount int // Number of clicks on entries with this tag in the specified period
+	EntryCount int // Total number of entries with this tag
+}

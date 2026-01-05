@@ -13,6 +13,8 @@ type Repository interface {
 	GetByName(ctx context.Context, name string) (*tag.Tag, error)
 	List(ctx context.Context, limit, offset int) ([]tag.Tag, error)
 	IncrementViewHistory(ctx context.Context, tagID tag.ID, viewedAt time.Time) error
+	GetTrending(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]tag.TrendingTag, error)
+	GetClicked(ctx context.Context, days int, limit int) ([]tag.ClickedTag, error)
 }
 
 // Service exposes tag operations.
@@ -74,4 +76,29 @@ func (s *Service) List(ctx context.Context, limit, offset int) ([]tag.Tag, error
 // RecordView increments the view counter for the tag.
 func (s *Service) RecordView(ctx context.Context, tagID tag.ID, viewedAt time.Time) error {
 	return s.repo.IncrementViewHistory(ctx, tagID, viewedAt)
+}
+
+// GetTrending returns tags from recent popular entries.
+func (s *Service) GetTrending(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]tag.TrendingTag, error) {
+	if hours <= 0 {
+		hours = 24
+	}
+	if minBookmarkCount < 0 {
+		minBookmarkCount = 5
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.repo.GetTrending(ctx, hours, minBookmarkCount, limit)
+}
+
+// GetClicked returns tags from recently clicked entries.
+func (s *Service) GetClicked(ctx context.Context, days int, limit int) ([]tag.ClickedTag, error) {
+	if days <= 0 {
+		days = 7
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.repo.GetClicked(ctx, days, limit)
 }

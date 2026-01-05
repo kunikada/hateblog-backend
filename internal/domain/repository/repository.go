@@ -31,6 +31,8 @@ type TagRepository interface {
 	Upsert(ctx context.Context, tag *tag.Tag) error
 	Delete(ctx context.Context, id tag.ID) error
 	IncrementViewHistory(ctx context.Context, tagID tag.ID, viewedAt time.Time) error
+	GetTrending(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]tag.TrendingTag, error)
+	GetClicked(ctx context.Context, days int, limit int) ([]tag.ClickedTag, error)
 }
 
 // SearchHistoryRepository stores aggregated search metrics.
