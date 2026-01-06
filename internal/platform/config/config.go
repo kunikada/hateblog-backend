@@ -44,17 +44,17 @@ func (s ServerConfig) Address() string {
 
 // DatabaseConfig holds PostgreSQL configuration
 type DatabaseConfig struct {
-	Host            string        `env:"DB_HOST" envDefault:"localhost"`
-	Port            int           `env:"DB_PORT" envDefault:"5432"`
-	User            string        `env:"DB_USER" envDefault:"hateblog"`
-	Password        string        `env:"DB_PASSWORD" envDefault:"hateblog"`
-	Database        string        `env:"DB_NAME" envDefault:"hateblog"`
-	SSLMode         string        `env:"DB_SSLMODE" envDefault:"disable"`
-	MaxConns        int32         `env:"DB_MAX_CONNS" envDefault:"25"`
-	MinConns        int32         `env:"DB_MIN_CONNS" envDefault:"5"`
-	MaxConnLifetime time.Duration `env:"DB_MAX_CONN_LIFETIME" envDefault:"1h"`
-	MaxConnIdleTime time.Duration `env:"DB_MAX_CONN_IDLE_TIME" envDefault:"30m"`
-	ConnectTimeout  time.Duration `env:"DB_CONNECT_TIMEOUT" envDefault:"10s"`
+	Host            string        `env:"POSTGRES_HOST" envDefault:"localhost"`
+	Port            int           `env:"POSTGRES_PORT" envDefault:"5432"`
+	User            string        `env:"POSTGRES_USER" envDefault:"hateblog"`
+	Password        string        `env:"POSTGRES_PASSWORD" envDefault:"hateblog"`
+	Database        string        `env:"POSTGRES_DB" envDefault:"hateblog"`
+	SSLMode         string        `env:"POSTGRES_SSLMODE" envDefault:"disable"`
+	MaxConns        int32         `env:"POSTGRES_MAX_CONNS" envDefault:"25"`
+	MinConns        int32         `env:"POSTGRES_MIN_CONNS" envDefault:"5"`
+	MaxConnLifetime time.Duration `env:"POSTGRES_MAX_CONN_LIFETIME" envDefault:"1h"`
+	MaxConnIdleTime time.Duration `env:"POSTGRES_MAX_CONN_IDLE_TIME" envDefault:"30m"`
+	ConnectTimeout  time.Duration `env:"POSTGRES_CONNECT_TIMEOUT" envDefault:"10s"`
 }
 
 // ConnectionString returns the PostgreSQL connection string in URL format

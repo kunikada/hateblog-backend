@@ -21,7 +21,7 @@
    - もしくは環境変数 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_DEFAULT_REGION` をセット
 
 ## バックアップ（スクリプト）
-`scripts/backup_pg_dump_s3.sh` を実行するだけ。`.env` があれば `POSTGRES_PASSWORD` / `DB_NAME` / `DB_USER` を自動で読み込む。
+`scripts/backup_pg_dump_s3.sh` を実行するだけ。`.env` があれば `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_USER` を自動で読み込む。
 
 必須: `S3_BUCKET`  
 任意: `S3_PREFIX`（デフォルト `db-backups/`）、`AWS_PROFILE` もしくは `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` など

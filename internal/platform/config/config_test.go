@@ -31,10 +31,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "custom configuration",
 			envVars: map[string]string{
-				"SERVER_PORT":   "9000",
-				"DB_HOST":       "db.example.com",
-				"DB_PORT":       "5433",
-				"APP_LOG_LEVEL": "debug",
+				"SERVER_PORT":      "9000",
+				"POSTGRES_HOST":    "db.example.com",
+				"POSTGRES_PORT":    "5433",
+				"APP_LOG_LEVEL":    "debug",
 			},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {
@@ -106,8 +106,8 @@ func TestLoad(t *testing.T) {
 func clearTestEnv() func() {
 	keys := []string{
 		"SERVER_HOST", "SERVER_PORT", "SERVER_READ_TIMEOUT", "SERVER_WRITE_TIMEOUT", "SERVER_IDLE_TIMEOUT",
-		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
-		"DB_MAX_CONNS", "DB_MIN_CONNS", "DB_MAX_CONN_LIFETIME", "DB_MAX_CONN_IDLE_TIME", "DB_CONNECT_TIMEOUT",
+		"POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_SSLMODE",
+		"POSTGRES_MAX_CONNS", "POSTGRES_MIN_CONNS", "POSTGRES_MAX_CONN_LIFETIME", "POSTGRES_MAX_CONN_IDLE_TIME", "POSTGRES_CONNECT_TIMEOUT",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB", "REDIS_MAX_RETRIES",
 		"REDIS_DIAL_TIMEOUT", "REDIS_READ_TIMEOUT", "REDIS_WRITE_TIMEOUT", "REDIS_POOL_SIZE", "REDIS_MIN_IDLE_CONNS",
 		"APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",

@@ -166,7 +166,7 @@ func TestUser_Validate(t *testing.T) {
    ```bash
    ./scripts/seed_manual.sh
    ```
-   - 環境変数で接続先を上書き可能: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SQL_FILE`, `REDIS_HOST`, `REDIS_PORT`
+   - 環境変数で接続先を上書き可能: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `SQL_FILE`, `REDIS_HOST`, `REDIS_PORT`
    - **注意**: マイグレーションが既に実行されていることが前提（compose.yaml で自動実行）
    - **重要**: データ投入後、自動的にRedisキャッシュもクリアされます（古いデータが表示される問題を回避）
 

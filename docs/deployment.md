@@ -85,12 +85,12 @@ POSTGRES_PASSWORD=<strong-random-password>
 
 # Application
 APP_VERSION=1.0.0
-DB_SSLMODE=require
-LOG_LEVEL=info
+POSTGRES_SSLMODE=require
+APP_LOG_LEVEL=info
 
 # Optional: カスタム設定
-DB_MAX_CONNS=50
-DB_MIN_CONNS=10
+POSTGRES_MAX_CONNS=50
+POSTGRES_MIN_CONNS=10
 EOF
 
 # パーミッション設定

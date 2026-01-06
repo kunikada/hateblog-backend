@@ -21,8 +21,5 @@ services:
     volumes:
       - .:/workspace:cached
     working_dir: /workspace
-    environment:
-      DB_SSLMODE: disable
-      DB_MAX_CONNS: 25
-      DB_MIN_CONNS: 5
-      LOG_LEVEL: debug
+    env_file:
+      - .env

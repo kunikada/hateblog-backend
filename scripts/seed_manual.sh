@@ -6,11 +6,11 @@ set -eu
 # Use this script to inject test data after starting the application
 
 SQL_FILE=${SQL_FILE:-migrations/seeds/manual_api_seed.sql}
-DB_HOST=${DB_HOST:-postgres}
-DB_PORT=${DB_PORT:-5432}
-DB_USER=${DB_USER:-hateblog}
-DB_PASSWORD=${DB_PASSWORD:-changeme}
-DB_NAME=${DB_NAME:-hateblog}
+POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+POSTGRES_PORT=${POSTGRES_PORT:-5432}
+POSTGRES_USER=${POSTGRES_USER:-hateblog}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+POSTGRES_DB=${POSTGRES_DB:-hateblog}
 REDIS_HOST=${REDIS_HOST:-redis}
 REDIS_PORT=${REDIS_PORT:-6379}
 
@@ -20,8 +20,8 @@ if [ ! -f "$SQL_FILE" ]; then
 fi
 
 echo "==> Seeding test data"
-echo "  PostgreSQL: ${DB_HOST}:${DB_PORT}"
-echo "  Database: ${DB_NAME}"
+echo "  PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT}"
+echo "  Database: ${POSTGRES_DB}"
 echo ""
 
 # Check if psql is available
@@ -32,8 +32,8 @@ fi
 
 # Verify database connection
 echo "==> Verifying database connection..."
-if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
-  echo "Error: Failed to connect to PostgreSQL at ${DB_HOST}:${DB_PORT}" >&2
+if ! PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" > /dev/null 2>&1; then
+  echo "Error: Failed to connect to PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}" >&2
   echo ""
   echo "Troubleshooting:" >&2
   echo "  - Check if postgres container is running: docker compose ps" >&2
@@ -45,7 +45,7 @@ echo "✓ Database connection successful"
 
 # Verify that migrations have been applied (check for entries table)
 echo "==> Checking database schema..."
-table_count=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "
+table_count=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "
   SELECT COUNT(*)
   FROM information_schema.tables
   WHERE table_schema = 'public' AND table_name = 'entries'
@@ -61,7 +61,7 @@ echo "✓ Database schema verified"
 # Import seed data
 echo ""
 echo "==> Importing test data..."
-if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$SQL_FILE" > /dev/null 2>&1; then
+if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$SQL_FILE" > /dev/null 2>&1; then
   echo "✓ Test data imported successfully"
 else
   echo "Warning: Test data import completed with errors. Check the database state." >&2
