@@ -147,6 +147,8 @@ type mockTagRepository struct {
 	getByNameFunc            func(ctx context.Context, name string) (*domainTag.Tag, error)
 	listFunc                 func(ctx context.Context, limit, offset int) ([]domainTag.Tag, error)
 	incrementViewHistoryFunc func(ctx context.Context, tagID domainTag.ID, viewedAt time.Time) error
+	getTrendingFunc          func(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]domainTag.TrendingTag, error)
+	getClickedFunc           func(ctx context.Context, days int, limit int) ([]domainTag.ClickedTag, error)
 	tags                     []domainTag.Tag
 	err                      error
 }
@@ -173,6 +175,20 @@ func (m *mockTagRepository) IncrementViewHistory(ctx context.Context, tagID doma
 		return m.incrementViewHistoryFunc(ctx, tagID, viewedAt)
 	}
 	return nil
+}
+
+func (m *mockTagRepository) GetTrending(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]domainTag.TrendingTag, error) {
+	if m.getTrendingFunc != nil {
+		return m.getTrendingFunc(ctx, hours, minBookmarkCount, limit)
+	}
+	return nil, nil
+}
+
+func (m *mockTagRepository) GetClicked(ctx context.Context, days int, limit int) ([]domainTag.ClickedTag, error) {
+	if m.getClickedFunc != nil {
+		return m.getClickedFunc(ctx, days, limit)
+	}
+	return nil, nil
 }
 
 // mockSearchHistoryRepository is a mock implementation of search history repository.

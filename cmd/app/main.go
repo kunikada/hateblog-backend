@@ -20,6 +20,7 @@ import (
 	"hateblog/internal/platform/metrics"
 	"hateblog/internal/platform/migration"
 	"hateblog/internal/platform/server"
+	usecaseAPIKey "hateblog/internal/usecase/api_key"
 	usecaseArchive "hateblog/internal/usecase/archive"
 	usecaseEntry "hateblog/internal/usecase/entry"
 	usecaseFavicon "hateblog/internal/usecase/favicon"
@@ -244,6 +245,10 @@ func run(ctx context.Context) error {
 	searchService := usecaseSearch.NewService(entryRepo, searchHistoryRepo, searchCache, log)
 	metricsService := usecaseMetrics.NewService(entryRepo, clickMetricsRepo)
 
+	// API Key service
+	apiKeyRepo := infraRedis.NewAPIKeyRepository(redisClient)
+	apiKeyService := usecaseAPIKey.NewService(apiKeyRepo, cfg.App.APIKeyPrefix)
+
 	apiBasePath := strings.TrimSpace(cfg.App.APIBasePath)
 	if apiBasePath == "" {
 		apiBasePath = "/"
@@ -272,6 +277,7 @@ func run(ctx context.Context) error {
 	tagHandler := handler.NewTagHandler(tagService, entryService, apiBasePath)
 	searchHandler := handler.NewSearchHandler(searchService, apiBasePath)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
+	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	faviconHandler := handler.NewFaviconHandler(faviconService)
 	healthHandler := &handler.HealthHandler{
 		DB:    db,
@@ -285,7 +291,7 @@ func run(ctx context.Context) error {
 		middlewares = append(middlewares, httpMetrics.Middleware)
 		promHandler = httpMetrics.Handler()
 		if cfg.App.APIKeyRequired {
-			promHandler = server.APIKeyAuth(cfg.App.MasterAPIKey, log)(promHandler)
+			promHandler = server.DynamicAPIKeyAuth(apiKeyRepo, log)(promHandler)
 		}
 	}
 	if cfg.App.RateLimitEnabled {
@@ -309,6 +315,27 @@ func run(ctx context.Context) error {
 			},
 		}))
 	}
+	if cfg.App.APIKeyRequired {
+		healthPath := apiBasePath + "/health"
+		if apiBasePath == "/" {
+			healthPath = "/health"
+		}
+		apiKeysPath := apiBasePath + "/api-keys"
+		if apiBasePath == "/" {
+			apiKeysPath = "/api-keys"
+		}
+		middlewares = append(middlewares, func(next http.Handler) http.Handler {
+			dynamicAuth := server.DynamicAPIKeyAuth(apiKeyRepo, log)
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Skip authentication for health and api-keys generation endpoints
+				if r.URL.Path == healthPath || r.URL.Path == apiKeysPath {
+					next.ServeHTTP(w, r)
+					return
+				}
+				dynamicAuth(next).ServeHTTP(w, r)
+			})
+		})
+	}
 
 	router := handler.NewRouter(handler.RouterConfig{
 		EntryHandler:      entryHandler,
@@ -317,6 +344,7 @@ func run(ctx context.Context) error {
 		TagHandler:        tagHandler,
 		SearchHandler:     searchHandler,
 		MetricsHandler:    metricsHandler,
+		APIKeyHandler:     apiKeyHandler,
 		FaviconHandler:    faviconHandler,
 		HealthHandler:     healthHandler,
 		APIBasePath:       apiBasePath,

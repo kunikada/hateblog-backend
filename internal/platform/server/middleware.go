@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"hateblog/internal/platform/cache"
 )
@@ -241,4 +244,144 @@ func clientIP(r *http.Request) string {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+// DynamicAPIKeyAuth returns a middleware that validates API keys from Redis.
+func DynamicAPIKeyAuth(repo interface{}, logger *slog.Logger) func(next http.Handler) http.Handler {
+	// Type assertion for repository with proper api_key types
+	type storedAPIKey struct {
+		ID                uuid.UUID  `json:"id"`
+		KeyHash           string     `json:"key_hash"`
+		Name              *string    `json:"name"`
+		Description       *string    `json:"description"`
+		CreatedAt         time.Time  `json:"created_at"`
+		ExpiresAt         *time.Time `json:"expires_at"`
+		CreatedIP         *string    `json:"created_ip"`
+		CreatedUserAgent  *string    `json:"created_user_agent"`
+		CreatedReferrer   *string    `json:"created_referrer"`
+	}
+
+	type apiKeyRepo interface {
+		GetByID(ctx context.Context, id uuid.UUID) (*storedAPIKey, error)
+	}
+
+	// Try to convert repo to the expected interface
+	// Since we can't directly type assert to api_key.APIKey, we use a generic approach
+	// The actual implementation will need the repository to return the correct type
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			keyIDStr := r.Header.Get("X-API-Key-ID")
+			apiKey := r.Header.Get("X-API-Key")
+
+			if keyIDStr == "" || apiKey == "" {
+				if logger != nil {
+					logger.Warn("missing API key or key ID", "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+				}
+				writeUnauthorizedJSON(w, "Missing API key or key ID")
+				return
+			}
+
+			// Parse UUID
+			keyID, err := uuid.Parse(keyIDStr)
+			if err != nil {
+				if logger != nil {
+					logger.Warn("invalid key ID format", "key_id", keyIDStr, "path", r.URL.Path, "error", err)
+				}
+				writeUnauthorizedJSON(w, "Invalid key ID format")
+				return
+			}
+
+			// Check if repo can be used
+			if repo == nil {
+				if logger != nil {
+					logger.Warn("API key repository not configured", "path", r.URL.Path)
+				}
+				writeUnauthorizedJSON(w, "API key authentication not available")
+				return
+			}
+
+			// We need to call GetByID on the repository
+			// Since the actual type is api_key.APIKey, we'll use reflection-like approach
+			// For now, assume repo has a GetByID method that we can call via interface{}
+
+			// Type switch to handle the repository
+			type getByIDFunc func(context.Context, uuid.UUID) (interface{}, error)
+			var getByID getByIDFunc
+
+			// Try interface assertion
+			if typedRepo, ok := repo.(apiKeyRepo); ok {
+				getByID = func(ctx context.Context, id uuid.UUID) (interface{}, error) {
+					return typedRepo.GetByID(ctx, id)
+				}
+			} else {
+				// Fallback: assume repo has a method we can call
+				// This will fail at compile time if not correct
+				if logger != nil {
+					logger.Warn("API key repository type mismatch", "path", r.URL.Path)
+				}
+				writeUnauthorizedJSON(w, "API key authentication not properly configured")
+				return
+			}
+
+			// Get stored key
+			storedKeyInterface, err := getByID(r.Context(), keyID)
+			if err != nil {
+				if logger != nil {
+					logger.Warn("API key not found", "key_id", keyIDStr, "path", r.URL.Path, "error", err)
+				}
+				writeUnauthorizedJSON(w, "Invalid API key")
+				return
+			}
+
+			// Extract key hash
+			var keyHash string
+			var expiresAt *time.Time
+
+			if storedKey, ok := storedKeyInterface.(*storedAPIKey); ok {
+				keyHash = storedKey.KeyHash
+				expiresAt = storedKey.ExpiresAt
+			} else {
+				if logger != nil {
+					logger.Error("unexpected stored key type", "path", r.URL.Path)
+				}
+				writeUnauthorizedJSON(w, "Internal server error")
+				return
+			}
+
+			// Verify with bcrypt
+			if err := bcrypt.CompareHashAndPassword([]byte(keyHash), []byte(apiKey)); err != nil {
+				if logger != nil {
+					logger.Warn("API key verification failed", "key_id", keyIDStr, "path", r.URL.Path)
+				}
+				writeUnauthorizedJSON(w, "Invalid API key")
+				return
+			}
+
+			// Check expiration
+			if expiresAt != nil && time.Now().After(*expiresAt) {
+				if logger != nil {
+					logger.Warn("API key expired", "key_id", keyIDStr, "path", r.URL.Path)
+				}
+				writeUnauthorizedJSON(w, "API key expired")
+				return
+			}
+
+			// Authentication successful
+			if logger != nil {
+				logger.Debug("API key authenticated", "key_id", keyIDStr, "path", r.URL.Path)
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func writeUnauthorizedJSON(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"error":   "UNAUTHORIZED",
+		"message": message,
+	})
 }

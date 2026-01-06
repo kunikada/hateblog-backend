@@ -110,12 +110,6 @@ generate:
 	oapi-codegen -config $(OPENAPI_CONFIG) $(OPENAPI_SPEC)
 	@echo "✓ Code generation complete"
 
-## generate-install: Install oapi-codegen tool
-generate-install:
-	@echo "==> Installing oapi-codegen..."
-	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-	@echo "✓ oapi-codegen installed"
-
 ## migrate-create: Create a new migration file (usage: make migrate-create name=create_users_table)
 migrate-create:
 	@if [ -z "$(name)" ]; then \
@@ -159,8 +153,8 @@ migrate-force:
 	migrate -path $(MIGRATE_DIR) -database "$$DB_URL" force $(version)
 	@echo "✓ Migration version forced"
 
-## ci: Run all CI checks (fmt, lint, test, security)
-ci: fmt lint test security
+## ci: Run all CI checks (fmt, lint, test, security, depguard)
+ci: fmt lint test security depguard
 	@echo "✓ All CI checks passed"
 
 ## dev: Setup development environment
@@ -179,7 +173,7 @@ dev: deps
 	go install github.com/haya14busa/goplay/cmd/goplay@latest
 	go install github.com/go-delve/delve/cmd/dlv@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	go install github.com/OpenPeeDeeP/depguard/cmd/depguard@latest
 	@echo "✓ Development environment ready"

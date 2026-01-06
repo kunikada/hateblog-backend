@@ -97,7 +97,7 @@ type AppConfig struct {
 	AllowedOrigins  []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
 	APIBasePath     string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
 	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
-	MasterAPIKey    string        `env:"APP_MASTER_API_KEY" envDefault:""`
+	APIKeyPrefix    string        `env:"API_KEY_PREFIX" envDefault:"hb_live_"`
 
 	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`
 	RateLimitWindow      time.Duration `env:"APP_RATE_LIMIT_WINDOW" envDefault:"1m"`
@@ -207,10 +207,6 @@ func (c *Config) Validate() error {
 			c.App.LogFormat)
 	}
 
-	// Validate API key requirement
-	if c.App.APIKeyRequired && c.App.MasterAPIKey == "" {
-		return fmt.Errorf("master API key is required when API key authentication is enabled")
-	}
 	if c.App.RateLimitEnabled {
 		if c.App.RateLimitWindow <= 0 {
 			return fmt.Errorf("rate limit window must be positive")

@@ -69,22 +69,15 @@ func TestLoad(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "API key required without master key",
+			name: "API key required with custom prefix",
 			envVars: map[string]string{
 				"APP_API_KEY_REQUIRED": "true",
-			},
-			wantErr: true,
-		},
-		{
-			name: "API key required with master key",
-			envVars: map[string]string{
-				"APP_API_KEY_REQUIRED": "true",
-				"APP_MASTER_API_KEY":   "test-key",
+				"API_KEY_PREFIX":       "custom_",
 			},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {
 				assert.True(t, cfg.App.APIKeyRequired)
-				assert.Equal(t, "test-key", cfg.App.MasterAPIKey)
+				assert.Equal(t, "custom_", cfg.App.APIKeyPrefix)
 			},
 		},
 	}

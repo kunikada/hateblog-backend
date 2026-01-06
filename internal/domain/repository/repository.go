@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"hateblog/internal/domain/api_key"
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/tag"
 )
@@ -43,6 +44,12 @@ type SearchHistoryRepository interface {
 // ClickMetricsRepository stores click counts per entry/date.
 type ClickMetricsRepository interface {
 	Increment(ctx context.Context, entryID entry.ID, clickedAt time.Time) error
+}
+
+// APIKeyRepository stores and retrieves API keys.
+type APIKeyRepository interface {
+	Store(ctx context.Context, apiKey *api_key.APIKey) error
+	GetByID(ctx context.Context, id api_key.ID) (*api_key.APIKey, error)
 }
 
 // ArchiveCount represents aggregated entry counts per day.

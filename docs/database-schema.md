@@ -16,9 +16,6 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `tag_view_history` - タグ閲覧数の日別集計
 - `search_history` - 検索キーワードの日別集計
 
-### 認証/管理データ
-- `api_keys` - API認証キー管理
-
 ---
 
 ## テーブル定義
@@ -186,51 +183,6 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - 全文検索（`GET /search?q={keyword}`）の実行回数を日別で集計
 - 人気検索キーワードの分析やサジェスト機能に利用可能
 - `ON CONFLICT (query, searched_at) DO UPDATE SET count = count + 1` で集計可能
-
----
-
-### api_keys
-
-API認証キーの管理テーブル。キーのハッシュ値と作成時のメタデータを保存。
-
-| カラム名 | データ型 | NULL | デフォルト | 説明 |
-|---------|---------|------|-----------|------|
-| id | UUID | NOT NULL | gen_random_uuid() | APIキーID（主キー） |
-| key_hash | TEXT | NOT NULL | - | APIキーのハッシュ値（bcryptまたはargon2） |
-| name | VARCHAR(100) | NULL | - | キーの名前（管理用） |
-| description | TEXT | NULL | - | キーの説明 |
-| created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時 |
-| expires_at | TIMESTAMP WITH TIME ZONE | NULL | - | 有効期限（NULLの場合は無期限） |
-| last_used_at | TIMESTAMP WITH TIME ZONE | NULL | - | 最終使用日時 |
-| is_active | BOOLEAN | NOT NULL | true | 有効/無効フラグ |
-| created_ip | INET | NULL | - | 作成時のIPアドレス |
-| created_user_agent | TEXT | NULL | - | 作成時のUser-Agent |
-| created_referrer | TEXT | NULL | - | 作成時のReferrer |
-
-**制約:**
-- PRIMARY KEY: `id`
-- UNIQUE: `key_hash`
-- CHECK: `expires_at IS NULL OR expires_at > created_at`
-
-**インデックス:**
-- `idx_api_keys_key_hash` - key_hash（ユニーク制約により自動作成）
-- `idx_api_keys_is_active` - is_active（有効なキーのフィルタリング用）
-- `idx_api_keys_expires_at` - expires_at（期限切れキーのクリーンアップ用）
-- `idx_api_keys_last_used_at` - last_used_at DESC（使用状況分析用）
-
-**備考:**
-- 生のAPIキーはDBに保存せず、ハッシュ値のみを保存（セキュリティ強化）
-- `key_hash` はbcryptまたはargon2でハッシュ化（比較的遅いアルゴリズムでブルートフォース対策）
-- 発行時に一度だけクライアントに生のキーを返し、以降は照合時にハッシュで検証
-- `is_active = false` で無効化（論理削除）
-- `expires_at` でキーの有効期限を設定可能（将来の拡張用）
-- `last_used_at` はAPI呼び出し時に非同期更新（パフォーマンス考慮）
-- 作成時のメタデータ（IP、UA、Referrer）は不正利用の追跡や分析に使用
-
-**API キーフォーマット:**
-- プレフィックス付き: `hb_live_` + ランダム文字列（32文字以上）
-- 例: `hb_live_1234567890abcdef1234567890abcdef`
-- プレフィックスで環境を区別可能（`hb_test_` / `hb_live_`）
 
 ---
 

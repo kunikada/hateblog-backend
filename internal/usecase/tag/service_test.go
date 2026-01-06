@@ -37,6 +37,14 @@ func (f *fakeRepo) IncrementViewHistory(ctx context.Context, tagID domainTag.ID,
 	return nil
 }
 
+func (f *fakeRepo) GetTrending(ctx context.Context, hours int, minBookmarkCount int, limit int) ([]domainTag.TrendingTag, error) {
+	return nil, nil
+}
+
+func (f *fakeRepo) GetClicked(ctx context.Context, days int, limit int) ([]domainTag.ClickedTag, error) {
+	return nil, nil
+}
+
 func TestGetByNameNormalizes(t *testing.T) {
 	repo := &fakeRepo{tag: domainTag.Tag{ID: uuid.New(), Name: "go"}}
 	svc := NewService(repo, nil)

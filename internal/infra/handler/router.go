@@ -15,6 +15,7 @@ type RouterConfig struct {
 	TagHandler     *TagHandler
 	SearchHandler  *SearchHandler
 	MetricsHandler *MetricsHandler
+	APIKeyHandler  *APIKeyHandler
 	FaviconHandler *FaviconHandler
 	HealthHandler  *HealthHandler
 
@@ -61,6 +62,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		}
 		if cfg.MetricsHandler != nil {
 			cfg.MetricsHandler.RegisterRoutes(api)
+		}
+		if cfg.APIKeyHandler != nil {
+			cfg.APIKeyHandler.RegisterRoutes(api)
 		}
 		if cfg.FaviconHandler != nil {
 			cfg.FaviconHandler.RegisterRoutes(api)
