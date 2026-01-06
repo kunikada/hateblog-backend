@@ -157,42 +157,6 @@ sudo certbot --nginx -d example.com
 sudo systemctl reload nginx
 ```
 
-## Backup
-
-### PostgreSQL Backup
-
-```bash
-# バックアップスクリプト作成
-cat > /opt/hateblog/backup.sh <<'EOF'
-#!/bin/bash
-BACKUP_DIR="/opt/hateblog/backups"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p $BACKUP_DIR
-
-# バックアップ実行
-docker compose exec -T postgres pg_dump -U hateblog hateblog | gzip > $BACKUP_DIR/backup_${TIMESTAMP}.sql.gz
-
-# 古いバックアップ削除（30日以上前）
-find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
-
-echo "Backup completed: backup_${TIMESTAMP}.sql.gz"
-EOF
-
-chmod +x /opt/hateblog/backup.sh
-
-# cron 設定（毎日午前3時）
-(crontab -l 2>/dev/null; echo "0 3 * * * cd /opt/hateblog && ./backup.sh >> /var/log/hateblog-backup.log 2>&1") | crontab -
-```
-
-### リストア手順
-
-```bash
-# バックアップから復元
-cd /opt/hateblog
-gunzip -c backups/backup_20250101_030000.sql.gz | docker compose exec -T postgres psql -U hateblog hateblog
-```
-
 ## Monitoring
 
 ### ログ確認
@@ -343,9 +307,7 @@ docker compose up -d --build
 ├── cmd/
 ├── internal/
 ├── go.mod
-├── go.sum
-├── backups/               # バックアップ保存先
-└── backup.sh              # バックアップスクリプト
+└── go.sum
 ```
 
 ## References
