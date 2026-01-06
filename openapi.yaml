@@ -793,19 +793,25 @@ components:
       in: header
       name: X-API-Key
       description: |
-        API認証キー。環境変数で設定されたキーと照合します。
-        ヘッダーに `X-API-Key: your-api-key` を含めてリクエストしてください。
+        API認証キー。データベースに登録されたキーと照合します。
+        ヘッダーに `X-API-Key-ID: your-api-key-id` と `X-API-Key: your-api-key` の両方を含めてリクエストしてください。
+
+        例:
+        ```
+        X-API-Key-ID: 9f8e7d6c-5b4a-3c2d-1e0f-123456789abc
+        X-API-Key: hb_live_1234567890abcdef1234567890abcdef
+        ```
 
   responses:
     UnauthorizedError:
-      description: 認証エラー - APIキーが無効または未提供
+      description: 認証エラー - APIキーまたはAPIキーIDが無効または未提供
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error: "UNAUTHORIZED"
-            message: "Invalid or missing API key"
+            message: "Missing API key or key ID"
 
   schemas:
     Entry:
