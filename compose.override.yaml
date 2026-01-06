@@ -22,7 +22,6 @@ services:
       - .:/workspace:cached
     working_dir: /workspace
     environment:
-      APP_ENV: development
       DB_SSLMODE: disable
       DB_MAX_CONNS: 25
       DB_MIN_CONNS: 5

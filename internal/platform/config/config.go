@@ -87,7 +87,6 @@ func (r RedisConfig) Address() string {
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
-	Environment     string        `env:"APP_ENV" envDefault:"development"`
 	LogLevel        string        `env:"APP_LOG_LEVEL" envDefault:"info"`
 	LogFormat       string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
 	CacheTTL        time.Duration `env:"APP_CACHE_TTL" envDefault:"1h"`
@@ -102,16 +101,6 @@ type AppConfig struct {
 	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`
 	RateLimitWindow      time.Duration `env:"APP_RATE_LIMIT_WINDOW" envDefault:"1m"`
 	RateLimitMaxRequests int           `env:"APP_RATE_LIMIT_MAX_REQUESTS" envDefault:"120"`
-}
-
-// IsDevelopment returns true if the environment is development
-func (a AppConfig) IsDevelopment() bool {
-	return a.Environment == "development"
-}
-
-// IsProduction returns true if the environment is production
-func (a AppConfig) IsProduction() bool {
-	return a.Environment == "production"
 }
 
 // ExternalConfig holds external API configuration
@@ -177,16 +166,6 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate app configuration
-	validEnvs := map[string]bool{
-		"development": true,
-		"staging":     true,
-		"production":  true,
-	}
-	if !validEnvs[c.App.Environment] {
-		return fmt.Errorf("invalid environment: %s (must be development, staging, or production)",
-			c.App.Environment)
-	}
-
 	validLogLevels := map[string]bool{
 		"debug": true,
 		"info":  true,

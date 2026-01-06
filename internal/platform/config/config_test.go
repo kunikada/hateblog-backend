@@ -25,7 +25,6 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, 8080, cfg.Server.Port)
 				assert.Equal(t, "localhost", cfg.Database.Host)
 				assert.Equal(t, 5432, cfg.Database.Port)
-				assert.Equal(t, "development", cfg.App.Environment)
 				assert.Equal(t, DefaultAPIBasePath, cfg.App.APIBasePath)
 			},
 		},
@@ -35,7 +34,6 @@ func TestLoad(t *testing.T) {
 				"SERVER_PORT":   "9000",
 				"DB_HOST":       "db.example.com",
 				"DB_PORT":       "5433",
-				"APP_ENV":       "production",
 				"APP_LOG_LEVEL": "debug",
 			},
 			wantErr: false,
@@ -43,7 +41,6 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, 9000, cfg.Server.Port)
 				assert.Equal(t, "db.example.com", cfg.Database.Host)
 				assert.Equal(t, 5433, cfg.Database.Port)
-				assert.Equal(t, "production", cfg.App.Environment)
 				assert.Equal(t, "debug", cfg.App.LogLevel)
 			},
 		},
@@ -51,13 +48,6 @@ func TestLoad(t *testing.T) {
 			name: "invalid port",
 			envVars: map[string]string{
 				"SERVER_PORT": "70000",
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid environment",
-			envVars: map[string]string{
-				"APP_ENV": "invalid",
 			},
 			wantErr: true,
 		},
@@ -120,7 +110,7 @@ func clearTestEnv() func() {
 		"DB_MAX_CONNS", "DB_MIN_CONNS", "DB_MAX_CONN_LIFETIME", "DB_MAX_CONN_IDLE_TIME", "DB_CONNECT_TIMEOUT",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB", "REDIS_MAX_RETRIES",
 		"REDIS_DIAL_TIMEOUT", "REDIS_READ_TIMEOUT", "REDIS_WRITE_TIMEOUT", "REDIS_POOL_SIZE", "REDIS_MIN_IDLE_CONNS",
-		"APP_ENV", "APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",
+		"APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",
 		"APP_ENABLE_METRICS", "APP_ENABLE_CORS", "APP_ALLOWED_ORIGINS", "APP_API_BASE_PATH",
 		"APP_API_KEY_REQUIRED", "APP_MASTER_API_KEY",
 	}
@@ -170,44 +160,6 @@ func TestRedisConfig_Address(t *testing.T) {
 	assert.Equal(t, "redis.example.com:6380", cfg.Address())
 }
 
-func TestAppConfig_IsDevelopment(t *testing.T) {
-	tests := []struct {
-		name        string
-		environment string
-		want        bool
-	}{
-		{"development", "development", true},
-		{"production", "production", false},
-		{"staging", "staging", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := AppConfig{Environment: tt.environment}
-			assert.Equal(t, tt.want, cfg.IsDevelopment())
-		})
-	}
-}
-
-func TestAppConfig_IsProduction(t *testing.T) {
-	tests := []struct {
-		name        string
-		environment string
-		want        bool
-	}{
-		{"development", "development", false},
-		{"production", "production", true},
-		{"staging", "staging", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := AppConfig{Environment: tt.environment}
-			assert.Equal(t, tt.want, cfg.IsProduction())
-		})
-	}
-}
-
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -232,7 +184,6 @@ func TestConfig_Validate(t *testing.T) {
 					DB:   0,
 				},
 				App: AppConfig{
-					Environment: "development",
 					LogLevel:    "info",
 					LogFormat:   "text",
 				},
@@ -252,7 +203,6 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Redis: RedisConfig{Host: "localhost"},
 				App: AppConfig{
-					Environment: "development",
 					LogLevel:    "info",
 					LogFormat:   "text",
 				},

@@ -84,7 +84,6 @@ cat > /opt/hateblog/.env <<'EOF'
 POSTGRES_PASSWORD=<strong-random-password>
 
 # Application
-APP_ENV=production
 APP_VERSION=1.0.0
 DB_SSLMODE=require
 LOG_LEVEL=info
