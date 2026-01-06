@@ -54,7 +54,11 @@ func runMigrate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
-	defer migrator.Close()
+	defer func() {
+		if err := migrator.Close(); err != nil {
+			log.Error("failed to close migrator", "error", err)
+		}
+	}()
 
 	switch args[0] {
 	case "up":
@@ -129,7 +133,11 @@ func healthcheck() error {
 	if err != nil {
 		return fmt.Errorf("failed to call health endpoint: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close healthcheck response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unhealthy status code: %d", resp.StatusCode)
@@ -198,7 +206,11 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
-	defer migrator.Close()
+	defer func() {
+		if err := migrator.Close(); err != nil {
+			log.Error("failed to close migrator", "error", err)
+		}
+	}()
 
 	if err := migrator.Up(); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)

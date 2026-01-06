@@ -13,28 +13,28 @@ type ID = uuid.UUID
 
 // APIKey represents an API key with its metadata.
 type APIKey struct {
-	ID                ID
-	KeyHash           string
-	Name              *string
-	Description       *string
-	CreatedAt         time.Time
-	ExpiresAt         *time.Time
-	CreatedIP         *string
-	CreatedUserAgent  *string
-	CreatedReferrer   *string
+	ID               ID
+	KeyHash          string
+	Name             *string
+	Description      *string
+	CreatedAt        time.Time
+	ExpiresAt        *time.Time
+	CreatedIP        *string
+	CreatedUserAgent *string
+	CreatedReferrer  *string
 }
 
 // Params contains parameters for creating an API key.
 type Params struct {
-	ID                ID
-	KeyHash           string
-	Name              *string
-	Description       *string
-	CreatedAt         time.Time
-	ExpiresAt         *time.Time
-	CreatedIP         *string
-	CreatedUserAgent  *string
-	CreatedReferrer   *string
+	ID               ID
+	KeyHash          string
+	Name             *string
+	Description      *string
+	CreatedAt        time.Time
+	ExpiresAt        *time.Time
+	CreatedIP        *string
+	CreatedUserAgent *string
+	CreatedReferrer  *string
 }
 
 var (
@@ -49,15 +49,15 @@ func New(params Params) (*APIKey, error) {
 	}
 
 	return &APIKey{
-		ID:                params.ID,
-		KeyHash:           params.KeyHash,
-		Name:              params.Name,
-		Description:       params.Description,
-		CreatedAt:         params.CreatedAt,
-		ExpiresAt:         params.ExpiresAt,
-		CreatedIP:         params.CreatedIP,
-		CreatedUserAgent:  params.CreatedUserAgent,
-		CreatedReferrer:   params.CreatedReferrer,
+		ID:               params.ID,
+		KeyHash:          params.KeyHash,
+		Name:             params.Name,
+		Description:      params.Description,
+		CreatedAt:        params.CreatedAt,
+		ExpiresAt:        params.ExpiresAt,
+		CreatedIP:        params.CreatedIP,
+		CreatedUserAgent: params.CreatedUserAgent,
+		CreatedReferrer:  params.CreatedReferrer,
 	}, nil
 }
 

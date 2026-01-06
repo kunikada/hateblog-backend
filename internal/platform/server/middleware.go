@@ -250,15 +250,15 @@ func clientIP(r *http.Request) string {
 func DynamicAPIKeyAuth(repo interface{}, logger *slog.Logger) func(next http.Handler) http.Handler {
 	// Type assertion for repository with proper api_key types
 	type storedAPIKey struct {
-		ID                uuid.UUID  `json:"id"`
-		KeyHash           string     `json:"key_hash"`
-		Name              *string    `json:"name"`
-		Description       *string    `json:"description"`
-		CreatedAt         time.Time  `json:"created_at"`
-		ExpiresAt         *time.Time `json:"expires_at"`
-		CreatedIP         *string    `json:"created_ip"`
-		CreatedUserAgent  *string    `json:"created_user_agent"`
-		CreatedReferrer   *string    `json:"created_referrer"`
+		ID               uuid.UUID  `json:"id"`
+		KeyHash          string     `json:"key_hash"`
+		Name             *string    `json:"name"`
+		Description      *string    `json:"description"`
+		CreatedAt        time.Time  `json:"created_at"`
+		ExpiresAt        *time.Time `json:"expires_at"`
+		CreatedIP        *string    `json:"created_ip"`
+		CreatedUserAgent *string    `json:"created_user_agent"`
+		CreatedReferrer  *string    `json:"created_referrer"`
 	}
 
 	type apiKeyRepo interface {

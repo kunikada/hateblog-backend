@@ -33,12 +33,12 @@ func NewService(repo repository.APIKeyRepository, keyPrefix string) *Service {
 
 // GenerateParams contains parameters for generating an API key.
 type GenerateParams struct {
-	Name         *string
-	Description  *string
-	ExpiresAt    *time.Time
-	CreatedIP    *string
-	CreatedUA    *string
-	CreatedRef   *string
+	Name        *string
+	Description *string
+	ExpiresAt   *time.Time
+	CreatedIP   *string
+	CreatedUA   *string
+	CreatedRef  *string
 }
 
 // GeneratedAPIKey represents a newly generated API key with its plaintext value.
@@ -81,15 +81,15 @@ func (s *Service) GenerateAPIKey(ctx context.Context, params GenerateParams) (*G
 
 	// Create domain API key
 	apiKey, err := api_key.New(api_key.Params{
-		ID:                id,
-		KeyHash:           string(hashedKey),
-		Name:              params.Name,
-		Description:       params.Description,
-		CreatedAt:         now,
-		ExpiresAt:         params.ExpiresAt,
-		CreatedIP:         params.CreatedIP,
-		CreatedUserAgent:  params.CreatedUA,
-		CreatedReferrer:   params.CreatedRef,
+		ID:               id,
+		KeyHash:          string(hashedKey),
+		Name:             params.Name,
+		Description:      params.Description,
+		CreatedAt:        now,
+		ExpiresAt:        params.ExpiresAt,
+		CreatedIP:        params.CreatedIP,
+		CreatedUserAgent: params.CreatedUA,
+		CreatedReferrer:  params.CreatedRef,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create api key domain object: %w", err)

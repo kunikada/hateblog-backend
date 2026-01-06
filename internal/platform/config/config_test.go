@@ -184,8 +184,8 @@ func TestConfig_Validate(t *testing.T) {
 					DB:   0,
 				},
 				App: AppConfig{
-					LogLevel:    "info",
-					LogFormat:   "text",
+					LogLevel:  "info",
+					LogFormat: "text",
 				},
 			},
 			wantErr: false,
@@ -203,8 +203,8 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Redis: RedisConfig{Host: "localhost"},
 				App: AppConfig{
-					LogLevel:    "info",
-					LogFormat:   "text",
+					LogLevel:  "info",
+					LogFormat: "text",
 				},
 			},
 			wantErr: true,
