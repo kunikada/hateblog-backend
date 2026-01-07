@@ -108,7 +108,7 @@ type AppConfig struct {
 // ExternalConfig holds external API configuration
 type ExternalConfig struct {
 	// Yahoo! Keyphrase Extraction API
-	YahooAPIKey string `env:"YAHOO_API_KEY" envDefault:""`
+	YahooAPIKey string `env:"YAHOO_APP_ID" envDefault:""`
 
 	// Google Favicon API settings
 	FaviconAPITimeout time.Duration `env:"FAVICON_API_TIMEOUT" envDefault:"3s"`

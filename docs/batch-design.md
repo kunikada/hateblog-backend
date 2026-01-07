@@ -27,7 +27,7 @@
 - 入力:
   - `HATENA_RSS_FEED_URLS`（`|`区切り）
   - `HATENA_API_TIMEOUT`
-  - `YAHOO_API_KEY`（タグ抽出を有効化する場合）
+  - `YAHOO_APP_ID`（タグ抽出を有効化する場合）
 - 出力:
   - `entries`（新規INSERT、重複はスキップ）
   - `tags` / `entry_tags`（タグ抽出を行う場合）

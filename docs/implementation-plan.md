@@ -315,7 +315,7 @@ hateblog バックエンドAPIの段階的な実装計画。
     - エントリーのタイトルと抜粋からキーフレーズを抽出
     - 上位3-5個のキーフレーズをタグとして登録
     - レート制限対応（リクエスト間隔の制御）
-    - [x] APIキーの環境変数管理（`YAHOO_API_KEY` - .env.example設定済み）
+    - [x] APIキーの環境変数管理（`YAHOO_APP_ID` - .env.example設定済み）
 - [ ] **ブックマーク件数更新スクリプト（複数バッチの並行実行）**（`cmd/updater/main.go`）
   - はてなブックマーク一括取得API: `https://bookmark.hatenaapis.com/count/entries?url=url1&url=url2&...`
   - 最大50URL/リクエストで効率的に取得
@@ -386,7 +386,7 @@ hateblog バックエンドAPIの段階的な実装計画。
   - 15分ごとに定期実行
 - [x] **タグ抽出**: Yahoo! キーフレーズ抽出API (`https://developer.yahoo.co.jp/webapi/jlp/keyphrase/v2/extract.html`)
   - タイトルと抜粋から上位3-5個のキーフレーズを抽出
-  - 環境変数 `YAHOO_API_KEY` でAPIキー管理
+  - 環境変数 `YAHOO_APP_ID` でAPIキー管理
 
 ## 未確定事項
 

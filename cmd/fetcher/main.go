@@ -32,7 +32,7 @@ func run() int {
 	var (
 		lockName          = flag.String("lock", "fetcher", "advisory lock name")
 		maxEntries        = flag.Int("max-entries", 300, "maximum number of unique entries to process per run")
-		noTags            = flag.Bool("no-tags", false, "disable Yahoo keyphrase tagging even when YAHOO_API_KEY is set")
+		noTags            = flag.Bool("no-tags", false, "disable Yahoo keyphrase tagging even when YAHOO_APP_ID is set")
 		tagTopN           = flag.Int("tag-top", 5, "max number of tags to attach per inserted entry")
 		yahooMinInterval  = flag.Duration("yahoo-interval", 200*time.Millisecond, "minimum interval between Yahoo API requests")
 		executionDeadline = flag.Duration("deadline", 5*time.Minute, "overall execution deadline")
