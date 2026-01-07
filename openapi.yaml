@@ -1219,12 +1219,6 @@ components:
           maxLength: 500
           description: キーの説明（オプション）
           example: "本番環境のフロントエンドアプリ用"
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: 有効期限（オプション、将来の拡張用）
-          example: "2026-12-31T23:59:59Z"
 
     ApiKeyResponse:
       type: object
@@ -1258,12 +1252,6 @@ components:
           format: date-time
           description: 作成日時
           example: "2025-01-05T10:00:00Z"
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: 有効期限
-          example: "2026-12-31T23:59:59Z"
 
     HealthResponse:
       type: object

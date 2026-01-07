@@ -21,20 +21,23 @@ func TestLoad(t *testing.T) {
 			envVars: map[string]string{},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {
+				assert.True(t, cfg.App.CacheEnabled)
 				assert.Equal(t, "0.0.0.0", cfg.Server.Host)
 				assert.Equal(t, 8080, cfg.Server.Port)
 				assert.Equal(t, "localhost", cfg.Database.Host)
 				assert.Equal(t, 5432, cfg.Database.Port)
 				assert.Equal(t, DefaultAPIBasePath, cfg.App.APIBasePath)
+				assert.Equal(t, time.Duration(0), cfg.App.APIKeyTTL)
 			},
 		},
 		{
 			name: "custom configuration",
 			envVars: map[string]string{
-				"SERVER_PORT":      "9000",
-				"POSTGRES_HOST":    "db.example.com",
-				"POSTGRES_PORT":    "5433",
-				"APP_LOG_LEVEL":    "debug",
+				"SERVER_PORT":     "9000",
+				"POSTGRES_HOST":   "db.example.com",
+				"POSTGRES_PORT":   "5433",
+				"APP_LOG_LEVEL":   "debug",
+				"APP_API_KEY_TTL": "30m",
 			},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {
@@ -42,6 +45,17 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, "db.example.com", cfg.Database.Host)
 				assert.Equal(t, 5433, cfg.Database.Port)
 				assert.Equal(t, "debug", cfg.App.LogLevel)
+				assert.Equal(t, 30*time.Minute, cfg.App.APIKeyTTL)
+			},
+		},
+		{
+			name: "cache disabled",
+			envVars: map[string]string{
+				"APP_CACHE_ENABLED": "false",
+			},
+			wantErr: false,
+			check: func(t *testing.T, cfg *Config) {
+				assert.False(t, cfg.App.CacheEnabled)
 			},
 		},
 		{
@@ -110,9 +124,9 @@ func clearTestEnv() func() {
 		"POSTGRES_MAX_CONNS", "POSTGRES_MIN_CONNS", "POSTGRES_MAX_CONN_LIFETIME", "POSTGRES_MAX_CONN_IDLE_TIME", "POSTGRES_CONNECT_TIMEOUT",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB", "REDIS_MAX_RETRIES",
 		"REDIS_DIAL_TIMEOUT", "REDIS_READ_TIMEOUT", "REDIS_WRITE_TIMEOUT", "REDIS_POOL_SIZE", "REDIS_MIN_IDLE_CONNS",
-		"APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",
+		"APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_CACHE_ENABLED", "APP_CACHE_TTL", "APP_FAVICON_CACHE_TTL",
 		"APP_ENABLE_METRICS", "APP_ENABLE_CORS", "APP_ALLOWED_ORIGINS", "APP_API_BASE_PATH",
-		"APP_API_KEY_REQUIRED", "APP_MASTER_API_KEY",
+		"APP_API_KEY_REQUIRED", "API_KEY_PREFIX", "APP_API_KEY_TTL", "APP_MASTER_API_KEY",
 	}
 	prev := make(map[string]string, len(keys))
 	for _, k := range keys {

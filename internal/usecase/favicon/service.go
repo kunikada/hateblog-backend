@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"log/slog"
+
+	"hateblog/internal/pkg/hostname"
 )
 
 // Fetcher retrieves favicons from external services.
@@ -55,18 +57,30 @@ func NewService(fetcher Fetcher, cache Cache, limiter Limiter, logger *slog.Logg
 
 // Fetch returns a favicon for the given domain, using cache when possible.
 func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, error) {
-	if s.fetcher == nil || s.cache == nil {
+	if s.fetcher == nil {
 		return nil, "", ErrNotInitialized
 	}
-	key, err := s.cache.BuildKey(domain)
-	if err != nil {
-		return nil, "", err
-	}
 
-	if data, contentType, ok, err := s.cache.Get(ctx, key); err == nil && ok {
-		return data, contentType, nil
-	} else if err != nil {
-		s.logDebug("favicon cache get failed", err)
+	var (
+		key string
+		err error
+	)
+
+	if s.cache != nil {
+		key, err = s.cache.BuildKey(domain)
+		if err != nil {
+			return nil, "", err
+		}
+
+		if data, contentType, ok, err := s.cache.Get(ctx, key); err == nil && ok {
+			return data, contentType, nil
+		} else if err != nil {
+			s.logDebug("favicon cache get failed", err)
+		}
+	} else {
+		if _, err := hostname.Normalize(domain); err != nil {
+			return nil, "", err
+		}
 	}
 
 	if s.limiter != nil {
@@ -83,8 +97,10 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, err
 		return s.fallback()
 	}
 
-	if err := s.cache.Set(ctx, key, data, contentType); err != nil {
-		s.logDebug("favicon cache set failed", err)
+	if s.cache != nil {
+		if err := s.cache.Set(ctx, key, data, contentType); err != nil {
+			s.logDebug("favicon cache set failed", err)
+		}
 	}
 
 	return data, contentType, nil

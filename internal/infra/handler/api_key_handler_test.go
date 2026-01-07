@@ -17,8 +17,6 @@ import (
 )
 
 func TestAPIKeyHandler_CreateAPIKey(t *testing.T) {
-	futureTime := time.Now().Add(24 * time.Hour)
-	pastTime := time.Now().Add(-1 * time.Hour)
 	longName := string(make([]byte, 101))
 	longDesc := string(make([]byte, 501))
 
@@ -52,16 +50,6 @@ func TestAPIKeyHandler_CreateAPIKey(t *testing.T) {
 			checkResp:  true,
 		},
 		{
-			name: "success with all fields",
-			body: createAPIKeyRequest{
-				Name:        stringPtr("Production API Key"),
-				Description: stringPtr("API key for production environment"),
-				ExpiresAt:   &futureTime,
-			},
-			wantStatus: http.StatusCreated,
-			checkResp:  true,
-		},
-		{
 			name: "error: name too long",
 			body: createAPIKeyRequest{
 				Name: &longName,
@@ -72,13 +60,6 @@ func TestAPIKeyHandler_CreateAPIKey(t *testing.T) {
 			name: "error: description too long",
 			body: createAPIKeyRequest{
 				Description: &longDesc,
-			},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name: "error: expires_at in the past",
-			body: createAPIKeyRequest{
-				ExpiresAt: &pastTime,
 			},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -100,7 +81,7 @@ func TestAPIKeyHandler_CreateAPIKey(t *testing.T) {
 				err: tt.mockError,
 			}
 			service := usecaseAPIKey.NewService(mockRepo, "test_")
-			handler := NewAPIKeyHandler(service)
+			handler := NewAPIKeyHandler(service, 0)
 
 			ts := newTestServer(RouterConfig{
 				APIKeyHandler: handler,
@@ -170,23 +151,13 @@ func TestAPIKeyHandler_CreateAPIKey(t *testing.T) {
 						t.Errorf("description = %q, want %q", *result.Description, *req.Description)
 					}
 				}
-				if req.ExpiresAt != nil && result.ExpiresAt != nil {
-					// Allow small time difference due to rounding
-					diff := req.ExpiresAt.Sub(*result.ExpiresAt)
-					if diff < 0 {
-						diff = -diff
-					}
-					if diff > time.Second {
-						t.Errorf("expires_at difference too large: %v", diff)
-					}
-				}
 			}
 		})
 	}
 }
 
 func TestAPIKeyHandler_NilService(t *testing.T) {
-	handler := NewAPIKeyHandler(nil)
+	handler := NewAPIKeyHandler(nil, 0)
 
 	ts := newTestServer(RouterConfig{
 		APIKeyHandler: handler,
@@ -216,7 +187,7 @@ func TestAPIKeyHandler_RepositoryError(t *testing.T) {
 		err: fmt.Errorf("redis connection error"),
 	}
 	service := usecaseAPIKey.NewService(mockRepo, "test_")
-	handler := NewAPIKeyHandler(service)
+	handler := NewAPIKeyHandler(service, 0)
 
 	ts := newTestServer(RouterConfig{
 		APIKeyHandler: handler,
@@ -244,7 +215,7 @@ func TestAPIKeyHandler_RepositoryError(t *testing.T) {
 func TestAPIKeyHandler_ResponseFormat(t *testing.T) {
 	mockRepo := &mockAPIKeyRepository{}
 	service := usecaseAPIKey.NewService(mockRepo, "hb_live_")
-	handler := NewAPIKeyHandler(service)
+	handler := NewAPIKeyHandler(service, 0)
 
 	router := NewRouter(RouterConfig{
 		APIKeyHandler: handler,
@@ -253,12 +224,10 @@ func TestAPIKeyHandler_ResponseFormat(t *testing.T) {
 
 	name := "Test Key"
 	desc := "Test description"
-	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
 	body, _ := json.Marshal(createAPIKeyRequest{
 		Name:        &name,
 		Description: &desc,
-		ExpiresAt:   &expiresAt,
 	})
 
 	req := httptest.NewRequest(http.MethodPost, apiPath("/api-keys"), bytes.NewReader(body))
@@ -307,16 +276,12 @@ func TestAPIKeyHandler_ResponseFormat(t *testing.T) {
 	if result.CreatedAt.IsZero() {
 		t.Error("created_at should be set")
 	}
-
-	if result.ExpiresAt == nil {
-		t.Error("expires_at should be set")
-	}
 }
 
 func TestAPIKeyHandler_MetadataExtraction(t *testing.T) {
 	mockRepo := &mockAPIKeyRepository{}
 	service := usecaseAPIKey.NewService(mockRepo, "test_")
-	handler := NewAPIKeyHandler(service)
+	handler := NewAPIKeyHandler(service, 0)
 
 	router := NewRouter(RouterConfig{
 		APIKeyHandler: handler,
@@ -353,6 +318,42 @@ func TestAPIKeyHandler_MetadataExtraction(t *testing.T) {
 	}
 	if mockRepo.storedKey.CreatedReferrer == nil {
 		t.Error("CreatedReferrer should be set")
+	}
+}
+
+func TestAPIKeyHandler_APIKeyTTL(t *testing.T) {
+	mockRepo := &mockAPIKeyRepository{}
+	service := usecaseAPIKey.NewService(mockRepo, "test_")
+	ttl := 2 * time.Hour
+	handler := NewAPIKeyHandler(service, ttl)
+
+	router := NewRouter(RouterConfig{
+		APIKeyHandler: handler,
+		APIBasePath:   testAPIBasePath,
+	})
+
+	body, _ := json.Marshal(createAPIKeyRequest{})
+
+	req := httptest.NewRequest(http.MethodPost, apiPath("/api-keys"), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+
+	if mockRepo.storedKey == nil {
+		t.Fatal("API key should have been stored")
+	}
+
+	if mockRepo.storedKey.ExpiresAt == nil {
+		t.Fatal("ExpiresAt should be set when TTL is configured")
+	}
+
+	if !mockRepo.storedKey.ExpiresAt.After(mockRepo.storedKey.CreatedAt) {
+		t.Error("ExpiresAt should be after CreatedAt")
 	}
 }
 

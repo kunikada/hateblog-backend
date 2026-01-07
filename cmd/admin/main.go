@@ -128,6 +128,10 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 	}
 	defer closeAll()
 
+	if !cfg.App.CacheEnabled {
+		return fmt.Errorf("cache is disabled (APP_CACHE_ENABLED=false)")
+	}
+
 	db, err := database.New(ctx, database.Config{
 		ConnectionString: cfg.Database.ConnectionString(),
 		MaxConns:         cfg.Database.MaxConns,

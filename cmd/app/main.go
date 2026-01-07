@@ -241,14 +241,29 @@ func run(ctx context.Context) error {
 	searchHistoryRepo := infraPostgres.NewSearchHistoryRepository(db.Pool)
 	clickMetricsRepo := infraPostgres.NewClickMetricsRepository(db.Pool)
 
-	dayEntriesCache := infraRedis.NewDayEntriesCache(redisClient)
-	tagEntriesCache := infraRedis.NewTagEntriesCache(redisClient)
-	searchCache := infraRedis.NewSearchCache(redisClient)
-	tagsListCache := infraRedis.NewTagsListCache(redisClient)
-	archiveCache := infraRedis.NewArchiveCache(redisClient)
-	yearlyRankingCache := infraRedis.NewYearlyRankingCache(redisClient)
-	monthlyRankingCache := infraRedis.NewMonthlyRankingCache(redisClient)
-	weeklyRankingCache := infraRedis.NewWeeklyRankingCache(redisClient)
+	var (
+		dayEntriesCache     *infraRedis.DayEntriesCache
+		tagEntriesCache     *infraRedis.TagEntriesCache
+		searchCache         *infraRedis.SearchCache
+		tagsListCache       *infraRedis.TagsListCache
+		archiveCache        *infraRedis.ArchiveCache
+		yearlyRankingCache  *infraRedis.YearlyRankingCache
+		monthlyRankingCache *infraRedis.MonthlyRankingCache
+		weeklyRankingCache  *infraRedis.WeeklyRankingCache
+		faviconCache        usecaseFavicon.Cache
+	)
+
+	if cfg.App.CacheEnabled {
+		dayEntriesCache = infraRedis.NewDayEntriesCache(redisClient)
+		tagEntriesCache = infraRedis.NewTagEntriesCache(redisClient)
+		searchCache = infraRedis.NewSearchCache(redisClient)
+		tagsListCache = infraRedis.NewTagsListCache(redisClient)
+		archiveCache = infraRedis.NewArchiveCache(redisClient)
+		yearlyRankingCache = infraRedis.NewYearlyRankingCache(redisClient)
+		monthlyRankingCache = infraRedis.NewMonthlyRankingCache(redisClient)
+		weeklyRankingCache = infraRedis.NewWeeklyRankingCache(redisClient)
+		faviconCache = infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
+	}
 
 	entryService := usecaseEntry.NewService(entryRepo, dayEntriesCache, tagEntriesCache, log)
 	archiveService := usecaseArchive.NewService(entryRepo, archiveCache)
@@ -273,7 +288,6 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	faviconCache := infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
 	faviconLimiter := infraRedis.NewFaviconRateLimiter(redisClient, cfg.External.FaviconRateLimit)
 	googleClient := infraGoogle.NewClient(infraGoogle.Config{
 		HTTPClient: &http.Client{
@@ -289,7 +303,7 @@ func run(ctx context.Context) error {
 	tagHandler := handler.NewTagHandler(tagService, entryService, apiBasePath)
 	searchHandler := handler.NewSearchHandler(searchService, apiBasePath)
 	metricsHandler := handler.NewMetricsHandler(metricsService)
-	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
+	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService, cfg.App.APIKeyTTL)
 	faviconHandler := handler.NewFaviconHandler(faviconService)
 	healthHandler := &handler.HealthHandler{
 		DB:    db,

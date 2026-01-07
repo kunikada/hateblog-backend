@@ -14,12 +14,16 @@ import (
 
 // APIKeyHandler handles /api-keys endpoints.
 type APIKeyHandler struct {
-	service *usecaseAPIKey.Service
+	service   *usecaseAPIKey.Service
+	apiKeyTTL time.Duration
 }
 
 // NewAPIKeyHandler creates an APIKeyHandler.
-func NewAPIKeyHandler(service *usecaseAPIKey.Service) *APIKeyHandler {
-	return &APIKeyHandler{service: service}
+func NewAPIKeyHandler(service *usecaseAPIKey.Service, apiKeyTTL time.Duration) *APIKeyHandler {
+	return &APIKeyHandler{
+		service:   service,
+		apiKeyTTL: apiKeyTTL,
+	}
 }
 
 // RegisterRoutes wires API key routes.
@@ -50,22 +54,22 @@ func (h *APIKeyHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Validate expires_at is not in the past
-	if req.ExpiresAt != nil && req.ExpiresAt.Before(time.Now()) {
-		writeError(w, http.StatusBadRequest, errors.New("expires_at must be in the future"))
-		return
-	}
-
 	// Extract metadata from request
 	ip := extractIP(r.RemoteAddr)
 	userAgent := r.UserAgent()
 	referrer := r.Referer()
 
+	var expiresAt *time.Time
+	if h.apiKeyTTL > 0 {
+		expiry := time.Now().UTC().Add(h.apiKeyTTL)
+		expiresAt = &expiry
+	}
+
 	// Generate API key
 	generated, err := h.service.GenerateAPIKey(r.Context(), usecaseAPIKey.GenerateParams{
 		Name:        req.Name,
 		Description: req.Description,
-		ExpiresAt:   req.ExpiresAt,
+		ExpiresAt:   expiresAt,
 		CreatedIP:   &ip,
 		CreatedUA:   &userAgent,
 		CreatedRef:  &referrer,
@@ -82,7 +86,6 @@ func (h *APIKeyHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Reques
 		Name:        generated.Name,
 		Description: generated.Description,
 		CreatedAt:   generated.CreatedAt,
-		ExpiresAt:   generated.ExpiresAt,
 	})
 }
 
@@ -95,16 +98,14 @@ func extractIP(remoteAddr string) string {
 }
 
 type createAPIKeyRequest struct {
-	Name        *string    `json:"name"`
-	Description *string    `json:"description"`
-	ExpiresAt   *time.Time `json:"expires_at"`
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
 }
 
 type apiKeyResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	Key         string     `json:"key"`
-	Name        *string    `json:"name,omitempty"`
-	Description *string    `json:"description,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	ID          uuid.UUID `json:"id"`
+	Key         string    `json:"key"`
+	Name        *string   `json:"name,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
