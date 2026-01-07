@@ -242,14 +242,14 @@ func run(ctx context.Context) error {
 	clickMetricsRepo := infraPostgres.NewClickMetricsRepository(db.Pool)
 
 	var (
-		dayEntriesCache     *infraRedis.DayEntriesCache
-		tagEntriesCache     *infraRedis.TagEntriesCache
-		searchCache         *infraRedis.SearchCache
-		tagsListCache       *infraRedis.TagsListCache
-		archiveCache        *infraRedis.ArchiveCache
-		yearlyRankingCache  *infraRedis.YearlyRankingCache
-		monthlyRankingCache *infraRedis.MonthlyRankingCache
-		weeklyRankingCache  *infraRedis.WeeklyRankingCache
+		dayEntriesCache     usecaseEntry.DayEntriesCache
+		tagEntriesCache     usecaseEntry.TagEntriesCache
+		searchCache         usecaseSearch.ResultCache
+		tagsListCache       usecaseTag.ListCache
+		archiveCache        usecaseArchive.Cache
+		yearlyRankingCache  usecaseRanking.CacheYearly
+		monthlyRankingCache usecaseRanking.CacheMonthly
+		weeklyRankingCache  usecaseRanking.CacheWeekly
 		faviconCache        usecaseFavicon.Cache
 	)
 
