@@ -29,6 +29,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o app \
     ./cmd/app
 
+# Build batch tools
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o fetcher \
+    ./cmd/fetcher
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o updater \
+    ./cmd/updater
+
 # Runtime stage - using distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:nonroot
 
@@ -38,6 +49,8 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary
 COPY --from=builder /build/app /app
+COPY --from=builder /build/fetcher /fetcher
+COPY --from=builder /build/updater /updater
 
 # Copy migrations
 COPY --from=builder /build/migrations /migrations

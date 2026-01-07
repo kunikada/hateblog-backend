@@ -18,9 +18,9 @@ docker compose exec app sh
 
 ## ドキュメント
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 技術アーキテクチャ
+- [architecture.md](docs/architecture.md) - 技術アーキテクチャ
 - [CONTRIBUTING.md](CONTRIBUTING.md) - 開発ガイドライン
-- [DEPLOYMENT.md](docs/DEPLOYMENT.md) - デプロイ手順
+- [deployment.md](docs/deployment.md) - デプロイ手順
 - [features.md](docs/features.md) - 機能一覧
 - [tech-requirements.md](docs/tech-requirements.md) - 技術要件
 

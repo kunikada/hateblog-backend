@@ -8,7 +8,7 @@
 
 ## 前提
 
-- アプリ設定は環境変数（`.env.example`）で注入する
+- アプリ設定は環境変数（`.env`）で注入する
 - RSS/ブックマーク件数API/YahooキーフレーズAPIは `internal/infra/external/*` を利用する（バッチ側から呼び出す）
 - favicon はDBに保存しない（必要時にFaviconプロキシ/APIで取得）
 

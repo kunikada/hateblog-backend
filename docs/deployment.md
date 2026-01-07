@@ -226,7 +226,152 @@ docker compose exec app /app migrate up
 docker compose exec app /app migrate down 1
 ```
 
-## Security Checklist
+## Batch Jobs（Cron運用）
+
+フィード取得やブックマーク件数の定期更新は、ホスト側の cron で実行します。
+
+### 前提条件
+
+- Docker Compose が起動している状態
+- `.env` ファイルが `/opt/hateblog/.env` に存在
+- `docker compose` コマンドが実行可能
+
+### セットアップ
+
+ホスト側に crontab エントリを追加します：
+
+```bash
+# crontab -e で編集
+crontab -e
+```
+
+以下を追加：
+
+```crontab
+# Hateblog batch jobs
+# 環境はホストのシェル環境を使用
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HATEBLOG_DIR=/opt/hateblog
+
+# Fetcher: 15分ごとに新規エントリーを取得
+*/15 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /fetcher >> /var/log/hateblog/fetcher.log 2>&1
+
+# Updater - High priority: 5分ごとに高優先度エントリーの件数を更新
+*/5 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier high >> /var/log/hateblog/updater-high.log 2>&1
+
+# Updater - Medium priority: 30分ごと
+*/30 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier medium >> /var/log/hateblog/updater-medium.log 2>&1
+
+# Updater - Low priority: 毎時0分
+0 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier low >> /var/log/hateblog/updater-low.log 2>&1
+
+# Updater - Round: 毎日02:00 に全エントリーを循環更新
+0 2 * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier round >> /var/log/hateblog/updater-round.log 2>&1
+```
+
+### ログディレクトリの作成
+
+```bash
+sudo mkdir -p /var/log/hateblog
+sudo chown $(whoami):$(whoami) /var/log/hateblog
+chmod 755 /var/log/hateblog
+```
+
+### ログローテーション
+
+`/etc/logrotate.d/hateblog` を作成：
+
+```bash
+sudo tee /etc/logrotate.d/hateblog <<'EOF'
+/var/log/hateblog/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+}
+EOF
+```
+
+### 同時実行の制御
+
+各バッチはデータベース advisory lock を使用して同時実行を防止します（複数サーバー対応）。
+ロック取得に失敗した場合、ジョブは自動的にスキップされます。
+
+**ロック動作：**
+- ロック取得成功 → ジョブ実行、終了コード 0
+- ロック取得失敗 → スキップ、終了コード 0、ログに "lock not acquired; skip" と出力
+
+### cron 実行確認
+
+```bash
+# cron ログを確認
+grep CRON /var/log/syslog | tail -20
+
+# または journalctl で確認
+sudo journalctl -u cron --tail=20
+
+# ジョブ実行ログ
+tail -f /var/log/hateblog/fetcher.log
+```
+
+### フラグ設定
+
+各ジョブの動作はフラグで制御可能：
+
+**fetcher:**
+- `--lock <name>` : advisory lock 名（デフォルト: fetcher）
+- `--max-entries <n>` : 1回の実行で処理する最大エントリー数（デフォルト: 300）
+- `--no-tags` : タグ抽出を無効化
+- `--tag-top <n>` : 1エントリーあたりのタグ上限数（デフォルト: 5）
+- `--deadline <duration>` : 実行タイムアウト（デフォルト: 5m）
+
+**updater:**
+- `--tier <tier>` : 更新優先度 (high|medium|low|round) - 必須
+- `--lock <name>` : advisory lock 名（デフォルト: updater-<tier>）
+- `--limit <n>` : 1回の実行で更新する最大エントリー数（デフォルト: 50）
+- `--deadline <duration>` : 実行タイムアウト（デフォルト: 3m）
+
+例：
+
+```bash
+# fetcher の タグ抽出を無効化、タイムアウト 10分
+docker compose exec -T app /fetcher --no-tags --deadline 10m
+
+# updater でタイムアウトを短縮
+docker compose exec -T app /updater --tier high --deadline 2m
+```
+
+### トラブルシューティング
+
+**ジョブが実行されない**
+
+```bash
+# cron デーモンが動作しているか確認
+sudo systemctl status cron
+
+# または
+sudo systemctl restart cron
+
+# ジョブログで lock 関連のエラーを確認
+grep "lock" /var/log/hateblog/*.log
+```
+
+**外部API タイムアウト**
+
+- `HATENA_API_TIMEOUT` を調整（デフォルト: 10s）
+- `YAHOO_API_KEY` が設定されている場合、キー抽出がタイムアウト→ログに記録→再実行で自動回復
+
+**ジョブ実行ログが見つからない**
+
+- crontab で SHELL 環境変数を明示（bash を推奨）
+- PATH を明示的に設定
+- ディレクトリ変更 (`cd $HATEBLOG_DIR`) を明示
+
+
 
 - [ ] 強力なパスワード設定（`.env` ファイル）
 - [ ] `.env` ファイルのパーミッション（600）
