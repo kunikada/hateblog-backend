@@ -53,6 +53,13 @@ func run() int {
 		Format: platformLogger.Format(cfg.App.LogFormat),
 	})
 	platformLogger.SetDefault(log)
+	startedAt := time.Now()
+	log.Info("fetcher started", "max_entries", *maxEntries, "deadline", *executionDeadline)
+	defer func() {
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Error("fetcher deadline exceeded", "elapsed", time.Since(startedAt), "err", ctx.Err())
+		}
+	}()
 
 	db, err := database.New(ctx, database.Config{
 		ConnectionString: cfg.Database.ConnectionString(),
@@ -161,7 +168,7 @@ func run() int {
 		}
 	}
 
-	log.Info("fetcher finished", "inserted", inserted, "skipped", skipped, "tagged", tagged)
+	log.Info("fetcher finished", "inserted", inserted, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
 	return 0
 }
 

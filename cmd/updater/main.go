@@ -53,6 +53,13 @@ func run() int {
 		Format: platformLogger.Format(cfg.App.LogFormat),
 	})
 	platformLogger.SetDefault(log)
+	startedAt := time.Now()
+	log.Info("updater started", "tier", *tier, "limit", *limit, "deadline", *executionDeadline)
+	defer func() {
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Error("updater deadline exceeded", "elapsed", time.Since(startedAt), "err", ctx.Err())
+		}
+	}()
 
 	db, err := database.New(ctx, database.Config{
 		ConnectionString: cfg.Database.ConnectionString(),
@@ -118,7 +125,7 @@ func run() int {
 		return 1
 	}
 
-	log.Info("updater finished", "tier", *tier, "targets", len(urls), "updated", updated, "missing", missing)
+	log.Info("updater finished", "tier", *tier, "targets", len(urls), "updated", updated, "missing", missing, "elapsed", time.Since(startedAt))
 	return 0
 }
 
