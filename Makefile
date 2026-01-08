@@ -161,8 +161,8 @@ migrate-force:
 	migrate -path $(MIGRATE_DIR) -database "$$DB_URL" force $(version)
 	@echo "✓ Migration version forced"
 
-## ci: Run all CI checks (fmt, lint, test, security, depguard)
-ci: fmt lint test security depguard
+## ci: Run all CI checks (fmt, lint, depguard, test, security)
+ci: fmt lint depguard test security
 	@echo "✓ All CI checks passed"
 
 ## dev: Setup development environment
