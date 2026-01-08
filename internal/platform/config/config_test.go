@@ -76,7 +76,7 @@ func TestLoad(t *testing.T) {
 			name: "API key required with custom prefix",
 			envVars: map[string]string{
 				"APP_API_KEY_REQUIRED": "true",
-				"API_KEY_PREFIX":       "custom_",
+				"APP_API_KEY_PREFIX":   "custom_",
 			},
 			wantErr: false,
 			check: func(t *testing.T, cfg *Config) {

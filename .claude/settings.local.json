@@ -21,7 +21,9 @@
       "Bash(go build:*)",
       "Bash(go run:*)",
       "Bash(timeout 5 go run:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(make test:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

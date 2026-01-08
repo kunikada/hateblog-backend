@@ -60,12 +60,12 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 
 // applyTestMigrations runs the schema migrations from the migrations directory.
 func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	// Check if migrations already applied by looking for tables
+	// Check if migrations already applied by looking for the latest table
 	var count int
 	err := pool.QueryRow(ctx, `
 		SELECT COUNT(*)
 		FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name = 'entries'
+		WHERE table_schema = 'public' AND table_name = 'archive_counts'
 	`).Scan(&count)
 	if err == nil && count > 0 {
 		// Migrations already applied
@@ -95,10 +95,10 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		filepath.Join(migrationsDir, "000004_create_click_metrics.up.sql"),
 		filepath.Join(migrationsDir, "000005_create_tag_view_history.up.sql"),
 		filepath.Join(migrationsDir, "000006_create_search_history.up.sql"),
-		filepath.Join(migrationsDir, "000007_create_api_keys.up.sql"),
 		filepath.Join(migrationsDir, "000008_enable_pg_bigm.up.sql"),
 		filepath.Join(migrationsDir, "000009_create_fulltext_indexes.up.sql"),
 		filepath.Join(migrationsDir, "000010_create_tags_fulltext_indexes.up.sql"),
+		filepath.Join(migrationsDir, "000011_create_entries_url_fulltext_index.up.sql"),
 		filepath.Join(migrationsDir, "000012_create_archive_counts.up.sql"),
 	}
 	for _, file := range files {
