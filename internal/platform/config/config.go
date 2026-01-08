@@ -94,11 +94,8 @@ type AppConfig struct {
 	LogFormat       string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
 	TimeZone        string        `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
 	CacheEnabled    bool          `env:"APP_CACHE_ENABLED" envDefault:"true"`
-	CacheTTL        time.Duration `env:"APP_CACHE_TTL" envDefault:"1h"`
 	FaviconCacheTTL time.Duration `env:"APP_FAVICON_CACHE_TTL" envDefault:"168h"` // 7 days
 	EnableMetrics   bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
-	EnableCORS      bool          `env:"APP_ENABLE_CORS" envDefault:"true"`
-	AllowedOrigins  []string      `env:"APP_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
 	APIBasePath     string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
 	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
 	APIKeyPrefix    string        `env:"API_KEY_PREFIX" envDefault:"hb_live_"`
