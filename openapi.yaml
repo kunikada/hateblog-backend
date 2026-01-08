@@ -577,7 +577,7 @@ paths:
         - search
       summary: キーワード検索
       description: |
-        エントリーのタイトル・抜粋・タグをキーワード検索します。
+        エントリーのタイトル・抜粋・URLをキーワード検索します。
         全文検索（pg_bigm）を使用します。
       operationId: searchEntries
       parameters:

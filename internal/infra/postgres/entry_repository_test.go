@@ -316,7 +316,10 @@ func TestEntryRepository_List(t *testing.T) {
 		cleanupTables(t, pool)
 
 		e1 := testEntry(func(e *domainEntry.Entry) {
-			e.Title = "Learning Golang"
+			e.Title = "Learning Go"
+			e.Excerpt = "Go basics"
+			e.Subject = "intro"
+			e.URL = "https://example.com/golang/intro"
 		})
 		e2 := testEntry(func(e *domainEntry.Entry) {
 			e.Title = "Python Tutorial"

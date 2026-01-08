@@ -361,15 +361,10 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 		conditions = append(conditions, fmt.Sprintf(`(
 			title ILIKE $%d OR
 			excerpt ILIKE $%d OR
-			subject ILIKE $%d OR
-			EXISTS (
-				SELECT 1 FROM entry_tags et
-				INNER JOIN tags t ON t.id = et.tag_id
-				WHERE et.entry_id = e.id AND t.name ILIKE $%d
-			)
-		)`, argPos, argPos+1, argPos+2, argPos+3))
-		args = append(args, pattern, pattern, pattern, pattern)
-		argPos += 4
+			url ILIKE $%d
+		)`, argPos, argPos+1, argPos+2))
+		args = append(args, pattern, pattern, pattern)
+		argPos += 3
 	}
 
 	if len(conditions) > 0 {
@@ -439,15 +434,10 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 		conditions = append(conditions, fmt.Sprintf(`(
 			title ILIKE $%d OR
 			excerpt ILIKE $%d OR
-			subject ILIKE $%d OR
-			EXISTS (
-				SELECT 1 FROM entry_tags et
-				INNER JOIN tags t ON t.id = et.tag_id
-				WHERE et.entry_id = e.id AND t.name ILIKE $%d
-			)
-		)`, argPos, argPos+1, argPos+2, argPos+3))
-		args = append(args, pattern, pattern, pattern, pattern)
-		argPos += 4
+			url ILIKE $%d
+		)`, argPos, argPos+1, argPos+2))
+		args = append(args, pattern, pattern, pattern)
+		argPos += 3
 	}
 
 	if len(conditions) > 0 {
