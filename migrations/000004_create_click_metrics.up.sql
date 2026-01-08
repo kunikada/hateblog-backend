@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS click_metrics (
 
 -- Create indexes
 CREATE INDEX idx_click_metrics_clicked_at ON click_metrics (clicked_at DESC);
+CREATE INDEX idx_click_metrics_clicked_entry ON click_metrics (clicked_at, entry_id);
 
 -- Add comment
 COMMENT ON TABLE click_metrics IS 'エントリーへのクリック数の日別集計テーブル';

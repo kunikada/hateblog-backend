@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS entry_tags (
 );
 
 -- Create indexes
-CREATE INDEX idx_entry_tags_tag_id ON entry_tags (tag_id);
+CREATE INDEX idx_entry_tags_tag_entry ON entry_tags (tag_id, entry_id);
 CREATE INDEX idx_entry_tags_score ON entry_tags (entry_id, score DESC);
 
 -- Add comment

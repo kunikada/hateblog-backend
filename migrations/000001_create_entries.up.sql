@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS entries (
 CREATE INDEX idx_entries_posted_at ON entries (posted_at DESC);
 CREATE INDEX idx_entries_bookmark_count ON entries (bookmark_count DESC, posted_at DESC);
 CREATE INDEX idx_entries_created_at ON entries (created_at);
+CREATE INDEX idx_entries_updated_at ON entries (updated_at);
 
 -- Add comment
 COMMENT ON TABLE entries IS 'はてなブックマークのエントリー情報を格納するメインテーブル';
