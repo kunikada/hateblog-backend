@@ -8,18 +8,20 @@ RUN set -eux; \
     build-essential \
     postgresql-server-dev-18 \
     ca-certificates \
-    curl; \
+    curl \
+    locales; \
     curl -fL https://github.com/pgbigm/pg_bigm/archive/refs/tags/v1.2-20250903.tar.gz -o /tmp/pg_bigm.tar.gz; \
     tar -xf /tmp/pg_bigm.tar.gz -C /tmp; \
     pg_bigm_dir="$(find /tmp -maxdepth 1 -type d -name 'pg_bigm-*' | head -n 1)"; \
     if [ -z "$pg_bigm_dir" ]; then \
-        echo "pg_bigm source directory not found under /tmp" >&2; \
-        exit 1; \
+    echo "pg_bigm source directory not found under /tmp" >&2; \
+    exit 1; \
     fi; \
     cd "$pg_bigm_dir" && make USE_PGXS=1 && make USE_PGXS=1 install; \
+    locale-gen ja_JP.UTF-8; \
     apt-get purge -y --auto-remove build-essential; \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Set locale to support UTF-8
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+# Set locale for Japanese support
+ENV LANG=ja_JP.UTF-8
+ENV LC_ALL=ja_JP.UTF-8

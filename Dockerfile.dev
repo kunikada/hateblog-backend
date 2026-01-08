@@ -5,10 +5,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     git \
+    locales \
     make \
     postgresql-client \
     sudo \
     tzdata && \
+    locale-gen ja_JP.UTF-8 && \
+    update-locale LANG=ja_JP.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for VS Code devcontainer
