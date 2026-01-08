@@ -99,6 +99,7 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		filepath.Join(migrationsDir, "000008_enable_pg_bigm.up.sql"),
 		filepath.Join(migrationsDir, "000009_create_fulltext_indexes.up.sql"),
 		filepath.Join(migrationsDir, "000010_create_tags_fulltext_indexes.up.sql"),
+		filepath.Join(migrationsDir, "000012_create_archive_counts.up.sql"),
 	}
 	for _, file := range files {
 		if err := executeSQLFile(ctx, pool, file); err != nil {
@@ -161,6 +162,7 @@ func cleanupTables(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
 
 	tables := []string{
+		"archive_counts",
 		"entry_tags",
 		"tag_view_history",
 		"entries",
@@ -170,6 +172,26 @@ func cleanupTables(t *testing.T, pool *pgxpool.Pool) {
 	for _, table := range tables {
 		_, err := pool.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table))
 		require.NoError(t, err, "failed to cleanup table %s", table)
+	}
+}
+
+// refreshArchiveCounts rebuilds archive_counts from entries for tests.
+func refreshArchiveCounts(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, "TRUNCATE TABLE archive_counts"); err != nil {
+		require.NoError(t, err, "failed to truncate archive_counts")
+	}
+
+	const query = `
+INSERT INTO archive_counts (day, bookmark_count, count)
+SELECT DATE(posted_at) AS day, bookmark_count, COUNT(1)
+FROM entries
+GROUP BY day, bookmark_count`
+	if _, err := pool.Exec(ctx, query); err != nil {
+		require.NoError(t, err, "failed to rebuild archive_counts")
 	}
 }
 

@@ -186,6 +186,12 @@ func run() int {
 		}
 	}
 
+	today := timeutil.DateInLocation(timeutil.Now())
+	if err := refreshArchiveCountsForDay(ctx, db.Pool, today); err != nil {
+		log.Error("refresh archive counts failed", "day", today.Format("2006-01-02"), "err", err)
+		return 1
+	}
+
 	log.Info("fetcher finished", "inserted", inserted, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
 	return 0
 }
@@ -291,6 +297,41 @@ RETURNING id`
 		return uuid.Nil, false, err
 	}
 	return entryID, true, nil
+}
+
+func refreshArchiveCountsForDay(ctx context.Context, pool *pgxpool.Pool, day time.Time) error {
+	if pool == nil {
+		return fmt.Errorf("pool is nil")
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	const deleteQuery = `
+DELETE FROM archive_counts
+WHERE day = $1`
+	if _, err = tx.Exec(ctx, deleteQuery, day); err != nil {
+		return err
+	}
+
+	const insertQuery = `
+INSERT INTO archive_counts (day, bookmark_count, count)
+SELECT DATE(posted_at) AS day, bookmark_count, COUNT(1)
+FROM entries
+WHERE DATE(posted_at) = $1
+GROUP BY day, bookmark_count`
+	if _, err = tx.Exec(ctx, insertQuery, day); err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctx)
+	return err
 }
 
 func nullableText(s string) any {

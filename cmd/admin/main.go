@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
 	"hateblog/internal/pkg/timeutil"
@@ -41,6 +43,8 @@ func run(ctx context.Context, args []string) error {
 	switch args[1] {
 	case "cache":
 		return runCache(ctx, args[2:])
+	case "archive":
+		return runArchive(ctx, args[2:])
 	default:
 		printUsage()
 		return fmt.Errorf("unknown command: %s", args[1])
@@ -51,6 +55,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  admin cache purge --pattern 'hateblog:entries:*' --yes")
 	fmt.Fprintln(os.Stderr, "  admin cache warmup --dates 20250105,20250106 --tags go,web --yearly 2024,2025 --min-users 5,10,50")
+	fmt.Fprintln(os.Stderr, "  admin archive rebuild --yes")
 }
 
 func runCache(ctx context.Context, args []string) error {
@@ -67,6 +72,79 @@ func runCache(ctx context.Context, args []string) error {
 		printUsage()
 		return fmt.Errorf("unknown cache subcommand: %s", args[0])
 	}
+}
+
+func runArchive(ctx context.Context, args []string) error {
+	if len(args) < 1 {
+		printUsage()
+		return fmt.Errorf("missing archive subcommand")
+	}
+	switch args[0] {
+	case "rebuild":
+		return runArchiveRebuild(ctx, args[1:])
+	default:
+		printUsage()
+		return fmt.Errorf("unknown archive subcommand: %s", args[0])
+	}
+}
+
+func runArchiveRebuild(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("archive rebuild", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	yes := fs.Bool("yes", false, "required confirmation")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if !*yes {
+		return fmt.Errorf("--yes is required")
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+		return fmt.Errorf("load timezone: %w", err)
+	}
+
+	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
+	if err != nil {
+		return fmt.Errorf("init sentry: %w", err)
+	}
+	if sentryEnabled {
+		defer telemetry.Flush(2 * time.Second)
+		defer telemetry.Recover()
+	}
+
+	log := logger.New(logger.Config{
+		Level:  logger.Level(cfg.App.LogLevel),
+		Format: logger.Format(cfg.App.LogFormat),
+	})
+	if sentryEnabled {
+		log = logger.WrapWithSentry(log)
+	}
+	logger.SetDefault(log)
+
+	db, err := database.New(ctx, database.Config{
+		ConnectionString: cfg.Database.ConnectionString(),
+		MaxConns:         cfg.Database.MaxConns,
+		MinConns:         cfg.Database.MinConns,
+		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
+		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		TimeZone:         cfg.App.TimeZone,
+	}, log)
+	if err != nil {
+		return fmt.Errorf("connect database: %w", err)
+	}
+	defer db.Close()
+
+	if err := rebuildArchiveCounts(ctx, db.Pool); err != nil {
+		return fmt.Errorf("rebuild archive counts: %w", err)
+	}
+
+	log.Info("archive rebuild completed")
+	return nil
 }
 
 func runCachePurge(ctx context.Context, args []string) error {
@@ -254,6 +332,36 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 		"search", len(splitCSV(*searchQueries)),
 	)
 	return nil
+}
+
+func rebuildArchiveCounts(ctx context.Context, pool *pgxpool.Pool) error {
+	if pool == nil {
+		return fmt.Errorf("pool is nil")
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	if _, err = tx.Exec(ctx, "TRUNCATE TABLE archive_counts"); err != nil {
+		return err
+	}
+	const insertQuery = `
+INSERT INTO archive_counts (day, bookmark_count, count)
+SELECT DATE(posted_at) AS day, bookmark_count, COUNT(1)
+FROM entries
+GROUP BY day, bookmark_count`
+	if _, err = tx.Exec(ctx, insertQuery); err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctx)
+	return err
 }
 
 func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, func(), bool, error) {

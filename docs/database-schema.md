@@ -12,6 +12,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `entry_tags` - エントリーとタグの中間テーブル（スコア付き）
 
 ### 集計データ
+- `archive_counts` - 日別エントリー数の事前集計
 - `click_metrics` - エントリークリック数の日別集計
 - `tag_view_history` - タグ閲覧数の日別集計
 - `search_history` - 検索キーワードの日別集計
@@ -101,6 +102,30 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 **備考:**
 - `score` はYahoo! キーフレーズ抽出APIが返すスコア値（0〜100）を保存
 - スコアが高いほど、そのエントリーにとって重要なタグであることを示す
+
+---
+
+### archive_counts
+
+日別エントリー数の事前集計テーブル。
+
+| カラム名 | データ型 | NULL | デフォルト | 説明 |
+|---------|---------|------|-----------|------|
+| day | DATE | NOT NULL | - | 日付（YYYY-MM-DD） |
+| bookmark_count | INTEGER | NOT NULL | - | ブックマーク件数 |
+| count | INTEGER | NOT NULL | 0 | 件数 |
+
+**制約:**
+- PRIMARY KEY: `(day, bookmark_count)`
+- CHECK: `bookmark_count >= 0`
+- CHECK: `count >= 0`
+
+**インデックス:**
+- `idx_archive_counts_bookmark_day` - bookmark_count, day DESC（min_users フィルタ用）
+
+**備考:**
+- 日次バッチで全期間を再集計
+- fetcher 実行時に当日分のみ再集計
 
 ---
 
@@ -389,6 +414,7 @@ idx_entries_title_gin, idx_entries_excerpt_gin
 - `000005_create_tag_view_history.up.sql` - tag_view_history テーブル作成（日別集計）
 - `000006_create_search_history.up.sql` - search_history テーブル作成（日別集計）
 - `000007_create_api_keys.up.sql` - api_keys テーブル作成（API認証管理）
+- `000012_create_archive_counts.up.sql` - archive_counts テーブル作成（事前集計）
 
 ### 2. 全文検索マイグレーション（pg_bigm導入時）
 - `000008_enable_pg_bigm.up.sql` - pg_bigm 拡張の有効化

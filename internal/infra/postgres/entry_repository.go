@@ -244,8 +244,8 @@ func (r *EntryRepository) ListArchiveCounts(ctx context.Context, minBookmarkCoun
 		minBookmarkCount = 0
 	}
 	const query = `
-SELECT DATE(posted_at) AS day, COUNT(1)
-FROM entries
+SELECT day, SUM(count)
+FROM archive_counts
 WHERE bookmark_count >= $1
 GROUP BY day
 ORDER BY day DESC`

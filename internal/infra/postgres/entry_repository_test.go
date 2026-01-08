@@ -658,6 +658,7 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
 		insertEntry(t, pool, e3)
+		refreshArchiveCounts(t, pool)
 
 		counts, err := repo.ListArchiveCounts(ctx, 0)
 		require.NoError(t, err)
@@ -686,6 +687,7 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		})
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
+		refreshArchiveCounts(t, pool)
 
 		counts, err := repo.ListArchiveCounts(ctx, 50)
 		require.NoError(t, err)
@@ -695,6 +697,7 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 
 	t.Run("returns empty slice when no results", func(t *testing.T) {
 		cleanupTables(t, pool)
+		refreshArchiveCounts(t, pool)
 
 		counts, err := repo.ListArchiveCounts(ctx, 0)
 		require.NoError(t, err)
@@ -705,6 +708,7 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		cleanupTables(t, pool)
 
 		insertEntry(t, pool, testEntry())
+		refreshArchiveCounts(t, pool)
 
 		counts, err := repo.ListArchiveCounts(ctx, -1)
 		require.NoError(t, err)
