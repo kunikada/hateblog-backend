@@ -96,11 +96,12 @@ func run() int {
 	log.Info("fetched entries", "count", len(feedEntries))
 
 	tagRepo := postgres.NewTagRepository(db.Pool)
-	yahooClient := yahoo.NewClient(yahoo.ClientConfig{AppID: cfg.External.YahooAPIKey})
+	yahooClient := yahoo.NewClient(yahoo.ClientConfig{
+		AppID: cfg.External.YahooAPIKey,
+	})
 
 	inserted := 0
 	skipped := 0
-	tagged := 0
 	for _, item := range feedEntries {
 		select {
 		case <-ctx.Done():
@@ -109,7 +110,7 @@ func run() int {
 		default:
 		}
 
-		entryID, ok, err := insertEntry(ctx, db.Pool, item)
+		_, ok, err := insertEntry(ctx, db.Pool, item)
 		if err != nil {
 			log.Error("insert entry failed", "url", item.URL, "err", err)
 			return 1
@@ -120,20 +121,43 @@ func run() int {
 		}
 		inserted++
 
-		if *noTags || strings.TrimSpace(cfg.External.YahooAPIKey) == "" || *tagTopN <= 0 {
-			continue
-		}
+	}
 
-		tagCount, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entryID, item, *tagTopN)
+	tagged := 0
+	if !*noTags && strings.TrimSpace(cfg.External.YahooAPIKey) != "" && *tagTopN > 0 {
+		untagged, err := fetchUntaggedEntries(ctx, db.Pool, *maxEntries)
 		if err != nil {
-			log.Error("attach tags failed", "url", item.URL, "err", err)
+			log.Error("fetch untagged entries failed", "err", err)
 			return 1
 		}
-		if tagCount > 0 {
-			tagged++
-		}
-		if *yahooMinInterval > 0 {
-			time.Sleep(*yahooMinInterval)
+		for _, entry := range untagged {
+			select {
+			case <-ctx.Done():
+				log.Error("deadline exceeded", "err", ctx.Err())
+				return 1
+			default:
+			}
+
+			item := feedItem{
+				Title:   entry.Title,
+				URL:     entry.URL,
+				Excerpt: entry.Excerpt,
+			}
+			tagCount, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entry.ID, item, *tagTopN)
+			if err != nil {
+				if _, ok := yahoo.IsTooManyRequests(err); ok {
+					log.Warn("tagging stopped due to rate limit", "url", entry.URL, "err", err)
+					break
+				}
+				log.Error("attach tags failed", "url", entry.URL, "err", err)
+				return 1
+			}
+			if tagCount > 0 {
+				tagged++
+			}
+			if *yahooMinInterval > 0 {
+				time.Sleep(*yahooMinInterval)
+			}
 		}
 	}
 
@@ -215,7 +239,13 @@ func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uui
 	const q = `
 INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (url) DO NOTHING
+ON CONFLICT (url) DO UPDATE SET
+	title = EXCLUDED.title,
+	posted_at = EXCLUDED.posted_at,
+	bookmark_count = EXCLUDED.bookmark_count,
+	excerpt = EXCLUDED.excerpt,
+	subject = EXCLUDED.subject,
+	updated_at = EXCLUDED.updated_at
 RETURNING id`
 
 	var entryID uuid.UUID
@@ -311,4 +341,50 @@ ON CONFLICT (entry_id, tag_id) DO NOTHING`
 		added++
 	}
 	return added, nil
+}
+
+type tagEntry struct {
+	ID      uuid.UUID
+	URL     string
+	Title   string
+	Excerpt string
+}
+
+func fetchUntaggedEntries(ctx context.Context, pool *pgxpool.Pool, limit int) ([]tagEntry, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("pool is nil")
+	}
+	if limit <= 0 {
+		limit = 1
+	}
+	const q = `
+SELECT e.id, e.url, e.title, e.excerpt
+FROM entries e
+WHERE NOT EXISTS (
+	SELECT 1 FROM entry_tags et WHERE et.entry_id = e.id
+)
+ORDER BY e.posted_at DESC
+LIMIT $1`
+	rows, err := pool.Query(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]tagEntry, 0, limit)
+	for rows.Next() {
+		var entry tagEntry
+		var excerpt *string
+		if err := rows.Scan(&entry.ID, &entry.URL, &entry.Title, &excerpt); err != nil {
+			return nil, err
+		}
+		if excerpt != nil {
+			entry.Excerpt = *excerpt
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return entries, nil
 }

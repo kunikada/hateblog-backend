@@ -84,7 +84,7 @@ func (c *Client) Extract(ctx context.Context, text string) ([]Keyphrase, error) 
 		return nil, fmt.Errorf("yahoo: failed to encode request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		return nil, err
 	}
@@ -96,18 +96,19 @@ func (c *Client) Extract(ctx context.Context, text string) ([]Keyphrase, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("yahoo: keyphrase request failed: status %d", resp.StatusCode)
+		retryAfter := retryAfterDuration(resp.Header.Get("Retry-After"))
+		_ = resp.Body.Close()
+		return nil, &StatusError{StatusCode: resp.StatusCode, RetryAfter: retryAfter}
 	}
 
 	var res keyphraseResponse
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("yahoo: failed to decode response: %w", err)
 	}
+	_ = resp.Body.Close()
 
 	if res.Error != nil {
 		return nil, fmt.Errorf("yahoo: api error %d: %s", res.Error.Code, res.Error.Message)
@@ -154,4 +155,44 @@ type keyphraseResult struct {
 type keyphraseErrorBody struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+type StatusError struct {
+	StatusCode int
+	RetryAfter time.Duration
+}
+
+func (e *StatusError) Error() string {
+	if e == nil {
+		return "yahoo: status error"
+	}
+	return fmt.Sprintf("yahoo: keyphrase request failed: status %d", e.StatusCode)
+}
+
+func IsTooManyRequests(err error) (time.Duration, bool) {
+	var statusErr *StatusError
+	if !errors.As(err, &statusErr) {
+		return 0, false
+	}
+	if statusErr.StatusCode != http.StatusTooManyRequests {
+		return 0, false
+	}
+	return statusErr.RetryAfter, true
+}
+
+func retryAfterDuration(raw string) time.Duration {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	if seconds, err := time.ParseDuration(raw + "s"); err == nil && seconds > 0 {
+		return seconds
+	}
+	if t, err := http.ParseTime(raw); err == nil {
+		d := time.Until(t)
+		if d > 0 {
+			return d
+		}
+	}
+	return 0
 }
