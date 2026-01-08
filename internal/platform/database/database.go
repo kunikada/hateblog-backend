@@ -17,6 +17,7 @@ type Config struct {
 	MaxConnLifetime  time.Duration
 	MaxConnIdleTime  time.Duration
 	ConnectTimeout   time.Duration
+	TimeZone         string
 }
 
 // DB wraps pgxpool.Pool with additional functionality
@@ -39,6 +40,12 @@ func New(ctx context.Context, cfg Config, logger *slog.Logger) (*DB, error) {
 	poolCfg.MaxConnLifetime = cfg.MaxConnLifetime
 	poolCfg.MaxConnIdleTime = cfg.MaxConnIdleTime
 	poolCfg.ConnConfig.ConnectTimeout = cfg.ConnectTimeout
+	if cfg.TimeZone != "" {
+		if poolCfg.ConnConfig.RuntimeParams == nil {
+			poolCfg.ConnConfig.RuntimeParams = map[string]string{}
+		}
+		poolCfg.ConnConfig.RuntimeParams["timezone"] = cfg.TimeZone
+	}
 
 	// Create connection pool
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)

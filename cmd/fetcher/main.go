@@ -19,6 +19,7 @@ import (
 	"hateblog/internal/infra/external/yahoo"
 	"hateblog/internal/infra/postgres"
 	"hateblog/internal/pkg/batchutil"
+	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	platformLogger "hateblog/internal/platform/logger"
@@ -45,6 +46,10 @@ func run() int {
 
 	cfg, err := config.Load()
 	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -80,6 +85,7 @@ func run() int {
 		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
 		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
 		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		TimeZone:         cfg.App.TimeZone,
 	}, log)
 	if err != nil {
 		log.Error("db connect failed", "err", err)
@@ -222,7 +228,7 @@ func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string,
 				Excerpt:       strings.TrimSpace(e.Excerpt),
 				Subject:       strings.TrimSpace(subject),
 				BookmarkCount: e.BookmarkCount,
-				PostedAt:      e.PublishedAt.UTC(),
+				PostedAt:      timeutil.InLocation(e.PublishedAt),
 			}
 			if len(seen) >= max {
 				break
@@ -254,7 +260,7 @@ func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uui
 		return uuid.Nil, false, fmt.Errorf("posted_at is required")
 	}
 
-	now := time.Now().UTC()
+	now := timeutil.Now()
 	const q = `
 INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

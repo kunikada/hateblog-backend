@@ -10,6 +10,7 @@ import (
 
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/timeutil"
 )
 
 // DayEntriesCache stores entries by date.
@@ -57,13 +58,12 @@ type TagListParams struct {
 
 // NewService instantiates the service.
 func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEntriesCache TagEntriesCache, logger *slog.Logger) *Service {
-	jst, _ := time.LoadLocation("Asia/Tokyo")
 	return &Service{
 		repo:          repo,
 		dayCache:      dayCache,
 		tagEntries:    tagEntriesCache,
 		logger:        logger,
-		jstLocation:   jst,
+		jstLocation:   timeutil.Location(),
 		maxAllResults: 100000,
 	}
 }
@@ -232,11 +232,11 @@ func paginate(entries []*domainEntry.Entry, offset, limit int) []*domainEntry.En
 
 func jstDayRange(date string, loc *time.Location) (time.Time, time.Time, error) {
 	if loc == nil {
-		loc = time.UTC
+		loc = timeutil.Location()
 	}
 	start, err := time.ParseInLocation("20060102", date, loc)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid date: %s", date)
 	}
-	return start.UTC(), start.AddDate(0, 0, 1).UTC(), nil
+	return start, start.AddDate(0, 0, 1), nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hateblog/internal/pkg/timeutil"
 	usecaseAPIKey "hateblog/internal/usecase/api_key"
 )
 
@@ -61,7 +62,7 @@ func (h *APIKeyHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Reques
 
 	var expiresAt *time.Time
 	if h.apiKeyTTL > 0 {
-		expiry := time.Now().UTC().Add(h.apiKeyTTL)
+		expiry := timeutil.Now().Add(h.apiKeyTTL)
 		expiresAt = &expiry
 	}
 

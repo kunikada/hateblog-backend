@@ -8,6 +8,7 @@ import (
 	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/pkg/timeutil"
 )
 
 // EntryRepository defines entry access required for search.
@@ -93,7 +94,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 			s.logDebug("failed to get search cache", err)
 		} else if ok {
 			if s.history != nil {
-				if err := s.history.Record(ctx, norm, time.Now()); err != nil {
+				if err := s.history.Record(ctx, norm, timeutil.Now()); err != nil {
 					s.logDebug("failed to record search history", err)
 				}
 			}
@@ -115,7 +116,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 	}
 
 	if s.history != nil {
-		if err := s.history.Record(ctx, norm, time.Now()); err != nil {
+		if err := s.history.Record(ctx, norm, timeutil.Now()); err != nil {
 			s.logDebug("failed to record search history", err)
 		}
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"hateblog/internal/pkg/timeutil"
 )
 
 // HealthChecker defines dependencies that can be health-checked.
@@ -52,7 +54,7 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, map[string]any{
 		"status":     statusLabel(status),
 		"components": components,
-		"checked_at": time.Now().UTC(),
+		"checked_at": timeutil.Now(),
 	})
 }
 

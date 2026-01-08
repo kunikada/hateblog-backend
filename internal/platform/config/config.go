@@ -92,6 +92,7 @@ func (r RedisConfig) Address() string {
 type AppConfig struct {
 	LogLevel        string        `env:"APP_LOG_LEVEL" envDefault:"info"`
 	LogFormat       string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
+	TimeZone        string        `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
 	CacheEnabled    bool          `env:"APP_CACHE_ENABLED" envDefault:"true"`
 	CacheTTL        time.Duration `env:"APP_CACHE_TTL" envDefault:"1h"`
 	FaviconCacheTTL time.Duration `env:"APP_FAVICON_CACHE_TTL" envDefault:"168h"` // 7 days

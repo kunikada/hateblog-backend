@@ -15,6 +15,7 @@ import (
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
+	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/cache"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
@@ -42,6 +43,9 @@ func runMigrate(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+		return fmt.Errorf("load timezone: %w", err)
 	}
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
@@ -215,6 +219,7 @@ func run(ctx context.Context) error {
 		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
 		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
 		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		TimeZone:         cfg.App.TimeZone,
 	}, log)
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)

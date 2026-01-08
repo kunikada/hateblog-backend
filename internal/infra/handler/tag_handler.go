@@ -4,11 +4,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	domainTag "hateblog/internal/domain/tag"
+	"hateblog/internal/pkg/timeutil"
 	usecaseEntry "hateblog/internal/usecase/entry"
 	usecaseTag "hateblog/internal/usecase/tag"
 )
@@ -124,7 +124,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.tagService.RecordView(r.Context(), tagEntity.ID, time.Now()); err != nil {
+	if err := h.tagService.RecordView(r.Context(), tagEntity.ID, timeutil.Now()); err != nil {
 		slog.Default().Warn("failed to record tag view", "tag", tagEntity.Name, "error", err)
 	}
 

@@ -13,6 +13,7 @@ import (
 
 	"hateblog/internal/infra/external/hatena"
 	"hateblog/internal/pkg/batchutil"
+	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	platformLogger "hateblog/internal/platform/logger"
@@ -48,6 +49,10 @@ func run() int {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {
@@ -80,6 +85,7 @@ func run() int {
 		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
 		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
 		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		TimeZone:         cfg.App.TimeZone,
 	}, log)
 	if err != nil {
 		log.Error("db connect failed", "err", err)
@@ -192,7 +198,7 @@ func applyCounts(ctx context.Context, pool *pgxpool.Pool, urls []string, counts 
 	if pool == nil {
 		return 0, 0, fmt.Errorf("pool is nil")
 	}
-	now := time.Now().UTC()
+	now := timeutil.Now()
 
 	for _, u := range urls {
 		count, ok := counts[u]

@@ -12,6 +12,7 @@ import (
 
 	"hateblog/internal/domain/api_key"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/timeutil"
 )
 
 // Service handles API key generation and management.
@@ -77,7 +78,7 @@ func (s *Service) GenerateAPIKey(ctx context.Context, params GenerateParams) (*G
 	}
 
 	// Current time
-	now := time.Now().UTC()
+	now := timeutil.Now()
 
 	// Create domain API key
 	apiKey, err := api_key.New(api_key.Params{

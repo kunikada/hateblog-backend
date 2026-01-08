@@ -10,6 +10,7 @@ import (
 
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/timeutil"
 )
 
 var _ repository.ClickMetricsRepository = (*ClickMetricsRepository)(nil)
@@ -29,7 +30,7 @@ func (r *ClickMetricsRepository) Increment(ctx context.Context, entryID entry.ID
 	if uuid.UUID(entryID) == uuid.Nil {
 		return fmt.Errorf("entry id is required")
 	}
-	date := clickedAt.UTC().Truncate(24 * time.Hour)
+	date := timeutil.DateInLocation(clickedAt)
 	const stmt = `
 INSERT INTO click_metrics (entry_id, clicked_at, count)
 VALUES ($1, $2, 1)

@@ -10,6 +10,7 @@ import (
 
 	"hateblog/internal/domain/repository"
 	"hateblog/internal/domain/tag"
+	"hateblog/internal/pkg/timeutil"
 )
 
 var _ repository.TagRepository = (*TagRepository)(nil)
@@ -97,7 +98,7 @@ ON CONFLICT (name) DO UPDATE SET
 	name = EXCLUDED.name
 RETURNING id, name`
 
-	now := time.Now().UTC()
+	now := timeutil.Now()
 	if err := r.pool.QueryRow(ctx, query, t.ID, tag.NormalizeName(t.Name), now).Scan(&t.ID, &t.Name); err != nil {
 		return fmt.Errorf("upsert tag: %w", err)
 	}
@@ -121,7 +122,7 @@ func (r *TagRepository) IncrementViewHistory(ctx context.Context, tagID tag.ID, 
 	if tagID == uuid.Nil {
 		return fmt.Errorf("tag id is required")
 	}
-	date := viewedAt.UTC().Truncate(24 * time.Hour)
+	date := timeutil.DateInLocation(viewedAt)
 	const query = `
 INSERT INTO tag_view_history (tag_id, viewed_at, count)
 VALUES ($1, $2, 1)

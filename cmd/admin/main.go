@@ -13,6 +13,7 @@ import (
 
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
+	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/cache"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
@@ -147,6 +148,7 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 		MaxConnLifetime:  cfg.Database.MaxConnLifetime,
 		MaxConnIdleTime:  cfg.Database.MaxConnIdleTime,
 		ConnectTimeout:   cfg.Database.ConnectTimeout,
+		TimeZone:         cfg.App.TimeZone,
 	}, log)
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
@@ -258,6 +260,9 @@ func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, f
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, nil, nil, func() {}, false, fmt.Errorf("load config: %w", err)
+	}
+	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+		return nil, nil, nil, func() {}, false, fmt.Errorf("load timezone: %w", err)
 	}
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
