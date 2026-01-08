@@ -26,6 +26,9 @@ type Config struct {
 
 	// External API configuration
 	External ExternalConfig
+
+	// Sentry configuration
+	Sentry SentryConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -118,6 +121,13 @@ type ExternalConfig struct {
 	HatenaAPITimeout  time.Duration `env:"HATENA_API_TIMEOUT" envDefault:"10s"`
 	HatenaMaxURLs     int           `env:"HATENA_MAX_URLS" envDefault:"50"`
 	HatenaRSSFeedURLs []string      `env:"HATENA_RSS_FEED_URLS" envSeparator:"|" envDefault:"https://b.hatena.ne.jp/entrylist?sort=hot&mode=rss&threshold=5|https://feeds.feedburner.com/hatena/b/hotentry"`
+}
+
+// SentryConfig holds Sentry configuration
+type SentryConfig struct {
+	DSN         string `env:"SENTRY_DSN" envDefault:""`
+	Environment string `env:"SENTRY_ENVIRONMENT" envDefault:""`
+	Release     string `env:"SENTRY_RELEASE" envDefault:""`
 }
 
 // Load loads configuration from environment variables

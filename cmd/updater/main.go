@@ -16,6 +16,7 @@ import (
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	platformLogger "hateblog/internal/platform/logger"
+	"hateblog/internal/platform/telemetry"
 )
 
 func main() {
@@ -48,10 +49,21 @@ func run() int {
 		return 1
 	}
 
+	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+	} else if sentryEnabled {
+		defer telemetry.Flush(2 * time.Second)
+		defer telemetry.Recover()
+	}
+
 	log := platformLogger.New(platformLogger.Config{
 		Level:  platformLogger.Level(cfg.App.LogLevel),
 		Format: platformLogger.Format(cfg.App.LogFormat),
 	})
+	if sentryEnabled {
+		log = platformLogger.WrapWithSentry(log)
+	}
 	platformLogger.SetDefault(log)
 	startedAt := time.Now()
 	log.Info("updater started", "tier", *tier, "limit", *limit, "deadline", *executionDeadline)

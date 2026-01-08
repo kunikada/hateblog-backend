@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	sentryhttp "github.com/getsentry/sentry-go/http"
+
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
@@ -20,6 +22,7 @@ import (
 	"hateblog/internal/platform/metrics"
 	"hateblog/internal/platform/migration"
 	"hateblog/internal/platform/server"
+	"hateblog/internal/platform/telemetry"
 	usecaseAPIKey "hateblog/internal/usecase/api_key"
 	usecaseArchive "hateblog/internal/usecase/archive"
 	usecaseEntry "hateblog/internal/usecase/entry"
@@ -41,10 +44,21 @@ func runMigrate(args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+	} else if sentryEnabled {
+		defer telemetry.Flush(2 * time.Second)
+		defer telemetry.Recover()
+	}
+
 	log := logger.New(logger.Config{
 		Level:  logger.Level(cfg.App.LogLevel),
 		Format: logger.Format(cfg.App.LogFormat),
 	})
+	if sentryEnabled {
+		log = logger.WrapWithSentry(log)
+	}
 
 	migrator, err := migration.New(migration.Config{
 		DatabaseURL:    cfg.Database.ConnectionString(),
@@ -177,10 +191,21 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+	} else if sentryEnabled {
+		defer telemetry.Flush(2 * time.Second)
+		defer telemetry.Recover()
+	}
+
 	log := logger.New(logger.Config{
 		Level:  logger.Level(cfg.App.LogLevel),
 		Format: logger.Format(cfg.App.LogFormat),
 	})
+	if sentryEnabled {
+		log = logger.WrapWithSentry(log)
+	}
 	logger.SetDefault(log)
 
 	db, err := database.New(ctx, database.Config{
@@ -312,6 +337,14 @@ func run(ctx context.Context) error {
 
 	var middlewares []func(http.Handler) http.Handler
 	var promHandler http.Handler
+	if sentryEnabled {
+		sentryHandler := sentryhttp.New(sentryhttp.Options{
+			Repanic: true,
+		})
+		middlewares = append(middlewares, func(next http.Handler) http.Handler {
+			return sentryHandler.Handle(next)
+		})
+	}
 	if cfg.App.EnableMetrics {
 		httpMetrics := metrics.NewHTTPMetrics()
 		middlewares = append(middlewares, httpMetrics.Middleware)

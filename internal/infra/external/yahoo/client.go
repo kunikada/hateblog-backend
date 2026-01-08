@@ -157,6 +157,7 @@ type keyphraseErrorBody struct {
 	Message string `json:"message"`
 }
 
+// StatusError represents a non-200 response from Yahoo Keyphrase API.
 type StatusError struct {
 	StatusCode int
 	RetryAfter time.Duration
@@ -169,6 +170,7 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("yahoo: keyphrase request failed: status %d", e.StatusCode)
 }
 
+// IsTooManyRequests reports whether the error indicates a rate limit and returns the retry-after duration.
 func IsTooManyRequests(err error) (time.Duration, bool) {
 	var statusErr *StatusError
 	if !errors.As(err, &statusErr) {

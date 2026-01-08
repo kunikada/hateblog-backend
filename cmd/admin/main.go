@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
@@ -16,6 +17,7 @@ import (
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	"hateblog/internal/platform/logger"
+	"hateblog/internal/platform/telemetry"
 	usecaseArchive "hateblog/internal/usecase/archive"
 	usecaseEntry "hateblog/internal/usecase/entry"
 	usecaseRanking "hateblog/internal/usecase/ranking"
@@ -85,12 +87,15 @@ func runCachePurge(ctx context.Context, args []string) error {
 		return fmt.Errorf("pattern must start with 'hateblog:'")
 	}
 
-	cfg, log, redisClient, closeAll, err := connect(ctx)
+	cfg, log, redisClient, closeAll, sentryEnabled, err := connect(ctx)
 	_ = cfg
 	if err != nil {
 		return err
 	}
 	defer closeAll()
+	if sentryEnabled {
+		defer telemetry.Recover()
+	}
 
 	deleted, err := redisClient.DeleteByPattern(ctx, *pattern, *batchSize)
 	if err != nil {
@@ -122,11 +127,14 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 		return fmt.Errorf("--dates is required")
 	}
 
-	cfg, log, redisClient, closeAll, err := connect(ctx)
+	cfg, log, redisClient, closeAll, sentryEnabled, err := connect(ctx)
 	if err != nil {
 		return err
 	}
 	defer closeAll()
+	if sentryEnabled {
+		defer telemetry.Recover()
+	}
 
 	if !cfg.App.CacheEnabled {
 		return fmt.Errorf("cache is disabled (APP_CACHE_ENABLED=false)")
@@ -246,15 +254,24 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 	return nil
 }
 
-func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, func(), error) {
+func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, func(), bool, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return nil, nil, nil, func() {}, fmt.Errorf("load config: %w", err)
+		return nil, nil, nil, func() {}, false, fmt.Errorf("load config: %w", err)
 	}
+
+	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
+	if err != nil {
+		return nil, nil, nil, func() {}, false, fmt.Errorf("init sentry: %w", err)
+	}
+
 	log := logger.New(logger.Config{
 		Level:  logger.Level(cfg.App.LogLevel),
 		Format: logger.Format(cfg.App.LogFormat),
 	})
+	if sentryEnabled {
+		log = logger.WrapWithSentry(log)
+	}
 	logger.SetDefault(log)
 
 	redisClient, err := cache.New(cache.Config{
@@ -269,12 +286,15 @@ func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, f
 		MinIdleConns: cfg.Redis.MinIdleConns,
 	}, log)
 	if err != nil {
-		return nil, nil, nil, func() {}, fmt.Errorf("connect redis: %w", err)
+		return nil, nil, nil, func() {}, sentryEnabled, fmt.Errorf("connect redis: %w", err)
 	}
 	closeAll := func() {
+		if sentryEnabled {
+			telemetry.Flush(2 * time.Second)
+		}
 		_ = redisClient.Close()
 	}
-	return cfg, log, redisClient, closeAll, nil
+	return cfg, log, redisClient, closeAll, sentryEnabled, nil
 }
 
 func splitCSV(value string) []string {
