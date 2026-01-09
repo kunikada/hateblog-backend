@@ -1,0 +1,23 @@
+# Hateblog batch jobs
+# 環境はホストのシェル環境を使用
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HATEBLOG_DIR=/opt/hateblog
+
+# Fetcher: 15分ごとに新規エントリーを取得
+*/15 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /fetcher >> /var/log/hateblog/fetcher.log 2>&1
+
+# Updater - High priority: 5分ごとに高優先度エントリーの件数を更新
+*/5 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier high >> /var/log/hateblog/updater-high.log 2>&1
+
+# Updater - Medium priority: 30分ごと
+*/30 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier medium >> /var/log/hateblog/updater-medium.log 2>&1
+
+# Updater - Low priority: 毎時0分
+0 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier low >> /var/log/hateblog/updater-low.log 2>&1
+
+# Updater - Round: 毎日02:00 に全エントリーを循環更新
+0 2 * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier round >> /var/log/hateblog/updater-round.log 2>&1
+
+# Archive rebuild: 毎日03:00 に日別エントリー数を全期間で再集計
+0 3 * * * cd $HATEBLOG_DIR && docker compose exec -T app /admin archive rebuild >> /var/log/hateblog/archive-rebuild.log 2>&1

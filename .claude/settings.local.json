@@ -23,7 +23,8 @@
       "Bash(timeout 5 go run:*)",
       "Bash(xargs ls:*)",
       "Bash(make test:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(crontab:*)"
     ],
     "deny": [],
     "ask": []
