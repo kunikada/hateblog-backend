@@ -5,11 +5,11 @@
 services:
   postgres:
     ports:
-      - "5432:5432"  # Expose to host for local tools
+      - "5432:5432" # Expose to host for local tools
 
   redis:
     ports:
-      - "6379:6379"  # Expose to host for local tools
+      - "6379:6379" # Expose to host for local tools
 
   app:
     build:
