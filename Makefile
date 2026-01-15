@@ -77,7 +77,11 @@ build:
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/updater \
 		./cmd/updater
-	@echo "✓ Binaries built: $(BUILD_DIR)/$(APP_NAME), $(BUILD_DIR)/fetcher, $(BUILD_DIR)/updater"
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-ldflags='-w -s -extldflags "-static"' \
+		-o $(BUILD_DIR)/admin \
+		./cmd/admin
+	@echo "✓ Binaries built: $(BUILD_DIR)/$(APP_NAME), $(BUILD_DIR)/fetcher, $(BUILD_DIR)/updater, $(BUILD_DIR)/admin"
 
 ## run: Run the application
 run:

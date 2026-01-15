@@ -40,6 +40,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o updater \
     ./cmd/updater
 
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o admin \
+    ./cmd/admin
+
 # Runtime stage - using distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:nonroot
 
@@ -54,6 +59,7 @@ WORKDIR /workspace
 COPY --from=builder /build/app /workspace/app
 COPY --from=builder /build/fetcher /workspace/fetcher
 COPY --from=builder /build/updater /workspace/updater
+COPY --from=builder /build/admin /workspace/admin
 
 # Copy migrations
 COPY --from=builder /build/migrations /workspace/migrations
