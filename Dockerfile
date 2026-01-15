@@ -47,13 +47,16 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+# Set working directory for consistent relative paths
+WORKDIR /workspace
+
 # Copy the binary
-COPY --from=builder /build/app /app
-COPY --from=builder /build/fetcher /fetcher
-COPY --from=builder /build/updater /updater
+COPY --from=builder /build/app /workspace/app
+COPY --from=builder /build/fetcher /workspace/fetcher
+COPY --from=builder /build/updater /workspace/updater
 
 # Copy migrations
-COPY --from=builder /build/migrations /migrations
+COPY --from=builder /build/migrations /workspace/migrations
 
 # Run as non-root user (nonroot user in distroless has UID 65532)
 USER nonroot:nonroot
@@ -63,6 +66,6 @@ EXPOSE 8080
 
 # Health check endpoint (adjust as needed)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/app", "healthcheck"]
+    CMD ["/workspace/app", "healthcheck"]
 
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/workspace/app"]
