@@ -274,6 +274,9 @@ HATEBLOG_DIR=/opt/hateblog
 
 # Updater - Round: 毎日02:00 に全エントリーを循環更新
 0 2 * * * cd $HATEBLOG_DIR && docker compose exec -T app /updater --tier round >> /var/log/hateblog/updater-round.log 2>&1
+
+# Archive rebuild: 毎日03:00 に日別エントリー数を全期間で再集計
+0 3 * * * cd $HATEBLOG_DIR && docker compose exec -T app /admin archive rebuild >> /var/log/hateblog/archive-rebuild.log 2>&1
 ```
 
 ### ログディレクトリの作成
