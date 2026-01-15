@@ -2,7 +2,7 @@
   "name": "hateblog-backend",
   "dockerComposeFile": [
     "../compose.yaml",
-    "../compose.override.yaml"
+    "../compose.dev.yaml"
   ],
   "service": "app",
   "workspaceFolder": "/workspace",

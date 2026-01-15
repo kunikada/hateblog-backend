@@ -4,7 +4,7 @@
 
 開発・本番ともに Docker Compose を使用します。
 
-- **開発**: `compose.yaml` + `compose.override.yaml` (自動読み込み)
+- **開発**: `compose.yaml` + `compose.dev.yaml` (明示的に指定)
 - **本番**: `compose.yaml` のみ
 
 ## Development Environment
@@ -19,8 +19,8 @@ cd hateblog-backend
 # 環境変数ファイルをコピー
 cp .env.example .env
 
-# コンテナ起動（compose.override.yaml が自動で読み込まれる）
-docker compose up -d
+# コンテナ起動（compose.dev.yaml を明示的に指定）
+docker compose -f compose.yaml -f compose.dev.yaml up -d
 
 # appコンテナに入る
 docker compose exec app sh
@@ -36,6 +36,12 @@ VSCode コマンドパレット → Dev Containers: Reopen in Container
 
 ### 停止
 
+開発環境（明示的に指定したファイルの場合）:
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml down
+```
+
+または、単純に:
 ```bash
 docker compose down
 ```
@@ -71,7 +77,7 @@ cd /opt/hateblog
 # 必要なファイルのみをコピー（git clone または rsync）
 # compose.yaml, Dockerfile, .dockerignore, cmd/, internal/, go.mod, go.sum など
 
-# 重要: compose.override.yaml は本番に配置しない
+# 重要: compose.dev.yaml は本番に配置しない（開発環境用）
 ```
 
 ### 2. 環境変数の設定
@@ -381,7 +387,7 @@ grep "lock" /var/log/hateblog/*.log
 - [ ] HTTPS 強制リダイレクト（Nginx）
 - [ ] fail2ban 導入
 - [ ] 自動セキュリティアップデート（unattended-upgrades）
-- [ ] 本番環境に `compose.override.yaml` を配置しない
+- [ ] 本番環境に `compose.dev.yaml` を配置しない
 
 ```bash
 # UFW 設定
@@ -433,12 +439,12 @@ docker system prune -a --volumes -f
 sudo journalctl --vacuum-time=7d
 ```
 
-### compose.override.yaml が読み込まれてしまう
+### compose.dev.yaml を誤って本番に配置した場合
 
-本番環境では `compose.override.yaml` を配置しないでください。誤って配置した場合：
+本番環境では `compose.dev.yaml` を配置しないでください。誤って配置した場合：
 
 ```bash
-rm compose.override.yaml
+rm compose.dev.yaml
 docker compose up -d --build
 ```
 
@@ -446,7 +452,7 @@ docker compose up -d --build
 
 ```
 /opt/hateblog/
-├── compose.yaml           # 本番設定（compose.override.yamlなし）
+├── compose.yaml           # 本番設定（compose.dev.yaml 不要）
 ├── Dockerfile
 ├── .env                   # 本番用環境変数
 ├── cmd/
