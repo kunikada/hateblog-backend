@@ -64,8 +64,4 @@ USER nonroot:nonroot
 # Expose port (adjust as needed)
 EXPOSE 8080
 
-# Health check endpoint (adjust as needed)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/workspace/app", "healthcheck"]
-
 ENTRYPOINT ["/workspace/app"]
