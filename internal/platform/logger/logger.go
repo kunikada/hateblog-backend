@@ -4,8 +4,11 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/lmittmann/tint"
+
+	"hateblog/internal/pkg/timeutil"
 )
 
 // Level represents log level
@@ -68,24 +71,36 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 		AddSource: level == slog.LevelDebug, // Add source file info only in debug mode
 	}
 
+	// ReplaceAttr function to convert time to application timezone
+	replaceAttr := func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey {
+			if t, ok := a.Value.Any().(time.Time); ok {
+				return slog.Time(slog.TimeKey, t.In(timeutil.Location()))
+			}
+		}
+		return a
+	}
+
 	switch format {
 	case FormatJSON:
 		return slog.NewJSONHandler(os.Stdout, opts)
 	case FormatText:
 		// Use tint handler for pretty console output in development
 		return tint.NewHandler(os.Stdout, &tint.Options{
-			Level:      level,
-			TimeFormat: "15:04:05",
-			AddSource:  opts.AddSource,
-			NoColor:    true,
+			Level:       level,
+			TimeFormat:  "2006-01-02 15:04:05",
+			AddSource:   opts.AddSource,
+			NoColor:     true,
+			ReplaceAttr: replaceAttr,
 		})
 	default:
 		// Default to text format
 		return tint.NewHandler(os.Stdout, &tint.Options{
-			Level:      level,
-			TimeFormat: "15:04:05",
-			AddSource:  opts.AddSource,
-			NoColor:    true,
+			Level:       level,
+			TimeFormat:  "2006-01-02 15:04:05",
+			AddSource:   opts.AddSource,
+			NoColor:     true,
+			ReplaceAttr: replaceAttr,
 		})
 	}
 }
