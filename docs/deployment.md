@@ -271,17 +271,8 @@ HATEBLOG_DIR=/opt/hateblog
 # Fetcher: 15分ごとに新規エントリーを取得
 */15 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/fetcher >> /var/log/hateblog/fetcher.log 2>&1
 
-# Updater - High priority: 5分ごとに高優先度エントリーの件数を更新
-*/5 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/updater --tier high >> /var/log/hateblog/updater-high.log 2>&1
-
-# Updater - Medium priority: 30分ごと
-*/30 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/updater --tier medium >> /var/log/hateblog/updater-medium.log 2>&1
-
-# Updater - Low priority: 毎時0分
-0 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/updater --tier low >> /var/log/hateblog/updater-low.log 2>&1
-
-# Updater - Round: 毎日02:00 に全エントリーを循環更新
-0 2 * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/updater --tier round >> /var/log/hateblog/updater-round.log 2>&1
+# Updater: 20分ごとに4パターンを順に更新
+*/20 * * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/updater >> /var/log/hateblog/updater.log 2>&1
 
 # Archive rebuild: 毎日03:00 に日別エントリー数を全期間で再集計
 0 3 * * * cd $HATEBLOG_DIR && docker compose exec -T app /workspace/admin archive rebuild --yes >> /var/log/hateblog/archive-rebuild.log 2>&1
@@ -347,8 +338,7 @@ tail -f /var/log/hateblog/fetcher.log
 - `--deadline <duration>` : 実行タイムアウト（デフォルト: 5m）
 
 **updater:**
-- `--tier <tier>` : 更新優先度 (high|medium|low|round) - 必須
-- `--lock <name>` : advisory lock 名（デフォルト: updater-<tier>）
+- `--lock <name>` : advisory lock 名（デフォルト: updater）
 - `--limit <n>` : 1回の実行で更新する最大エントリー数（デフォルト: 50）
 - `--deadline <duration>` : 実行タイムアウト（デフォルト: 3m）
 
@@ -359,7 +349,7 @@ tail -f /var/log/hateblog/fetcher.log
 docker compose exec -T app /fetcher --no-tags --deadline 10m
 
 # updater でタイムアウトを短縮
-docker compose exec -T app /updater --tier high --deadline 2m
+docker compose exec -T app /updater --deadline 2m
 ```
 
 ### トラブルシューティング

@@ -26,17 +26,12 @@ func main() {
 
 func run() int {
 	var (
-		tier              = flag.String("tier", "", "update tier: high|medium|low|round")
-		lockName          = flag.String("lock", "", "advisory lock name (default: updater-<tier>)")
+		lockName          = flag.String("lock", "", "advisory lock name (default: updater)")
 		limit             = flag.Int("limit", 50, "max entries to update per run")
 		executionDeadline = flag.Duration("deadline", 3*time.Minute, "overall execution deadline")
 	)
 	flag.Parse()
 
-	if strings.TrimSpace(*tier) == "" {
-		_, _ = fmt.Fprintln(os.Stderr, "--tier is required (high|medium|low|round)")
-		return 2
-	}
 	if *limit <= 0 {
 		*limit = 50
 	}
@@ -71,7 +66,7 @@ func run() int {
 	}
 	platformLogger.SetDefault(log)
 	startedAt := time.Now()
-	log.Info("updater started", "tier", *tier, "limit", *limit, "deadline", *executionDeadline)
+	log.Info("updater started", "limit", *limit, "deadline", *executionDeadline)
 	defer func() {
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Error("updater deadline exceeded", "elapsed", time.Since(startedAt), "err", ctx.Err())
@@ -95,7 +90,7 @@ func run() int {
 
 	jobLock := strings.TrimSpace(*lockName)
 	if jobLock == "" {
-		jobLock = "updater-" + strings.ToLower(strings.TrimSpace(*tier))
+		jobLock = "updater"
 	}
 
 	locked, unlock, err := batchutil.TryAdvisoryLock(ctx, db.Pool, jobLock)
@@ -115,65 +110,75 @@ func run() int {
 		}
 	}()
 
-	urls, err := selectTargetURLs(ctx, db.Pool, strings.ToLower(strings.TrimSpace(*tier)), *limit)
-	if err != nil {
-		log.Error("select targets failed", "err", err)
-		return 1
-	}
-	if len(urls) == 0 {
-		log.Info("no targets")
-		return 0
-	}
-
 	httpClient := &http.Client{Timeout: cfg.External.HatenaAPITimeout}
 	hatenaClient := hatena.NewClient(hatena.ClientConfig{
 		HTTPClient:           httpClient,
 		BookmarkCountMaxURLs: cfg.External.HatenaMaxURLs,
 	})
 
-	counts, err := hatenaClient.GetBookmarkCounts(ctx, urls)
-	if err != nil {
-		log.Error("fetch bookmark counts failed", "err", err)
-		return 1
+	buckets := []struct {
+		name  string
+		where string
+	}{
+		{name: "posted-7d", where: "posted_at > NOW() - INTERVAL '7 days'"},
+		{name: "posted-30d", where: "posted_at > NOW() - INTERVAL '30 days'"},
+		{name: "posted-365d", where: "posted_at > NOW() - INTERVAL '365 days'"},
+		{name: "posted-older", where: ""},
 	}
 
-	updated, missing, err := applyCounts(ctx, db.Pool, urls, counts)
-	if err != nil {
-		log.Error("apply counts failed", "err", err)
-		return 1
+	var totalTargets int
+	var totalUpdated int
+	var totalMissing int
+	for _, bucket := range buckets {
+		urls, err := selectTargetURLs(ctx, db.Pool, bucket.where, *limit)
+		if err != nil {
+			log.Error("select targets failed", "bucket", bucket.name, "err", err)
+			return 1
+		}
+		if len(urls) == 0 {
+			log.Info("no targets", "bucket", bucket.name)
+			continue
+		}
+
+		counts, err := hatenaClient.GetBookmarkCounts(ctx, urls)
+		if err != nil {
+			log.Error("fetch bookmark counts failed", "bucket", bucket.name, "err", err)
+			return 1
+		}
+
+		updated, missing, err := applyCounts(ctx, db.Pool, urls, counts)
+		if err != nil {
+			log.Error("apply counts failed", "bucket", bucket.name, "err", err)
+			return 1
+		}
+
+		totalTargets += len(urls)
+		totalUpdated += updated
+		totalMissing += missing
+		log.Info("updater bucket finished", "bucket", bucket.name, "targets", len(urls), "updated", updated, "missing", missing)
 	}
 
-	log.Info("updater finished", "tier", *tier, "targets", len(urls), "updated", updated, "missing", missing, "elapsed", time.Since(startedAt))
+	log.Info("updater finished", "targets", totalTargets, "updated", totalUpdated, "missing", totalMissing, "elapsed", time.Since(startedAt))
 	return 0
 }
 
-func selectTargetURLs(ctx context.Context, pool *pgxpool.Pool, tier string, limit int) ([]string, error) {
+func selectTargetURLs(ctx context.Context, pool *pgxpool.Pool, where string, limit int) ([]string, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("pool is nil")
-	}
-
-	var where string
-	switch tier {
-	case "high":
-		where = `(posted_at > NOW() - INTERVAL '30 days' OR bookmark_count >= 100)`
-	case "medium":
-		where = `(posted_at > NOW() - INTERVAL '90 days' OR bookmark_count >= 20)`
-	case "low":
-		where = `(posted_at > NOW() - INTERVAL '180 days' OR bookmark_count >= 10)`
-	case "round":
-		where = `bookmark_count >= 5`
-	default:
-		return nil, fmt.Errorf("unknown tier: %s", tier)
 	}
 
 	const base = `
 SELECT url
 FROM entries
-WHERE %s
+%s
 ORDER BY updated_at ASC
 LIMIT $1`
 
-	rows, err := pool.Query(ctx, fmt.Sprintf(base, where), limit)
+	whereClause := ""
+	if strings.TrimSpace(where) != "" {
+		whereClause = "WHERE " + where
+	}
+	rows, err := pool.Query(ctx, fmt.Sprintf(base, whereClause), limit)
 	if err != nil {
 		return nil, fmt.Errorf("query targets: %w", err)
 	}

@@ -316,27 +316,22 @@ hateblog バックエンドAPIの段階的な実装計画。
     - 上位3-5個のキーフレーズをタグとして登録
     - レート制限対応（リクエスト間隔の制御）
     - [x] APIキーの環境変数管理（`YAHOO_APP_ID` - .env.example設定済み）
-- [ ] **ブックマーク件数更新スクリプト（複数バッチの並行実行）**（`cmd/updater/main.go`）
+- [ ] **ブックマーク件数更新スクリプト（1回の実行で4パターンを順次処理）**（`cmd/updater/main.go`）
   - はてなブックマーク一括取得API: `https://bookmark.hatenaapis.com/count/entries?url=url1&url=url2&...`
   - 最大50URL/リクエストで効率的に取得
-  - [ ] 優先度別バッチ戦略（それぞれ独立したバッチとして実行）:
-    - [ ] **高優先度バッチ**（15分ごと、50件×2回）
-      - 条件: `WHERE (posted_at > NOW() - INTERVAL '30 days' OR bookmark_count >= 100) ORDER BY updated_at ASC LIMIT 50`
-      - 対象: 新着記事とバズった記事を高頻度で更新
-    - [ ] **中優先度バッチ**（1時間ごと、50件）
-      - 条件: `WHERE (posted_at > NOW() - INTERVAL '90 days' OR bookmark_count >= 20) ORDER BY updated_at ASC LIMIT 50`
-      - 対象: 中堅記事を中頻度で更新
-    - [ ] **低優先度バッチ**（3時間ごと、50件）
-      - 条件: `WHERE (posted_at > NOW() - INTERVAL '180 days' OR bookmark_count >= 10) ORDER BY updated_at ASC LIMIT 50`
-      - 対象: 古めの記事を低頻度で更新
-    - [ ] **全体循環バッチ**（6時間ごと、50件）
-      - 条件: `WHERE bookmark_count >= 5 ORDER BY updated_at ASC LIMIT 50`
-      - 対象: 最低限のフィルタで全体を循環更新
+  - [ ] 4パターンを順次実行（各 `ORDER BY updated_at ASC LIMIT 50`）:
+    - [ ] **投稿から7日以内**
+      - 条件: `WHERE posted_at > NOW() - INTERVAL '7 days' ORDER BY updated_at ASC LIMIT 50`
+    - [ ] **投稿から30日以内**
+      - 条件: `WHERE posted_at > NOW() - INTERVAL '30 days' AND posted_at <= NOW() - INTERVAL '7 days' ORDER BY updated_at ASC LIMIT 50`
+    - [ ] **投稿から365日以内**
+      - 条件: `WHERE posted_at > NOW() - INTERVAL '365 days' AND posted_at <= NOW() - INTERVAL '30 days' ORDER BY updated_at ASC LIMIT 50`
+    - [ ] **それ以外**
+      - 条件: `ORDER BY updated_at ASC LIMIT 50`（posted_at は不問）
   - [ ] updated_at基準の循環更新により、全エントリーをまんべんなく更新
-  - [ ] 合計: 約11,400件/日のペースで更新（100万件規模に対応）
   - [ ] 更新時にブックマーク件数とupdated_atを同時に更新
 - [ ] 定期実行
-  - [ ] cron（`*/15 * * * *` 15分ごと）または
+  - [ ] cron（`*/20 * * * *` 20分ごと）または
   - [ ] systemd timer
   - [ ] または Goアプリ内スケジューラ（`github.com/robfig/cron/v3`）
 - [ ] 差分更新ロジック
