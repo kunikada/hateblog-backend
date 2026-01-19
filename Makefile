@@ -169,7 +169,7 @@ migrate-force:
 ## migrator-build: Build the data migrator tool
 migrator-build:
 	@echo "==> Building migrator..."
-	go build -o $(BUILD_DIR)/migrator ./cmd/migrator
+	go build -buildvcs=false -o $(BUILD_DIR)/migrator ./cmd/migrator
 	@echo "✓ Migrator built: $(BUILD_DIR)/migrator"
 
 ## migrator-run: Run the data migration from MySQL to PostgreSQL

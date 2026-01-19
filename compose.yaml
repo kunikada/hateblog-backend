@@ -8,6 +8,8 @@ services:
     container_name: hateblog-postgres
     restart: unless-stopped
     command: postgres -c shared_preload_libraries=pg_bigm
+    environment:
+      - PGCLIENTENCODING=UTF8
     env_file:
       - .env
     ports:
