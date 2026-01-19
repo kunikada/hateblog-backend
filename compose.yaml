@@ -45,6 +45,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # args:
+      #   BUILD_MIGRATOR: "true"  # Uncomment to include migrator binary
     image: hateblog-backend:${APP_VERSION:-latest}
     container_name: hateblog-app
     restart: always

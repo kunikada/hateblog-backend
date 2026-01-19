@@ -1,6 +1,9 @@
 # Build stage
 FROM golang:1.25-bookworm AS builder
 
+# ARG to control whether to build migrator
+ARG BUILD_MIGRATOR=false
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git ca-certificates tzdata sudo && \
@@ -45,8 +48,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o admin \
     ./cmd/admin
 
+# Conditionally build migrator
+RUN if [ "$BUILD_MIGRATOR" = "true" ]; then \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o migrator \
+    ./cmd/migrator; \
+    fi
+
 # Runtime stage - using distroless for minimal attack surface
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
 # Copy timezone data and CA certificates from builder
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
@@ -60,6 +71,9 @@ COPY --from=builder /build/app /workspace/app
 COPY --from=builder /build/fetcher /workspace/fetcher
 COPY --from=builder /build/updater /workspace/updater
 COPY --from=builder /build/admin /workspace/admin
+
+# Conditionally copy migrator if it exists (wildcard pattern avoids error if not built)
+COPY --from=builder /build/migrator* /workspace/
 
 # Copy migrations
 COPY --from=builder /build/migrations /workspace/migrations
