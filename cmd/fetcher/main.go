@@ -128,6 +128,7 @@ func run() int {
 	})
 
 	inserted := 0
+	updated := 0
 	skipped := 0
 	for _, item := range feedEntries {
 		select {
@@ -137,16 +138,20 @@ func run() int {
 		default:
 		}
 
-		_, ok, err := insertEntry(ctx, db.Pool, item)
+		_, isInsert, err := insertEntry(ctx, db.Pool, item)
 		if err != nil {
 			log.Error("insert entry failed", "url", item.URL, "err", err)
 			return 1
 		}
-		if !ok {
+		if isInsert == nil {
 			skipped++
 			continue
 		}
-		inserted++
+		if *isInsert {
+			inserted++
+		} else {
+			updated++
+		}
 
 	}
 
@@ -194,7 +199,7 @@ func run() int {
 		return 1
 	}
 
-	log.Info("fetcher finished", "inserted", inserted, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
+	log.Info("fetcher finished", "inserted", inserted, "updated", updated, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
 	return 0
 }
 
@@ -257,15 +262,15 @@ func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string,
 	return items, nil
 }
 
-func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, inserted bool, err error) {
+func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, isInsert *bool, err error) {
 	if pool == nil {
-		return uuid.Nil, false, fmt.Errorf("pool is nil")
+		return uuid.Nil, nil, fmt.Errorf("pool is nil")
 	}
 	if strings.TrimSpace(item.URL) == "" {
-		return uuid.Nil, false, fmt.Errorf("url is required")
+		return uuid.Nil, nil, fmt.Errorf("url is required")
 	}
 	if item.PostedAt.IsZero() {
-		return uuid.Nil, false, fmt.Errorf("posted_at is required")
+		return uuid.Nil, nil, fmt.Errorf("posted_at is required")
 	}
 
 	now := timeutil.Now()
@@ -279,9 +284,10 @@ ON CONFLICT (url) DO UPDATE SET
 	excerpt = EXCLUDED.excerpt,
 	subject = EXCLUDED.subject,
 	updated_at = EXCLUDED.updated_at
-RETURNING id`
+RETURNING id, (xmax = 0) AS inserted`
 
 	var entryID uuid.UUID
+	var inserted bool
 	row := pool.QueryRow(ctx, q,
 		item.Title,
 		item.URL,
@@ -292,13 +298,13 @@ RETURNING id`
 		now,
 		now,
 	)
-	if err := row.Scan(&entryID); err != nil {
+	if err := row.Scan(&entryID, &inserted); err != nil {
 		if err == pgx.ErrNoRows {
-			return uuid.Nil, false, nil
+			return uuid.Nil, nil, nil
 		}
-		return uuid.Nil, false, err
+		return uuid.Nil, nil, err
 	}
-	return entryID, true, nil
+	return entryID, &inserted, nil
 }
 
 func refreshArchiveCountsForDay(ctx context.Context, pool *pgxpool.Pool, day time.Time) error {
