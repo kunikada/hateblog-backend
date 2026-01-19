@@ -91,14 +91,15 @@ func run() int {
 		log.Error("db connect failed", "err", err)
 		return 1
 	}
-	defer db.Close()
 
 	locked, unlock, err := batchutil.TryAdvisoryLock(ctx, db.Pool, *lockName)
 	if err != nil {
+		db.Close()
 		log.Error("lock failed", "err", err)
 		return 1
 	}
 	if !locked {
+		db.Close()
 		log.Info("lock not acquired; skip")
 		return 0
 	}
@@ -108,6 +109,7 @@ func run() int {
 		if err := unlock(unlockCtx); err != nil {
 			log.Warn("unlock failed", "err", err)
 		}
+		db.Close()
 	}()
 
 	httpClient := &http.Client{Timeout: cfg.External.HatenaAPITimeout}
