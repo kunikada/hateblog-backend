@@ -376,13 +376,6 @@ func attachTags(
 	}
 	phrases = phrases[:topN]
 
-	maxScore := 0
-	for _, p := range phrases {
-		if p.Score > maxScore {
-			maxScore = p.Score
-		}
-	}
-
 	added := 0
 	for _, p := range phrases {
 		name := tag.NormalizeName(p.Text)
@@ -394,15 +387,12 @@ func attachTags(
 			return added, err
 		}
 
-		score := 0.0
-		if maxScore > 0 {
-			score = float64(p.Score) / float64(maxScore)
-		}
+		score := p.Score
 		if score < 0 {
 			score = 0
 		}
-		if score > 1 {
-			score = 1
+		if score > 100 {
+			score = 100
 		}
 
 		const q = `
