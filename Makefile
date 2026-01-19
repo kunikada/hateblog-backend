@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test cover build run clean security migrate-up migrate-down migrate-create generate generate-install deps-outdated depguard
+.PHONY: help fmt lint test cover build run clean security migrate-up migrate-down migrate-create migrate-force migrator-build migrator-run generate generate-install deps-outdated depguard
 
 # Default target
 .DEFAULT_GOAL := help
@@ -81,7 +81,8 @@ build:
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/admin \
 		./cmd/admin
-	@echo "✓ Binaries built: $(BUILD_DIR)/$(APP_NAME), $(BUILD_DIR)/fetcher, $(BUILD_DIR)/updater, $(BUILD_DIR)/admin"
+	go build -o $(BUILD_DIR)/migrator ./cmd/migrator
+	@echo "✓ Binaries built: $(BUILD_DIR)/$(APP_NAME), $(BUILD_DIR)/fetcher, $(BUILD_DIR)/updater, $(BUILD_DIR)/admin, $(BUILD_DIR)/migrator"
 
 ## run: Run the application
 run:
@@ -164,6 +165,22 @@ migrate-force:
 	fi; \
 	migrate -path $(MIGRATE_DIR) -database "$$DB_URL" force $(version)
 	@echo "✓ Migration version forced"
+
+## migrator-build: Build the data migrator tool
+migrator-build:
+	@echo "==> Building migrator..."
+	go build -o $(BUILD_DIR)/migrator ./cmd/migrator
+	@echo "✓ Migrator built: $(BUILD_DIR)/migrator"
+
+## migrator-run: Run the data migration from MySQL to PostgreSQL
+migrator-run: migrator-build
+	@echo "==> Running data migration..."
+	@if [ ! -f "$(BUILD_DIR)/migrator" ]; then \
+		echo "Error: migrator binary not found. Run 'make migrator-build' first"; \
+		exit 1; \
+	fi
+	$(BUILD_DIR)/migrator
+	@echo "✓ Migration complete"
 
 ## ci: Run all CI checks (fmt, lint, depguard, test, security)
 ci: fmt lint depguard test security

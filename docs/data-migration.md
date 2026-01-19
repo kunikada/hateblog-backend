@@ -39,85 +39,45 @@
 
 ## スクリプト実行
 ```sh
-chmod +x scripts/migrate_tsv.sh
-./scripts/migrate_tsv.sh
+make migrator-run
 ```
 
-## 投入（psql）
-接続に必要なオプションは適宜指定する。
+または、バイナリを直接実行：
 ```sh
-psql -v ON_ERROR_STOP=1 <DB_NAME>
+./bin/migrator
 ```
 
-```sql
-\copy entries(id,title,url,posted_at,bookmark_count,excerpt,subject,created_at,updated_at) FROM 'entries.tsv' WITH (FORMAT csv, DELIMITER E'\t', HEADER true, NULL '\N')
-\copy tags(id,name,created_at) FROM 'tags.tsv' WITH (FORMAT csv, DELIMITER E'\t', HEADER true, NULL '\N')
-\copy entry_tags(entry_id,tag_id,score,created_at) FROM 'entry_tags.tsv' WITH (FORMAT csv, DELIMITER E'\t', HEADER true, NULL '\N')
+## 環境変数
+`.env` ファイルで MySQL と PostgreSQL の接続情報を指定します：
+
+### MySQL 設定
+```
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=
+MYSQL_DB=hateblog_old
+MYSQL_CONNECT_TIMEOUT=10s
 ```
 
-## 検証（概要）
-- `bookmarks` と `entries` の行数が一致すること
-- `keywords` と `tags` の行数が一致すること
-- `keyphrases` と `entry_tags` の行数が一致すること
-
-## 検証コマンド
-```sh
-mysql --batch --raw --default-character-set=utf8mb4 -e "
-SELECT COUNT(*) FROM bookmarks;
-SELECT COUNT(*) FROM keywords;
-SELECT COUNT(*) FROM keyphrases;
-" hateblog
+### PostgreSQL 設定
+```
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=hateblog
+POSTGRES_PASSWORD=changeme
+POSTGRES_DB=hateblog
+POSTGRES_CONNECT_TIMEOUT=10s
 ```
 
-```sh
-psql -v ON_ERROR_STOP=1 <DB_NAME>
-```
+## 処理の特徴
+- **高速化**: Go による単一バイナリで実装（シェルスクリプト版は UUID 生成がボトルネック）
+- **再開可能**: 移行先テーブルの行数で進捗を判定（途中中断時は続きから処理）
+- **バッチ処理**: 1000行ごとにコミット（メモリとパフォーマンスのバランス）
+- **進捗表示**: 各テーブルの処理状況を表示
+  ```
+  Total: 100000 | Already migrated: 50000 | Remaining: 50000
+  [bookmarks] 51000/100000 (51.0%)
+  ```
 
-```sql
-SELECT COUNT(*) FROM entries;
-SELECT COUNT(*) FROM tags;
-SELECT COUNT(*) FROM entry_tags;
-```
 
-## 抽出（MySQLコマンド）
-接続に必要なオプションは適宜指定する。
-```sh
-mysql --batch --raw --default-character-set=utf8mb4 -e "
-SELECT
-  id,
-  title,
-  link,
-  sslp,
-  description,
-  subject,
-  cnt,
-  ientried,
-  icreated,
-  imodified
-FROM bookmarks;
-" hateblog > bookmarks.tsv
-```
-
-```sh
-mysql --batch --raw --default-character-set=utf8mb4 -e "
-SELECT
-  id,
-  keyword,
-  bookmark_cnt
-FROM keywords;
-" hateblog > keywords.tsv
-```
-
-```sh
-mysql --batch --raw --default-character-set=utf8mb4 -e "
-SELECT
-  bookmark_id,
-  keyword_id,
-  score
-FROM keyphrases;
-" hateblog > keyphrases.tsv
-```
-
-## スクリプト入出力（概要）
-- 入力: 抽出したTSV（UTF-8、ヘッダあり）
-- 出力: `entries` / `tags` / `entry_tags` への投入用データ

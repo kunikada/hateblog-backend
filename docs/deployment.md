@@ -222,14 +222,22 @@ docker compose up -d --build
 
 ## Database Migration
 
-マイグレーション実行（アプリ実装後）：
+マイグレーションは**コンテナ起動時に自動適用**されます。アプリケーション起動時に未適用のマイグレーションがあれば自動的に実行されます。
+
+手動でマイグレーション操作が必要な場合（ロールバックなど）：
 
 ```bash
-# マイグレーション適用
-docker compose exec app /app migrate up
+# マイグレーション適用（通常は自動実行されるため不要）
+docker compose exec app /workspace/app migrate up
 
 # ロールバック
-docker compose exec app /app migrate down 1
+docker compose exec app /workspace/app migrate down
+
+# バージョン確認
+docker compose exec app /workspace/app migrate version
+
+# 強制的にバージョンを設定（dirty状態の復旧用）
+docker compose exec app /workspace/app migrate force <version>
 ```
 
 ## Batch Jobs（Cron運用）
