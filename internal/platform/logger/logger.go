@@ -77,6 +77,7 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 			Level:      level,
 			TimeFormat: "15:04:05",
 			AddSource:  opts.AddSource,
+			NoColor:    true,
 		})
 	default:
 		// Default to text format
@@ -84,6 +85,7 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 			Level:      level,
 			TimeFormat: "15:04:05",
 			AddSource:  opts.AddSource,
+			NoColor:    true,
 		})
 	}
 }
