@@ -162,6 +162,8 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 		LIMIT ? OFFSET ?
 	`
 
+	skippedBookmarks := 0
+
 	for offset := processed; offset < total; offset += batchSize {
 		rows, err := mysqlDB.QueryContext(ctx, query, batchSize, offset)
 		if err != nil {
@@ -178,8 +180,8 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 
 		for rows.Next() {
 			var id int64
-			var title, link, description string
-			var subject sql.NullString
+			var title, link sql.NullString
+			var description, subject sql.NullString
 			var sslp, cnt int
 			var ientried, icreated, imodified int64
 
@@ -189,18 +191,35 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 				return err
 			}
 
+			// Validate required fields
+			if !title.Valid || title.String == "" {
+				fmt.Printf("Error: bookmark id=%d has NULL or empty title, skipping\n", id)
+				skippedBookmarks++
+				continue
+			}
+			if !link.Valid || link.String == "" {
+				fmt.Printf("Error: bookmark id=%d has NULL or empty link, skipping\n", id)
+				skippedBookmarks++
+				continue
+			}
+
 			newID := uuid.New().String()
 			scheme := "http"
 			if sslp == 1 {
 				scheme = "https"
 			}
-			url := fmt.Sprintf("%s://%s", scheme, link)
+			url := fmt.Sprintf("%s://%s", scheme, link.String)
 
 			postedAt := unixToTimestamp(ientried)
 			createdAt := unixToTimestamp(icreated)
 			updatedAt := unixToTimestamp(imodified)
 
 			// Convert sql.NullString to *string for PostgreSQL
+			var descriptionPtr *string
+			if description.Valid {
+				descriptionPtr = &description.String
+			}
+
 			var subjectPtr *string
 			if subject.Valid {
 				subjectPtr = &subject.String
@@ -209,7 +228,7 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 			_, err := tx.Exec(ctx, `
 				INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			`, newID, title, url, postedAt, cnt, description, subjectPtr, createdAt, updatedAt)
+			`, newID, title.String, url, postedAt, cnt, descriptionPtr, subjectPtr, createdAt, updatedAt)
 			if err != nil {
 				rows.Close()
 				tx.Rollback(ctx)
@@ -234,7 +253,15 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 		if current > total {
 			current = total
 		}
-		fmt.Printf("[bookmarks] %d/%d (%.1f%%)\n", current, total, float64(current)*100/float64(total))
+		if skippedBookmarks > 0 {
+			fmt.Printf("[bookmarks] %d/%d (%.1f%%) | Skipped: %d\n", current, total, float64(current)*100/float64(total), skippedBookmarks)
+		} else {
+			fmt.Printf("[bookmarks] %d/%d (%.1f%%)\n", current, total, float64(current)*100/float64(total))
+		}
+	}
+
+	if skippedBookmarks > 0 {
+		fmt.Printf("[bookmarks] Warning: Skipped %d records due to NULL/empty required fields\n", skippedBookmarks)
 	}
 
 	return nil
