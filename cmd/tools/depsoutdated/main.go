@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -30,6 +31,9 @@ func main() {
 }
 
 func run() error {
+	update := flag.Bool("update", false, "すべてのパッケージを最新版に更新します")
+	flag.Parse()
+
 	cmd := exec.Command("go", "list", "-m", "-u", "-json", "all")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -55,6 +59,31 @@ func run() error {
 		return nil
 	}
 
+	if *update {
+		fmt.Println("パッケージを更新しています...")
+		for _, m := range outdated {
+			pkg := m.Path + "@" + m.Update.Version
+			fmt.Printf("  更新: %s@%s -> %s\n", m.Path, safeVersion(m.Version), safeVersion(m.Update.Version))
+			cmd := exec.Command("go", "get", pkg)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("go get %s: %w", pkg, err)
+			}
+		}
+
+		fmt.Println("\ngo mod tidy を実行しています...")
+		cmd := exec.Command("go", "mod", "tidy")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("go mod tidy: %w", err)
+		}
+
+		fmt.Println("\n✓ すべてのパッケージを最新版に更新しました")
+		return nil
+	}
+
 	fmt.Printf("%-45s %-15s %-15s %s\n", "MODULE", "CURRENT", "LATEST", "NOTES")
 	for _, m := range outdated {
 		note := ""
@@ -64,7 +93,9 @@ func run() error {
 		fmt.Printf("%-45s %-15s %-15s %s\n", m.Path, safeVersion(m.Version), safeVersion(m.Update.Version), note)
 	}
 
-	fmt.Println("\n更新例:")
+	fmt.Println("\n更新オプション:")
+	fmt.Println("  -update フラグで自動更新: go run cmd/tools/depsoutdated/main.go -update")
+	fmt.Println("\n手動更新例:")
 	fmt.Println("  go get example.com/mod@v1.2.3")
 	fmt.Println("  go mod tidy")
 
