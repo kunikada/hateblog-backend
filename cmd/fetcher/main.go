@@ -130,6 +130,7 @@ func run() int {
 	inserted := 0
 	updated := 0
 	skipped := 0
+	affectedDays := make(map[time.Time]struct{})
 	for _, item := range feedEntries {
 		select {
 		case <-ctx.Done():
@@ -152,6 +153,9 @@ func run() int {
 		} else {
 			updated++
 		}
+		// Collect the day for archive_counts update
+		day := timeutil.DateInLocation(item.PostedAt)
+		affectedDays[day] = struct{}{}
 
 	}
 
@@ -193,10 +197,11 @@ func run() int {
 		}
 	}
 
-	today := timeutil.DateInLocation(timeutil.Now())
-	if err := refreshArchiveCountsForDay(ctx, db.Pool, today); err != nil {
-		log.Error("refresh archive counts failed", "day", today.Format("2006-01-02"), "err", err)
-		return 1
+	for day := range affectedDays {
+		if err := refreshArchiveCountsForDay(ctx, db.Pool, day); err != nil {
+			log.Error("refresh archive counts failed", "day", day.Format("2006-01-02"), "err", err)
+			return 1
+		}
 	}
 
 	log.Info("fetcher finished", "inserted", inserted, "updated", updated, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
