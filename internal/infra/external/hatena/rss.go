@@ -44,10 +44,25 @@ func parseRSS(r io.Reader) (*Feed, error) {
 		Link:        strings.TrimSpace(doc.Channel.Link),
 	}
 
-	for _, item := range doc.Items {
+	var skippedItems []string
+
+	for i, item := range doc.Items {
+		title := strings.TrimSpace(item.Title)
+		if title == "" {
+			skippedItems = append(skippedItems, fmt.Sprintf("item[%d]: missing title", i))
+			continue
+		}
+
+		link := strings.TrimSpace(item.Link)
+		if link == "" {
+			skippedItems = append(skippedItems, fmt.Sprintf("item[%d]: missing link (title=%q)", i, title))
+			continue
+		}
+
 		publishedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(item.Date))
 		if err != nil {
-			return nil, fmt.Errorf("hatena: invalid dc:date %q: %w", item.Date, err)
+			skippedItems = append(skippedItems, fmt.Sprintf("item[%d]: invalid date %q (title=%q)", i, item.Date, title))
+			continue
 		}
 		publishedAt = publishedAt.In(time.Local)
 
@@ -55,13 +70,14 @@ func parseRSS(r io.Reader) (*Feed, error) {
 		if strings.TrimSpace(item.BookmarkCount) != "" {
 			count, err = strconv.Atoi(strings.TrimSpace(item.BookmarkCount))
 			if err != nil {
-				return nil, fmt.Errorf("hatena: invalid bookmark count %q: %w", item.BookmarkCount, err)
+				skippedItems = append(skippedItems, fmt.Sprintf("item[%d]: invalid bookmark count %q (title=%q)", i, item.BookmarkCount, title))
+				continue
 			}
 		}
 
 		entry := FeedEntry{
-			Title:         strings.TrimSpace(item.Title),
-			URL:           strings.TrimSpace(item.Link),
+			Title:         title,
+			URL:           link,
 			Excerpt:       strings.TrimSpace(item.Description),
 			Content:       strings.TrimSpace(item.Content),
 			Subjects:      normalizeSubjects(item.Subjects),
@@ -69,6 +85,10 @@ func parseRSS(r io.Reader) (*Feed, error) {
 			PublishedAt:   publishedAt,
 		}
 		feed.Entries = append(feed.Entries, entry)
+	}
+
+	if len(skippedItems) > 0 {
+		return feed, fmt.Errorf("hatena: skipped %d invalid items: %s", len(skippedItems), strings.Join(skippedItems, "; "))
 	}
 
 	return feed, nil
