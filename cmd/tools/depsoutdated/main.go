@@ -61,22 +61,29 @@ func run() error {
 
 	if *update {
 		fmt.Println("パッケージを更新しています...")
+
+		// すべてのパッケージを一度に更新（並列処理で高速化）
+		packages := make([]string, 0, len(outdated))
 		for _, m := range outdated {
 			pkg := m.Path + "@" + m.Update.Version
-			fmt.Printf("  更新: %s@%s -> %s\n", m.Path, safeVersion(m.Version), safeVersion(m.Update.Version))
-			cmd := exec.Command("go", "get", pkg)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("go get %s: %w", pkg, err)
-			}
+			packages = append(packages, pkg)
+			fmt.Printf("  %s@%s -> %s\n", m.Path, safeVersion(m.Version), safeVersion(m.Update.Version))
 		}
 
-		fmt.Println("\ngo mod tidy を実行しています...")
-		cmd := exec.Command("go", "mod", "tidy")
+		fmt.Printf("\n%d個のパッケージを一括更新中...\n", len(packages))
+		args := append([]string{"get"}, packages...)
+		cmd := exec.Command("go", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("go get: %w", err)
+		}
+
+		fmt.Println("\ngo mod tidy を実行しています...")
+		tidyCmd := exec.Command("go", "mod", "tidy")
+		tidyCmd.Stdout = os.Stdout
+		tidyCmd.Stderr = os.Stderr
+		if err := tidyCmd.Run(); err != nil {
 			return fmt.Errorf("go mod tidy: %w", err)
 		}
 
