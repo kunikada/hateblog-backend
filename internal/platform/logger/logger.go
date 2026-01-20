@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
-
-	"hateblog/internal/pkg/timeutil"
 )
 
 // Level represents log level
@@ -75,7 +73,7 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 	replaceAttr := func(groups []string, a slog.Attr) slog.Attr {
 		if a.Key == slog.TimeKey {
 			if t, ok := a.Value.Any().(time.Time); ok {
-				return slog.Time(slog.TimeKey, t.In(timeutil.Location()))
+				return slog.Time(slog.TimeKey, t.In(time.Local))
 			}
 		}
 		return a

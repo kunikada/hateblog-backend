@@ -66,22 +66,26 @@ build:
 	@echo "==> Building application..."
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-tags timetzdata \
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/$(APP_NAME) \
 		$(CMD_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-tags timetzdata \
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/fetcher \
 		./cmd/fetcher
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-tags timetzdata \
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/updater \
 		./cmd/updater
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-tags timetzdata \
 		-ldflags='-w -s -extldflags "-static"' \
 		-o $(BUILD_DIR)/admin \
 		./cmd/admin
-	go build -o $(BUILD_DIR)/migrator ./cmd/migrator
+	go build -tags timetzdata -o $(BUILD_DIR)/migrator ./cmd/migrator
 	@echo "✓ Binaries built: $(BUILD_DIR)/$(APP_NAME), $(BUILD_DIR)/fetcher, $(BUILD_DIR)/updater, $(BUILD_DIR)/admin, $(BUILD_DIR)/migrator"
 
 ## run: Run the application

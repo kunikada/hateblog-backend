@@ -21,7 +21,7 @@ func TestParseRSS(t *testing.T) {
 	require.Equal(t, []string{"Go", "Web"}, first.Subjects)
 	require.Equal(t, "desc", first.Excerpt)
 	require.Equal(t, "<p>Hello</p>", first.Content)
-	require.Equal(t, time.Date(2025, 1, 1, 3, 4, 5, 0, time.UTC), first.PublishedAt)
+	require.Equal(t, time.Date(2025, 1, 1, 3, 4, 5, 0, time.UTC).In(time.Local), first.PublishedAt)
 
 	second := feed.Entries[1]
 	require.Equal(t, 7, second.BookmarkCount)

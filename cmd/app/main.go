@@ -15,7 +15,6 @@ import (
 	"hateblog/internal/infra/handler"
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
-	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/cache"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
@@ -44,9 +43,11 @@ func runMigrate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+	loc, err := time.LoadLocation(cfg.App.TimeZone)
+	if err != nil {
 		return fmt.Errorf("load timezone: %w", err)
 	}
+	time.Local = loc
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {

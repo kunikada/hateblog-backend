@@ -6,7 +6,6 @@ import (
 	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
-	"hateblog/internal/pkg/timeutil"
 )
 
 // EntryRepository provides entry metadata lookup.
@@ -44,7 +43,7 @@ func (s *Service) RecordClick(ctx context.Context, id domainEntry.ID) error {
 	if _, err := s.entries.Get(ctx, id); err != nil {
 		return fmt.Errorf("entry not found: %w", err)
 	}
-	if err := s.clicks.Increment(ctx, id, timeutil.Now()); err != nil {
+	if err := s.clicks.Increment(ctx, id, time.Now()); err != nil {
 		return err
 	}
 	return nil

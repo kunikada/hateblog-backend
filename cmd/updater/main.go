@@ -13,7 +13,6 @@ import (
 
 	"hateblog/internal/infra/external/hatena"
 	"hateblog/internal/pkg/batchutil"
-	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	platformLogger "hateblog/internal/platform/logger"
@@ -44,10 +43,12 @@ func run() int {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+	loc, err := time.LoadLocation(cfg.App.TimeZone)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to load timezone %s: %v\n", cfg.App.TimeZone, err)
 		return 1
 	}
+	time.Local = loc
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {
@@ -203,7 +204,7 @@ func applyCounts(ctx context.Context, pool *pgxpool.Pool, urls []string, counts 
 	if pool == nil {
 		return 0, 0, fmt.Errorf("pool is nil")
 	}
-	now := timeutil.Now()
+	now := time.Now()
 
 	for _, u := range urls {
 		count, ok := counts[u]

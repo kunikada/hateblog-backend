@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"hateblog/internal/pkg/timeutil"
 )
 
 type rssDocument struct {
@@ -51,7 +49,7 @@ func parseRSS(r io.Reader) (*Feed, error) {
 		if err != nil {
 			return nil, fmt.Errorf("hatena: invalid dc:date %q: %w", item.Date, err)
 		}
-		publishedAt = timeutil.InLocation(publishedAt)
+		publishedAt = publishedAt.In(time.Local)
 
 		count := 0
 		if strings.TrimSpace(item.BookmarkCount) != "" {

@@ -24,7 +24,8 @@
       "Bash(xargs ls:*)",
       "Bash(make test:*)",
       "Bash(ls:*)",
-      "Bash(crontab:*)"
+      "Bash(crontab:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

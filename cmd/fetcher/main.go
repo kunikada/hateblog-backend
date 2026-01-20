@@ -19,7 +19,6 @@ import (
 	"hateblog/internal/infra/external/yahoo"
 	"hateblog/internal/infra/postgres"
 	"hateblog/internal/pkg/batchutil"
-	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
 	platformLogger "hateblog/internal/platform/logger"
@@ -49,10 +48,12 @@ func run() int {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+	loc, err := time.LoadLocation(cfg.App.TimeZone)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to load timezone %s: %v\n", cfg.App.TimeZone, err)
 		return 1
 	}
+	time.Local = loc
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {
@@ -154,7 +155,7 @@ func run() int {
 			updated++
 		}
 		// Collect the day for archive_counts update
-		day := timeutil.DateInLocation(item.PostedAt)
+		day := time.Date(item.PostedAt.Year(), item.PostedAt.Month(), item.PostedAt.Day(), 0, 0, 0, 0, time.UTC)
 		affectedDays[day] = struct{}{}
 
 	}
@@ -246,7 +247,7 @@ func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string,
 				Excerpt:       strings.TrimSpace(e.Excerpt),
 				Subject:       strings.TrimSpace(subject),
 				BookmarkCount: e.BookmarkCount,
-				PostedAt:      timeutil.InLocation(e.PublishedAt),
+				PostedAt:      e.PublishedAt.In(time.Local),
 			}
 			if len(seen) >= max {
 				break
@@ -278,7 +279,7 @@ func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uui
 		return uuid.Nil, nil, fmt.Errorf("posted_at is required")
 	}
 
-	now := timeutil.Now()
+	now := time.Now()
 	const q = `
 INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

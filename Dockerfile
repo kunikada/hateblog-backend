@@ -3,7 +3,7 @@ FROM golang:1.25-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ca-certificates tzdata sudo && \
+    git ca-certificates sudo && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for development (UID 1000)
@@ -23,24 +23,29 @@ COPY . .
 
 # Build the application
 # CGO_ENABLED=0 for static binary
+# -tags timetzdata to embed timezone database
 # -ldflags for stripping debug info and reducing size
 RUN CGO_ENABLED=0 GOOS=linux go build \
+    -tags timetzdata \
     -ldflags='-w -s -extldflags "-static"' \
     -o app \
     ./cmd/app
 
 # Build batch tools
 RUN CGO_ENABLED=0 GOOS=linux go build \
+    -tags timetzdata \
     -ldflags='-w -s -extldflags "-static"' \
     -o fetcher \
     ./cmd/fetcher
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
+    -tags timetzdata \
     -ldflags='-w -s -extldflags "-static"' \
     -o updater \
     ./cmd/updater
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
+    -tags timetzdata \
     -ldflags='-w -s -extldflags "-static"' \
     -o admin \
     ./cmd/admin
@@ -48,8 +53,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Runtime stage - using distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
-# Copy timezone data and CA certificates from builder
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+# Copy CA certificates from builder
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Set working directory for consistent relative paths

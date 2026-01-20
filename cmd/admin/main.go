@@ -15,7 +15,6 @@ import (
 
 	infraPostgres "hateblog/internal/infra/postgres"
 	infraRedis "hateblog/internal/infra/redis"
-	"hateblog/internal/pkg/timeutil"
 	"hateblog/internal/platform/cache"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
@@ -103,9 +102,11 @@ func runArchiveRebuild(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+	loc, err := time.LoadLocation(cfg.App.TimeZone)
+	if err != nil {
 		return fmt.Errorf("load timezone: %w", err)
 	}
+	time.Local = loc
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {
@@ -371,9 +372,11 @@ func connect(ctx context.Context) (*config.Config, *slog.Logger, *cache.Cache, f
 	if err != nil {
 		return nil, nil, nil, func() {}, false, fmt.Errorf("load config: %w", err)
 	}
-	if err := timeutil.SetLocation(cfg.App.TimeZone); err != nil {
+	loc, err := time.LoadLocation(cfg.App.TimeZone)
+	if err != nil {
 		return nil, nil, nil, func() {}, false, fmt.Errorf("load timezone: %w", err)
 	}
+	time.Local = loc
 
 	sentryEnabled, err := telemetry.InitSentry(cfg.Sentry)
 	if err != nil {

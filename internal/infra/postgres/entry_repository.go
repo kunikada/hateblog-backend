@@ -14,7 +14,6 @@ import (
 	domainArchive "hateblog/internal/domain/archive"
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
-	"hateblog/internal/pkg/timeutil"
 )
 
 var _ repository.EntryRepository = (*EntryRepository)(nil)
@@ -37,7 +36,7 @@ func (r *EntryRepository) Create(ctx context.Context, e *entry.Entry) error {
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()
 	}
-	now := timeutil.Now()
+	now := time.Now()
 	if e.CreatedAt.IsZero() {
 		e.CreatedAt = now
 	}
@@ -75,7 +74,7 @@ func (r *EntryRepository) Update(ctx context.Context, e *entry.Entry) error {
 		return fmt.Errorf("entry id is required")
 	}
 	if e.UpdatedAt.IsZero() {
-		e.UpdatedAt = timeutil.Now()
+		e.UpdatedAt = time.Now()
 	}
 
 	const query = `

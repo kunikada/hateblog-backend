@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"hateblog/internal/domain/tag"
-	"hateblog/internal/pkg/timeutil"
 )
 
 // ErrInvalidEntry signals invalid entry parameters.
@@ -209,10 +208,10 @@ func (q *ListQuery) Normalize() error {
 	}
 
 	if !q.PostedAtFrom.IsZero() {
-		q.PostedAtFrom = timeutil.InLocation(q.PostedAtFrom)
+		q.PostedAtFrom = q.PostedAtFrom.In(time.Local)
 	}
 	if !q.PostedAtTo.IsZero() {
-		q.PostedAtTo = timeutil.InLocation(q.PostedAtTo)
+		q.PostedAtTo = q.PostedAtTo.In(time.Local)
 	}
 	if !q.PostedAtFrom.IsZero() && !q.PostedAtTo.IsZero() && !q.PostedAtFrom.Before(q.PostedAtTo) {
 		return fmt.Errorf("%w: posted_at_from must be before posted_at_to", ErrInvalidListQuery)
