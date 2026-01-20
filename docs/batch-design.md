@@ -80,7 +80,7 @@
 #### 処理フロー（概要）
 
 1. `archive_counts` を全削除する
-2. `entries` から `day` / `bookmark_count` 単位で集計し再投入する
+2. `entries` から `day` / `threshold`（5, 10, 50, 100, 500, 1000）単位で集計し再投入する
 
 ## ログ・監視
 

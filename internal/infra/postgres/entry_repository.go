@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	domainArchive "hateblog/internal/domain/archive"
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
 	"hateblog/internal/pkg/timeutil"
@@ -240,14 +241,13 @@ func (r *EntryRepository) ListAndCount(ctx context.Context, q entry.ListQuery) (
 
 // ListArchiveCounts aggregates entries per day ordered by date desc.
 func (r *EntryRepository) ListArchiveCounts(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
-	if minBookmarkCount < 0 {
-		minBookmarkCount = 0
+	if err := domainArchive.ValidateMinUsers(minBookmarkCount); err != nil {
+		return nil, err
 	}
 	const query = `
-SELECT day, SUM(count)
+SELECT day, count
 FROM archive_counts
-WHERE bookmark_count >= $1
-GROUP BY day
+WHERE threshold = $1
 ORDER BY day DESC`
 
 	rows, err := r.pool.Query(ctx, query, minBookmarkCount)

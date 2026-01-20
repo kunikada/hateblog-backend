@@ -12,7 +12,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `entry_tags` - エントリーとタグの中間テーブル（スコア付き）
 
 ### 集計データ
-- `archive_counts` - 日別エントリー数の事前集計
+- `archive_counts` - 日別エントリー数の事前集計（閾値別）
 - `click_metrics` - エントリークリック数の日別集計
 - `tag_view_history` - タグ閲覧数の日別集計
 - `search_history` - 検索キーワードの日別集計
@@ -112,16 +112,16 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 | カラム名 | データ型 | NULL | デフォルト | 説明 |
 |---------|---------|------|-----------|------|
 | day | DATE | NOT NULL | - | 日付（YYYY-MM-DD） |
-| bookmark_count | INTEGER | NOT NULL | - | ブックマーク件数 |
-| count | INTEGER | NOT NULL | 0 | 件数 |
+| threshold | INTEGER | NOT NULL | - | 閾値（5, 10, 50, 100, 500, 1000） |
+| count | INTEGER | NOT NULL | 0 | threshold以上の件数 |
 
 **制約:**
-- PRIMARY KEY: `(day, bookmark_count)`
-- CHECK: `bookmark_count >= 0`
+- PRIMARY KEY: `(day, threshold)`
+- CHECK: `threshold IN (5, 10, 50, 100, 500, 1000)`
 - CHECK: `count >= 0`
 
 **インデックス:**
-- `idx_archive_counts_bookmark_day` - bookmark_count, day DESC（min_users フィルタ用）
+- `idx_archive_counts_threshold_day` - threshold, day DESC（min_users フィルタ用）
 
 **備考:**
 - 日次バッチで全期間を再集計

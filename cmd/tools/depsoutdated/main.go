@@ -34,6 +34,7 @@ func run() error {
 	update := flag.Bool("update", false, "すべてのパッケージを最新版に更新します")
 	flag.Parse()
 
+	// #nosec G204 -- args are fixed and limited to the go toolchain.
 	cmd := exec.Command("go", "list", "-m", "-u", "-json", "all")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -72,6 +73,7 @@ func run() error {
 
 		fmt.Printf("\n%d個のパッケージを一括更新中...\n", len(packages))
 		args := append([]string{"get"}, packages...)
+		// #nosec G204 -- args are fixed to the go toolchain with controlled packages.
 		cmd := exec.Command("go", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -80,6 +82,7 @@ func run() error {
 		}
 
 		fmt.Println("\ngo mod tidy を実行しています...")
+		// #nosec G204 -- args are fixed and limited to the go toolchain.
 		tidyCmd := exec.Command("go", "mod", "tidy")
 		tidyCmd.Stdout = os.Stdout
 		tidyCmd.Stderr = os.Stderr

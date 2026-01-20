@@ -329,11 +329,13 @@ WHERE day = $1`
 	}
 
 	const insertQuery = `
-INSERT INTO archive_counts (day, bookmark_count, count)
-SELECT DATE(posted_at) AS day, bookmark_count, COUNT(1)
+INSERT INTO archive_counts (day, threshold, count)
+SELECT DATE($1) AS day, t.threshold, COUNT(1)
 FROM entries
-WHERE DATE(posted_at) = $1
-GROUP BY day, bookmark_count`
+CROSS JOIN (VALUES (5), (10), (50), (100), (500), (1000)) AS t(threshold)
+WHERE DATE(entries.posted_at) = $1
+  AND entries.bookmark_count >= t.threshold
+GROUP BY t.threshold`
 	if _, err = tx.Exec(ctx, insertQuery, day); err != nil {
 		return err
 	}

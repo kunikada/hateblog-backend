@@ -15,8 +15,7 @@ func TestExtractKeyphrasesSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPost, r.Method)
 		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		require.Equal(t, "agent", r.Header.Get("User-Agent"))
-		require.Equal(t, "appid", r.Header.Get("X-Yahoo-App-Id"))
+		require.Equal(t, "agent; Yahoo AppID: appid", r.Header.Get("User-Agent"))
 
 		var req keyphraseRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))

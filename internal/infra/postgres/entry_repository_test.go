@@ -660,7 +660,7 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		insertEntry(t, pool, e3)
 		refreshArchiveCounts(t, pool)
 
-		counts, err := repo.ListArchiveCounts(ctx, 0)
+		counts, err := repo.ListArchiveCounts(ctx, 5)
 		require.NoError(t, err)
 		require.Len(t, counts, 2)
 
@@ -699,19 +699,18 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		cleanupTables(t, pool)
 		refreshArchiveCounts(t, pool)
 
-		counts, err := repo.ListArchiveCounts(ctx, 0)
+		counts, err := repo.ListArchiveCounts(ctx, 5)
 		require.NoError(t, err)
 		require.Len(t, counts, 0)
 	})
 
-	t.Run("handles negative min bookmark count", func(t *testing.T) {
+	t.Run("rejects invalid min bookmark count", func(t *testing.T) {
 		cleanupTables(t, pool)
 
 		insertEntry(t, pool, testEntry())
 		refreshArchiveCounts(t, pool)
 
-		counts, err := repo.ListArchiveCounts(ctx, -1)
-		require.NoError(t, err)
-		require.Len(t, counts, 1)
+		_, err := repo.ListArchiveCounts(ctx, -1)
+		require.Error(t, err)
 	})
 }

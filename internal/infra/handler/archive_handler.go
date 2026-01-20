@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	domainArchive "hateblog/internal/domain/archive"
 	usecaseArchive "hateblog/internal/usecase/archive"
 )
 
@@ -26,6 +27,10 @@ func (h *ArchiveHandler) RegisterRoutes(r chiRouter) {
 func (h *ArchiveHandler) handleArchive(w http.ResponseWriter, r *http.Request) {
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultArchiveMinUsers)
 	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := domainArchive.ValidateMinUsers(minUsers); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}

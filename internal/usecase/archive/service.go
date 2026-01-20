@@ -3,6 +3,7 @@ package archive
 import (
 	"context"
 
+	domainArchive "hateblog/internal/domain/archive"
 	"hateblog/internal/domain/repository"
 )
 
@@ -30,8 +31,8 @@ func NewService(repo Repository, cache Cache) *Service {
 
 // List returns aggregated counts sorted by date desc.
 func (s *Service) List(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
-	if minBookmarkCount < 0 {
-		minBookmarkCount = 0
+	if err := domainArchive.ValidateMinUsers(minBookmarkCount); err != nil {
+		return nil, err
 	}
 	if s.cache != nil {
 		var cached []repository.ArchiveCount

@@ -18,13 +18,12 @@ func (s *stubRepo) ListArchiveCounts(ctx context.Context, minBookmarkCount int) 
 	return s.items, nil
 }
 
-func TestServiceListNormalizesMinUsers(t *testing.T) {
+func TestServiceListRejectsInvalidMinUsers(t *testing.T) {
 	items := []repository.ArchiveCount{
 		{Date: time.Now(), Count: 10},
 	}
 	svc := NewService(&stubRepo{items: items}, nil)
 
-	got, err := svc.List(context.Background(), -10)
-	require.NoError(t, err)
-	require.Equal(t, items, got)
+	_, err := svc.List(context.Background(), 7)
+	require.Error(t, err)
 }

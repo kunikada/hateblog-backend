@@ -185,11 +185,11 @@ paths:
       parameters:
         - name: min_users
           in: query
-          description: 最低ブックマーク件数フィルタ
+          description: 最低ブックマーク件数フィルタ（5, 10, 50, 100, 500, 1000）
           required: false
           schema:
             type: integer
-            minimum: 0
+            enum: [5, 10, 50, 100, 500, 1000]
             default: 5
             example: 5
       responses:

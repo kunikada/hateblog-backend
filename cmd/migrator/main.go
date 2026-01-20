@@ -14,6 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+// Config stores migration configuration values.
 type Config struct {
 	MySQLHost    string        `env:"MYSQL_HOST" envDefault:"localhost"`
 	MySQLPort    int           `env:"MYSQL_PORT" envDefault:"3306"`
@@ -44,7 +45,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect MySQL: %v", err)
 	}
-	defer mysqlDB.Close()
+	defer func() {
+		_ = mysqlDB.Close()
+	}()
 
 	pgDB, err := connectPostgres(cfg)
 	if err != nil {
@@ -52,7 +55,9 @@ func main() {
 	}
 
 	ctx := context.Background()
-	defer pgDB.Close(ctx)
+	defer func() {
+		_ = pgDB.Close(ctx)
+	}()
 
 	if err := migrate(ctx, mysqlDB, pgDB); err != nil {
 		log.Fatalf("Migration failed: %v", err)
@@ -161,13 +166,17 @@ func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) erro
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	tx, err := pgDB.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	batchCount := 0
 
@@ -257,13 +266,17 @@ func migrateKeywords(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	tx, err := pgDB.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	now := time.Now().UTC()
 	batchCount := 0

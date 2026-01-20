@@ -46,15 +46,6 @@ func TestArchiveHandler_List(t *testing.T) {
 			wantCount:  2,
 		},
 		{
-			name:        "success with min_users=0",
-			queryParams: "?min_users=0",
-			mockItems: []repository.ArchiveCount{
-				{Date: date1, Count: 200},
-			},
-			wantStatus: http.StatusOK,
-			wantCount:  1,
-		},
-		{
 			name:        "success with empty result",
 			queryParams: "",
 			mockItems:   []repository.ArchiveCount{},
@@ -69,6 +60,16 @@ func TestArchiveHandler_List(t *testing.T) {
 		{
 			name:        "error: negative min_users",
 			queryParams: "?min_users=-1",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: min_users not allowed",
+			queryParams: "?min_users=7",
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "error: min_users not allowed zero",
+			queryParams: "?min_users=0",
 			wantStatus:  http.StatusBadRequest,
 		},
 		{

@@ -352,10 +352,12 @@ func rebuildArchiveCounts(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	const insertQuery = `
-INSERT INTO archive_counts (day, bookmark_count, count)
-SELECT DATE(posted_at) AS day, bookmark_count, COUNT(1)
+INSERT INTO archive_counts (day, threshold, count)
+SELECT DATE(posted_at) AS day, t.threshold, COUNT(1)
 FROM entries
-GROUP BY day, bookmark_count`
+CROSS JOIN (VALUES (5), (10), (50), (100), (500), (1000)) AS t(threshold)
+WHERE entries.bookmark_count >= t.threshold
+GROUP BY day, t.threshold`
 	if _, err = tx.Exec(ctx, insertQuery); err != nil {
 		return err
 	}
