@@ -7,7 +7,7 @@ services:
     image: hateblog-postgres:18-bigm
     container_name: hateblog-postgres
     restart: unless-stopped
-    command: postgres -c shared_preload_libraries=pg_bigm
+    command: postgres -c shared_preload_libraries=pg_bigm -c timezone=${APP_TIMEZONE}
     environment:
       - PGCLIENTENCODING=UTF8
     env_file:

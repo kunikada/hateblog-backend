@@ -328,7 +328,7 @@ func refreshArchiveCountsForDay(ctx context.Context, pool *pgxpool.Pool, day tim
 
 	const deleteQuery = `
 DELETE FROM archive_counts
-WHERE day = $1`
+WHERE day = DATE($1)`
 	if _, err = tx.Exec(ctx, deleteQuery, day); err != nil {
 		return err
 	}
@@ -338,7 +338,7 @@ INSERT INTO archive_counts (day, threshold, count)
 SELECT DATE($1) AS day, t.threshold, COUNT(1)
 FROM entries
 CROSS JOIN (VALUES (5), (10), (50), (100), (500), (1000)) AS t(threshold)
-WHERE DATE(entries.posted_at) = $1
+WHERE DATE(entries.posted_at) = DATE($1)
   AND entries.bookmark_count >= t.threshold
 GROUP BY t.threshold`
 	if _, err = tx.Exec(ctx, insertQuery, day); err != nil {
