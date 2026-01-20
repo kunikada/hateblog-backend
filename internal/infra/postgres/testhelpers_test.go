@@ -97,8 +97,6 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		filepath.Join(migrationsDir, "000006_create_search_history.up.sql"),
 		filepath.Join(migrationsDir, "000008_enable_pg_bigm.up.sql"),
 		filepath.Join(migrationsDir, "000009_create_fulltext_indexes.up.sql"),
-		filepath.Join(migrationsDir, "000010_create_tags_fulltext_indexes.up.sql"),
-		filepath.Join(migrationsDir, "000011_create_entries_url_fulltext_index.up.sql"),
 		filepath.Join(migrationsDir, "000012_create_archive_counts.up.sql"),
 	}
 	for _, file := range files {

@@ -248,7 +248,6 @@ docker compose up -d --build
    - 000001_create_entries.up.sql
    - 000002_create_tags.up.sql
    - ...
-   - 000010_create_tags_fulltext_indexes.up.sql
 5. アプリケーション起動完了
 
 **データベース初期化の仕組み**:

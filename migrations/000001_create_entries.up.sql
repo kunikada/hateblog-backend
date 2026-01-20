@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS entries (
     bookmark_count INTEGER NOT NULL DEFAULT 0,
     excerpt TEXT,
     subject TEXT,
+    search_text TEXT GENERATED ALWAYS AS (concat_ws(' ', title, excerpt, url)) STORED,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -30,5 +31,6 @@ COMMENT ON COLUMN entries.posted_at IS '記事の投稿日時';
 COMMENT ON COLUMN entries.bookmark_count IS 'はてなブックマーク件数';
 COMMENT ON COLUMN entries.excerpt IS '記事本文の抜粋';
 COMMENT ON COLUMN entries.subject IS 'RSSフィードのsubject（画面非表示、内部利用）';
+COMMENT ON COLUMN entries.search_text IS '検索用に結合したテキスト（title/excerpt/url）';
 COMMENT ON COLUMN entries.created_at IS 'レコード作成日時';
 COMMENT ON COLUMN entries.updated_at IS 'レコード更新日時';

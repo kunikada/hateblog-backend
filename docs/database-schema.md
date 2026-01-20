@@ -34,6 +34,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 | bookmark_count | INTEGER | NOT NULL | 0 | はてなブックマーク件数 |
 | excerpt | TEXT | NULL | - | 記事本文の抜粋 |
 | subject | TEXT | NULL | - | RSSフィードのsubject（画面非表示、内部利用） |
+| search_text | TEXT | NULL | 生成列 | 検索用に結合したテキスト（title/excerpt/url） |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時 |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード更新日時 |
 
@@ -49,8 +50,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `idx_entries_created_at` - created_at（データ投入監視用）
 
 **全文検索用インデックス（pg_bigm使用時）:**
-- `idx_entries_title_gin` - GIN(title gin_bigm_ops)
-- `idx_entries_excerpt_gin` - GIN(excerpt gin_bigm_ops)
+- `idx_entries_search_text_gin` - GIN(search_text gin_bigm_ops)
 
 **備考:**
 - Faviconは、Google Favicon API (`https://www.google.com/s2/favicons?domain={domain}`) を使用して動的に取得するため、テーブルには格納しない
@@ -224,6 +224,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 │ bookmark_count       │
 │ excerpt              │
 │ subject              │
+│ search_text          │
 │ created_at           │
 │ updated_at           │
 └──────┬───────────────┘
@@ -323,7 +324,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `uuid-ossp` 拡張不要でシンプル
 
 ### TEXT vs VARCHAR
-- `entries.title`, `entries.url`, `entries.excerpt`, `entries.subject` は TEXT を使用
+- `entries.title`, `entries.url`, `entries.excerpt`, `entries.subject`, `entries.search_text` は TEXT を使用
 - 長さ制限が不明確なものは TEXT で柔軟に対応
 - `tags.name` は VARCHAR(100) で制限（タグ名は通常短い）
 
@@ -394,12 +395,11 @@ entries_url_key (UNIQUE制約)
 ```sql
 -- pg_bigm使用時のクエリ例
 SELECT * FROM entries
-WHERE title LIKE '%' || ? || '%'
-   OR excerpt LIKE '%' || ? || '%'
+WHERE search_text ILIKE '%' || ? || '%'
 ORDER BY bookmark_count DESC;
 
 -- 使用インデックス
-idx_entries_title_gin, idx_entries_excerpt_gin
+idx_entries_search_text_gin
 ```
 
 ---

@@ -53,7 +53,7 @@ hateblog バックエンドAPIの段階的な実装計画。
 
 **実装内容**:
 - [x] `migrations/` 配下にマイグレーションファイル作成
-  - [x] `entries` テーブル（id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at）
+  - [x] `entries` テーブル（id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at）
   - [x] `tags` テーブル（id, name）
   - [x] `entry_tags` テーブル（entry_id, tag_id, score）
   - [x] `click_metrics` テーブル（id, entry_id, clicked_at, count）

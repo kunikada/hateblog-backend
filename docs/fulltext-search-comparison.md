@@ -81,8 +81,10 @@ WHERE search_vector @@ to_tsquery('simple', 'keyword');
 日本語対応（pg_bigm使用）:
 ```sql
 CREATE EXTENSION pg_bigm;
-CREATE INDEX entries_title_bigm_idx ON entries USING gin (title gin_bigm_ops);
-SELECT * FROM entries WHERE title LIKE '%キーワード%';
+ALTER TABLE entries
+ADD COLUMN search_text TEXT GENERATED ALWAYS AS (concat_ws(' ', title, excerpt, url)) STORED;
+CREATE INDEX entries_search_text_bigm_idx ON entries USING gin (search_text gin_bigm_ops);
+SELECT * FROM entries WHERE search_text ILIKE '%キーワード%';
 ```
 
 ### 推奨ライブラリ（Go）
@@ -243,12 +245,13 @@ POST /entries/_search
 ```sql
 -- pg_bigm を使用したシンプルな実装
 CREATE EXTENSION pg_bigm;
-CREATE INDEX entries_title_bigm ON entries USING gin (title gin_bigm_ops);
-CREATE INDEX entries_excerpt_bigm ON entries USING gin (excerpt gin_bigm_ops);
+ALTER TABLE entries
+ADD COLUMN search_text TEXT GENERATED ALWAYS AS (concat_ws(' ', title, excerpt, url)) STORED;
+CREATE INDEX entries_search_text_bigm ON entries USING gin (search_text gin_bigm_ops);
 
 -- LIKEクエリで検索（pg_bigmがインデックスを使用）
 SELECT * FROM entries
-WHERE title LIKE '%キーワード%' OR excerpt LIKE '%キーワード%'
+WHERE search_text ILIKE '%キーワード%'
 ORDER BY bookmark_count DESC
 LIMIT 50;
 ```
