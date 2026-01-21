@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/caarlos0/env/v10"
 	_ "github.com/go-sql-driver/mysql"
@@ -16,6 +17,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/domain/tag"
 )
 
 // Config stores migration configuration values.
@@ -508,16 +510,20 @@ func ensureTags(ctx context.Context, tx pgx.Tx, keywords map[int64]string, now t
 	nameSet := make(map[string]struct{}, len(keywords))
 	names := make([]string, 0, len(keywords))
 	for _, name := range keywords {
-		// Truncate to 255 characters to match DB constraint
-		truncated := name
-		if len(truncated) > 255 {
-			truncated = truncated[:255]
-		}
-		if _, exists := nameSet[truncated]; exists {
+		// Sanitize and normalize the tag name
+		sanitized := sanitizeUTF8(name)
+		normalized := tag.NormalizeName(sanitized)
+
+		// Skip empty tags after normalization
+		if normalized == "" {
 			continue
 		}
-		nameSet[truncated] = struct{}{}
-		names = append(names, truncated)
+
+		if _, exists := nameSet[normalized]; exists {
+			continue
+		}
+		nameSet[normalized] = struct{}{}
+		names = append(names, normalized)
 	}
 
 	var inserted int64
@@ -555,19 +561,41 @@ func ensureTags(ctx context.Context, tx pgx.Tx, keywords map[int64]string, now t
 
 	keywordToTag := make(map[int64]string, len(keywords))
 	for keywordID, name := range keywords {
-		// Truncate to match what was inserted
-		truncated := name
-		if len(truncated) > 255 {
-			truncated = truncated[:255]
+		// Apply the same normalization to match what was inserted
+		sanitized := sanitizeUTF8(name)
+		normalized := tag.NormalizeName(sanitized)
+
+		if normalized == "" {
+			continue
 		}
-		tagID, ok := nameToID[truncated]
+
+		tagID, ok := nameToID[normalized]
 		if !ok {
-			return nil, 0, fmt.Errorf("tag id not found for keyword: %s", truncated)
+			return nil, 0, fmt.Errorf("tag id not found for keyword: %s", normalized)
 		}
 		keywordToTag[keywordID] = tagID
 	}
 
 	return keywordToTag, inserted, nil
+}
+
+// sanitizeUTF8 removes invalid UTF-8 sequences from a string
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+
+	// Convert to valid UTF-8 by removing invalid runes
+	var builder strings.Builder
+	builder.Grow(len(s))
+
+	for _, r := range s {
+		if r != utf8.RuneError {
+			builder.WriteRune(r)
+		}
+	}
+
+	return builder.String()
 }
 
 func buildPlaceholders(count int) string {
