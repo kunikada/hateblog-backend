@@ -34,7 +34,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 | bookmark_count | INTEGER | NOT NULL | 0 | はてなブックマーク件数 |
 | excerpt | TEXT | NULL | - | 記事本文の抜粋 |
 | subject | TEXT | NULL | - | RSSフィードのsubject（画面非表示、内部利用） |
-| search_text | TEXT | NULL | - | 検索用に結合したテキスト（title/excerpt/url、アプリ側で更新） |
+| search_text | TEXT | NULL | - | 検索用に結合したテキスト（title/excerpt/url、小文字化して保存） |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時 |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード更新日時 |
 
@@ -395,12 +395,16 @@ entries_url_key (UNIQUE制約)
 ```sql
 -- pg_bigm使用時のクエリ例
 SELECT * FROM entries
-WHERE search_text ILIKE '%' || ? || '%'
+WHERE search_text LIKE '%' || ? || '%'
 ORDER BY bookmark_count DESC;
 
 -- 使用インデックス
 idx_entries_search_text_gin
 ```
+**備考**:
+- スペース区切りでAND検索
+- 英数字のみの単語は単語境界で一致（大文字小文字は無視）
+- `search_text` はアプリ側で小文字化して保存
 
 ---
 

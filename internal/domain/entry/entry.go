@@ -166,17 +166,17 @@ func normalizeTaggings(tags []Tagging) []Tagging {
 	return result
 }
 
-// BuildSearchText builds search_text by joining non-empty fields with spaces.
+// BuildSearchText builds lowercase search_text by joining non-empty fields with spaces.
 func BuildSearchText(title, excerpt, url string) string {
 	parts := make([]string, 0, 3)
 	if trimmed := strings.TrimSpace(title); trimmed != "" {
-		parts = append(parts, trimmed)
+		parts = append(parts, strings.ToLower(trimmed))
 	}
 	if trimmed := strings.TrimSpace(excerpt); trimmed != "" {
-		parts = append(parts, trimmed)
+		parts = append(parts, strings.ToLower(trimmed))
 	}
 	if trimmed := strings.TrimSpace(url); trimmed != "" {
-		parts = append(parts, trimmed)
+		parts = append(parts, strings.ToLower(trimmed))
 	}
 	return strings.Join(parts, " ")
 }

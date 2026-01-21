@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -44,7 +46,6 @@ func (r *EntryRepository) Create(ctx context.Context, e *entry.Entry) error {
 		e.UpdatedAt = now
 	}
 	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
-
 	const query = `
 INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
@@ -79,7 +80,6 @@ func (r *EntryRepository) Update(ctx context.Context, e *entry.Entry) error {
 		e.UpdatedAt = time.Now()
 	}
 	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
-
 	const query = `
 UPDATE entries
 SET title = $1,
@@ -92,14 +92,13 @@ SET title = $1,
 	updated_at = $8
 WHERE id = $9`
 
-	tagged := nullableString(e.Subject)
 	_, err := r.pool.Exec(ctx, query,
 		e.Title,
 		e.URL,
 		e.PostedAt,
 		e.BookmarkCount,
 		nullableString(e.Excerpt),
-		tagged,
+		nullableString(e.Subject),
 		nullableString(searchText),
 		e.UpdatedAt,
 		e.ID,
@@ -316,6 +315,9 @@ WHERE et.entry_id = ANY($1)`
 }
 
 func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
+	if q.Keyword != "" {
+		return buildKeywordSearchSQL(q, countOnly, false)
+	}
 	var columns string
 	if countOnly {
 		columns = "COUNT(1)"
@@ -360,13 +362,6 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 		argPos++
 	}
 
-	if q.Keyword != "" {
-		pattern := "%" + q.Keyword + "%"
-		conditions = append(conditions, fmt.Sprintf("e.search_text LIKE $%d", argPos))
-		args = append(args, pattern)
-		argPos++
-	}
-
 	if len(conditions) > 0 {
 		builder.WriteString(" WHERE ")
 		builder.WriteString(strings.Join(conditions, " AND "))
@@ -390,6 +385,9 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 }
 
 func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
+	if q.Keyword != "" {
+		return buildKeywordSearchSQL(q, false, true)
+	}
 	columns := "id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at, COUNT(1) OVER() AS total"
 
 	builder := strings.Builder{}
@@ -426,13 +424,6 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 	if !q.PostedAtTo.IsZero() {
 		conditions = append(conditions, fmt.Sprintf("posted_at < $%d", argPos))
 		args = append(args, q.PostedAtTo)
-		argPos++
-	}
-
-	if q.Keyword != "" {
-		pattern := "%" + q.Keyword + "%"
-		conditions = append(conditions, fmt.Sprintf("e.search_text LIKE $%d", argPos))
-		args = append(args, pattern)
 		argPos++
 	}
 
@@ -493,4 +484,152 @@ func nullableString(s string) any {
 		return nil
 	}
 	return s
+}
+
+func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (string, []any) {
+	const candidateLimit = 2000
+
+	terms := splitSearchTerms(q.Keyword)
+	if len(terms) == 0 {
+		clone := q
+		clone.Keyword = ""
+		if withTotal {
+			return buildListEntriesWithTotalSQL(clone)
+		}
+		return buildListEntriesSQL(clone, countOnly)
+	}
+
+	termsAny := make([]string, 0, len(terms))
+	enWords := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+		normalized := strings.ToLower(term)
+		termsAny = append(termsAny, normalized)
+		if isASCIIWord(normalized) {
+			enWords = append(enWords, normalized)
+		}
+	}
+
+	enRegex := "a^"
+	if len(enWords) > 0 {
+		enRegex = englishWordRegex(enWords)
+	}
+
+	var columns string
+	switch {
+	case countOnly:
+		columns = "COUNT(1)"
+	case withTotal:
+		columns = "id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at, COUNT(1) OVER() AS total"
+	default:
+		columns = "id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at"
+	}
+
+	builder := strings.Builder{}
+	args := make([]any, 0, 10)
+	argPos := 1
+
+	builder.WriteString("WITH params AS (SELECT ")
+	builder.WriteString(fmt.Sprintf("$%d::text[] AS terms_any, ", argPos))
+	args = append(args, termsAny)
+	argPos++
+	builder.WriteString(fmt.Sprintf("$%d::text[] AS en_words, ", argPos))
+	args = append(args, enWords)
+	argPos++
+	builder.WriteString(fmt.Sprintf("$%d::text AS en_regex)", argPos))
+	args = append(args, enRegex)
+	argPos++
+
+	builder.WriteString(" , candidates AS (SELECT e.* FROM entries e, params p WHERE ")
+	builder.WriteString(" (SELECT bool_and(e.search_text LIKE '%' || t || '%') FROM unnest(p.terms_any) t)")
+
+	if q.MinBookmarkCount > 0 {
+		builder.WriteString(fmt.Sprintf(" AND e.bookmark_count >= $%d", argPos))
+		args = append(args, q.MinBookmarkCount)
+		argPos++
+	}
+
+	if len(q.Tags) > 0 {
+		builder.WriteString(fmt.Sprintf(` AND EXISTS (
+			SELECT 1 FROM entry_tags et
+			INNER JOIN tags t ON t.id = et.tag_id
+			WHERE et.entry_id = e.id AND t.name = ANY($%d)
+		)`, argPos))
+		args = append(args, q.Tags)
+		argPos++
+	}
+
+	if !q.PostedAtFrom.IsZero() {
+		builder.WriteString(fmt.Sprintf(" AND e.posted_at >= $%d", argPos))
+		args = append(args, q.PostedAtFrom)
+		argPos++
+	}
+
+	if !q.PostedAtTo.IsZero() {
+		builder.WriteString(fmt.Sprintf(" AND e.posted_at < $%d", argPos))
+		args = append(args, q.PostedAtTo)
+		argPos++
+	}
+
+	builder.WriteString(fmt.Sprintf(" LIMIT %d)", candidateLimit))
+
+	builder.WriteString(" SELECT ")
+	builder.WriteString(columns)
+	builder.WriteString(" FROM candidates c, params p WHERE ")
+	builder.WriteString(" (cardinality(p.en_words) = 0 OR (SELECT COUNT(DISTINCT m[1]) FROM regexp_matches(c.search_text, p.en_regex, 'g') m) = cardinality(p.en_words))")
+
+	if countOnly {
+		return builder.String(), args
+	}
+
+	switch q.Sort {
+	case entry.SortHot:
+		builder.WriteString(" ORDER BY c.bookmark_count DESC, c.posted_at DESC")
+	default:
+		builder.WriteString(" ORDER BY c.posted_at DESC")
+	}
+
+	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
+	args = append(args, q.Limit, q.Offset)
+
+	return builder.String(), args
+}
+
+func splitSearchTerms(input string) []string {
+	return strings.FieldsFunc(input, func(r rune) bool {
+		return unicode.IsSpace(r)
+	})
+}
+
+func isASCIIWord(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func englishWordRegex(words []string) string {
+	if len(words) == 0 {
+		return "a^"
+	}
+	escaped := make([]string, 0, len(words))
+	for _, word := range words {
+		trimmed := strings.TrimSpace(word)
+		if trimmed == "" {
+			continue
+		}
+		escaped = append(escaped, regexp.QuoteMeta(trimmed))
+	}
+	if len(escaped) == 0 {
+		return "a^"
+	}
+	return fmt.Sprintf("\\m(%s)\\M", strings.Join(escaped, "|"))
 }

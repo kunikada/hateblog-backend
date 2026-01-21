@@ -84,7 +84,7 @@ CREATE EXTENSION pg_bigm;
 ALTER TABLE entries
 ADD COLUMN search_text TEXT;
 CREATE INDEX entries_search_text_bigm_idx ON entries USING gin (search_text gin_bigm_ops);
-SELECT * FROM entries WHERE search_text ILIKE '%キーワード%';
+SELECT * FROM entries WHERE search_text LIKE '%キーワード%';
 ```
 
 ### 推奨ライブラリ（Go）
@@ -251,7 +251,7 @@ CREATE INDEX entries_search_text_bigm ON entries USING gin (search_text gin_bigm
 
 -- LIKEクエリで検索（pg_bigmがインデックスを使用）
 SELECT * FROM entries
-WHERE search_text ILIKE '%キーワード%'
+WHERE search_text LIKE '%キーワード%'
 ORDER BY bookmark_count DESC
 LIMIT 50;
 ```

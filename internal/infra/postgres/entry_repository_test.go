@@ -316,19 +316,42 @@ func TestEntryRepository_List(t *testing.T) {
 		cleanupTables(t, pool)
 
 		e1 := testEntry(func(e *domainEntry.Entry) {
-			e.Title = "Learning Go"
+			e.Title = "Go language"
 			e.Excerpt = "Go basics"
 			e.Subject = "intro"
-			e.URL = "https://example.com/golang/intro"
+			e.URL = "https://example.com/go/intro"
 		})
 		e2 := testEntry(func(e *domainEntry.Entry) {
-			e.Title = "Python Tutorial"
+			e.Title = "Google News"
+			e.URL = "https://google.com"
 		})
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
 
 		entries, err := repo.List(ctx, domainEntry.ListQuery{
-			Keyword: "golang",
+			Keyword: "go language",
+		})
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		assert.Equal(t, e1.ID, entries[0].ID)
+	})
+
+	t.Run("filters by english word boundary", func(t *testing.T) {
+		cleanupTables(t, pool)
+
+		e1 := testEntry(func(e *domainEntry.Entry) {
+			e.Title = "Go Tips"
+			e.URL = "https://example.com/go"
+		})
+		e2 := testEntry(func(e *domainEntry.Entry) {
+			e.Title = "Google Updates"
+			e.URL = "https://google.com"
+		})
+		insertEntry(t, pool, e1)
+		insertEntry(t, pool, e2)
+
+		entries, err := repo.List(ctx, domainEntry.ListQuery{
+			Keyword: "go",
 		})
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
