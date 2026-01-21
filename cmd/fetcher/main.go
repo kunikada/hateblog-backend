@@ -162,6 +162,7 @@ func run() int {
 	}
 
 	tagged := 0
+	abnormalScoreCount := 0
 	if !*noTags && strings.TrimSpace(cfg.External.YahooAPIKey) != "" && *tagTopN > 0 {
 		untagged, err := fetchUntaggedEntries(ctx, db.Pool, *maxEntries)
 		if err != nil {
@@ -181,7 +182,7 @@ func run() int {
 				URL:     entry.URL,
 				Excerpt: entry.Excerpt,
 			}
-			tagCount, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entry.ID, item, *tagTopN)
+			tagCount, abnormal, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entry.ID, item, *tagTopN)
 			if err != nil {
 				if _, ok := yahoo.IsTooManyRequests(err); ok {
 					log.Warn("tagging stopped due to rate limit", "url", entry.URL, "err", err)
@@ -193,6 +194,7 @@ func run() int {
 			if tagCount > 0 {
 				tagged++
 			}
+			abnormalScoreCount += abnormal
 			if *yahooMinInterval > 0 {
 				time.Sleep(*yahooMinInterval)
 			}
@@ -207,6 +209,12 @@ func run() int {
 	}
 
 	log.Info("fetcher finished", "inserted", inserted, "updated", updated, "skipped", skipped, "tagged", tagged, "elapsed", time.Since(startedAt))
+
+	if abnormalScoreCount > 0 {
+		log.Error("abnormal scores detected from Yahoo API", "count", abnormalScoreCount)
+		return 1
+	}
+
 	return 0
 }
 
@@ -369,17 +377,17 @@ func attachTags(
 	entryID uuid.UUID,
 	item feedItem,
 	topN int,
-) (int, error) {
+) (int, int, error) {
 	if pool == nil {
-		return 0, fmt.Errorf("pool is nil")
+		return 0, 0, fmt.Errorf("pool is nil")
 	}
 	input := strings.TrimSpace(strings.Join([]string{item.Title, item.Excerpt}, "\n"))
 	phrases, err := yahooClient.Extract(ctx, input)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if len(phrases) == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 
 	sort.Slice(phrases, func(i, j int) bool { return phrases[i].Score > phrases[j].Score })
@@ -389,6 +397,7 @@ func attachTags(
 	phrases = phrases[:topN]
 
 	added := 0
+	abnormalCount := 0
 	for _, p := range phrases {
 		name := tag.NormalizeName(p.Text)
 		if name == "" {
@@ -396,10 +405,13 @@ func attachTags(
 		}
 		t := &tag.Tag{Name: name}
 		if err := tagRepo.Upsert(ctx, t); err != nil {
-			return added, err
+			return added, abnormalCount, err
 		}
 
 		score := p.Score
+		if score < 0 || score > 100 {
+			abnormalCount++
+		}
 		if score < 0 {
 			score = 0
 		}
@@ -412,11 +424,11 @@ INSERT INTO entry_tags (entry_id, tag_id, score)
 VALUES ($1, $2, $3)
 ON CONFLICT (entry_id, tag_id) DO NOTHING`
 		if _, err := pool.Exec(ctx, q, entryID, t.ID, score); err != nil {
-			return added, err
+			return added, abnormalCount, err
 		}
 		added++
 	}
-	return added, nil
+	return added, abnormalCount, nil
 }
 
 type tagEntry struct {
