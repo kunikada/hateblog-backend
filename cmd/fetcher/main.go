@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -399,7 +400,9 @@ func attachTags(
 	added := 0
 	abnormalCount := 0
 	for _, p := range phrases {
-		name := tag.NormalizeName(p.Text)
+		// Sanitize UTF-8 from Yahoo API response before normalizing
+		sanitized := sanitizeUTF8(p.Text)
+		name := tag.NormalizeName(sanitized)
 		if name == "" {
 			continue
 		}
@@ -475,4 +478,15 @@ LIMIT $1`
 		return nil, err
 	}
 	return entries, nil
+}
+
+// sanitizeUTF8 removes invalid UTF-8 sequences from a string
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+
+	// Convert to valid UTF-8 by replacing invalid sequences
+	// strings.ToValidUTF8 replaces invalid UTF-8 with the replacement string
+	return strings.ToValidUTF8(s, "")
 }

@@ -488,6 +488,8 @@ func fetchKeywordsByIDs(ctx context.Context, db *sql.DB, keywordIDs map[int64]st
 		if err := rows.Scan(&id, &keyword); err != nil {
 			return nil, 0, err
 		}
+		// Sanitize UTF-8 immediately after reading from MySQL
+		keyword = sanitizeUTF8(keyword)
 		if keyword == "" {
 			skippedEmpty++
 			continue
@@ -585,17 +587,9 @@ func sanitizeUTF8(s string) string {
 		return s
 	}
 
-	// Convert to valid UTF-8 by removing invalid runes
-	var builder strings.Builder
-	builder.Grow(len(s))
-
-	for _, r := range s {
-		if r != utf8.RuneError {
-			builder.WriteRune(r)
-		}
-	}
-
-	return builder.String()
+	// Convert to valid UTF-8 by replacing invalid sequences
+	// strings.ToValidUTF8 replaces invalid UTF-8 with the replacement string
+	return strings.ToValidUTF8(s, "")
 }
 
 func buildPlaceholders(count int) string {
