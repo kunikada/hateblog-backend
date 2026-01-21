@@ -362,7 +362,7 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 
 	if q.Keyword != "" {
 		pattern := "%" + q.Keyword + "%"
-		conditions = append(conditions, fmt.Sprintf("e.search_text ILIKE $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("e.search_text LIKE $%d", argPos))
 		args = append(args, pattern)
 		argPos++
 	}
@@ -431,7 +431,7 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 
 	if q.Keyword != "" {
 		pattern := "%" + q.Keyword + "%"
-		conditions = append(conditions, fmt.Sprintf("e.search_text ILIKE $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("e.search_text LIKE $%d", argPos))
 		args = append(args, pattern)
 		argPos++
 	}
