@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/tag"
 	"hateblog/internal/infra/external/hatena"
 	"hateblog/internal/infra/external/yahoo"
@@ -280,15 +281,17 @@ func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uui
 	}
 
 	now := time.Now()
+	searchText := domainEntry.BuildSearchText(item.Title, item.Excerpt, item.URL)
 	const q = `
-INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (url) DO UPDATE SET
 	title = EXCLUDED.title,
 	posted_at = EXCLUDED.posted_at,
 	bookmark_count = EXCLUDED.bookmark_count,
 	excerpt = EXCLUDED.excerpt,
 	subject = EXCLUDED.subject,
+	search_text = EXCLUDED.search_text,
 	updated_at = EXCLUDED.updated_at
 RETURNING id, (xmax = 0) AS inserted`
 
@@ -301,6 +304,7 @@ RETURNING id, (xmax = 0) AS inserted`
 		item.BookmarkCount,
 		nullableText(item.Excerpt),
 		nullableText(item.Subject),
+		nullableText(searchText),
 		now,
 		now,
 	)

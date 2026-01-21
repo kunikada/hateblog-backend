@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test cover build run clean security migrate-up migrate-down migrate-create migrate-force migrator-build migrator-run generate generate-install deps-outdated depguard
+.PHONY: help fmt lint test test-failed cover build run clean security migrate-up migrate-down migrate-create migrate-force migrator-build migrator-run generate generate-install deps-outdated depguard
 
 # Default target
 .DEFAULT_GOAL := help
@@ -38,6 +38,16 @@ test:
 	@echo "==> Running tests..."
 	go test ./... -v -race -shuffle=on -timeout=5m
 	@echo "✓ Tests complete"
+
+## test-failed: Show failed tests only
+test-failed:
+	@echo "==> Running tests and filtering failures..."
+	@if command -v rg >/dev/null 2>&1; then \
+		go test ./... -json | rg '"Action":"fail"'; \
+	else \
+		go test ./... -json | grep '"Action":"fail"'; \
+	fi
+	@echo "✓ Done"
 
 ## test-short: Run tests without race detector (faster)
 test-short:

@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	domainEntry "hateblog/internal/domain/entry"
 )
 
 // Config stores migration configuration values.
@@ -117,6 +119,13 @@ func getPgTableCount(ctx context.Context, db *pgx.Conn, table string) (int64, er
 		return 0, err
 	}
 	return count, nil
+}
+
+func nullableText(s string) any {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
 }
 
 func getValidBookmarksCount(ctx context.Context, db *sql.DB) (int64, error) {
@@ -315,10 +324,16 @@ func migrateBatch(ctx context.Context, mysqlDB *sql.DB, tx pgx.Tx, bookmarks []b
 			subjectPtr = &bm.subject.String
 		}
 
+		description := ""
+		if descriptionPtr != nil {
+			description = *descriptionPtr
+		}
+		searchText := domainEntry.BuildSearchText(bm.title.String, description, url)
+
 		_, err := tx.Exec(ctx, `
-			INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		`, newID, bm.title.String, url, postedAt, bm.cnt, descriptionPtr, subjectPtr, createdAt, updatedAt)
+			INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`, newID, bm.title.String, url, postedAt, bm.cnt, descriptionPtr, subjectPtr, nullableText(searchText), createdAt, updatedAt)
 		if err != nil {
 			return stats, err
 		}
@@ -390,7 +405,7 @@ func fetchKeyphrasesByBookmarks(ctx context.Context, db *sql.DB, bookmarkIDs []i
 		args = append(args, id)
 	}
 
-	//nolint:gosec // Placeholder list is built from IDs, not user input.
+	// #nosec G201 -- Placeholder list is built from IDs, not user input.
 	query := fmt.Sprintf(`
 		SELECT bookmark_id, keyword_id, score
 		FROM keyphrases
@@ -435,7 +450,7 @@ func fetchKeywordsByIDs(ctx context.Context, db *sql.DB, keywordIDs map[int64]st
 		args = append(args, id)
 	}
 
-	//nolint:gosec // Placeholder list is built from IDs, not user input.
+	// #nosec G201 -- Placeholder list is built from IDs, not user input.
 	query := fmt.Sprintf(`
 		SELECT id, keyword
 		FROM keywords
@@ -609,7 +624,7 @@ func getResumeLastID(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) (int6
 		}
 	}
 
-	//nolint:gosec // Placeholder list is built from URLs derived from stored entries.
+	// #nosec G201 -- Placeholder list is built from URLs derived from stored entries.
 	query := fmt.Sprintf(`
 		SELECT MAX(id)
 		FROM bookmarks

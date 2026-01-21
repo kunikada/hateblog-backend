@@ -60,16 +60,15 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 
 // applyTestMigrations runs the schema migrations from the migrations directory.
 func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	// Check if migrations already applied by looking for the latest table
-	var count int
-	err := pool.QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name = 'archive_counts'
-	`).Scan(&count)
-	if err == nil && count > 0 {
-		// Migrations already applied
-		return nil
+	// Always reset schema to avoid stale structures between test runs.
+	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
+		return fmt.Errorf("drop schema: %w", err)
+	}
+	if _, err := pool.Exec(ctx, "CREATE SCHEMA public"); err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+	if _, err := pool.Exec(ctx, "GRANT ALL ON SCHEMA public TO public"); err != nil {
+		return fmt.Errorf("grant schema: %w", err)
 	}
 
 	// Find the migrations directory from current working directory
@@ -230,9 +229,11 @@ func insertEntry(t *testing.T, pool *pgxpool.Pool, e *entry.Entry) {
 
 	ctx := context.Background()
 
+	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
+
 	const query = `
-		INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := pool.Exec(ctx, query,
@@ -243,6 +244,7 @@ func insertEntry(t *testing.T, pool *pgxpool.Pool, e *entry.Entry) {
 		e.BookmarkCount,
 		nullString(e.Excerpt),
 		nullString(e.Subject),
+		nullString(searchText),
 		e.CreatedAt,
 		e.UpdatedAt,
 	)

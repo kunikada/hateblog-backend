@@ -14,7 +14,7 @@ INSERT INTO tags (id, name, created_at) VALUES
     ('44444444-4444-4444-4444-444444444444', 'database',   '2024-12-01T00:00:00Z');
 
 -- エントリー（2日分）
-INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at) VALUES
+INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at) VALUES
     ('aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
      'Goで作る高速API入門',
      'https://example.com/articles/go-fast-api',
@@ -22,6 +22,7 @@ INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject
      120,
      'GoとPostgreSQLで作るシンプルなAPIの実装手順。',
      'tech',
+     'Goで作る高速API入門 GoとPostgreSQLで作るシンプルなAPIの実装手順。 https://example.com/articles/go-fast-api',
      '2024-12-02T02:30:00Z',
      '2024-12-02T02:30:00Z'),
     ('aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaa2',
@@ -31,6 +32,7 @@ INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject
      45,
      'LLMを検索・要約・分類に使う際の実装例。',
      'ai',
+     '大規模言語モデルの活用パターン LLMを検索・要約・分類に使う際の実装例。 https://example.com/articles/llm-patterns',
      '2024-12-02T05:10:00Z',
      '2024-12-02T05:10:00Z'),
     ('aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaa3',
@@ -40,6 +42,7 @@ INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject
      30,
      '小規模サービスでできるコスト最適化のチェックリスト。',
      'cloud',
+     'クラウドコスト最適化の基礎 小規模サービスでできるコスト最適化のチェックリスト。 https://example.com/articles/cloud-cost',
      '2024-12-01T03:00:00Z',
      '2024-12-01T03:00:00Z'),
     ('aaaaaaa4-aaaa-aaaa-aaaa-aaaaaaaaaaa4',
@@ -49,6 +52,7 @@ INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject
      12,
      'インデックス設計と基本的なVACUUM設定のポイント。',
      'database',
+     'PostgreSQLチューニングの第一歩 インデックス設計と基本的なVACUUM設定のポイント。 https://example.com/articles/pg-tuning',
      '2024-12-01T07:45:00Z',
      '2024-12-01T07:45:00Z');
 

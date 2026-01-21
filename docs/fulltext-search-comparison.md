@@ -82,7 +82,7 @@ WHERE search_vector @@ to_tsquery('simple', 'keyword');
 ```sql
 CREATE EXTENSION pg_bigm;
 ALTER TABLE entries
-ADD COLUMN search_text TEXT GENERATED ALWAYS AS (concat_ws(' ', title, excerpt, url)) STORED;
+ADD COLUMN search_text TEXT;
 CREATE INDEX entries_search_text_bigm_idx ON entries USING gin (search_text gin_bigm_ops);
 SELECT * FROM entries WHERE search_text ILIKE '%キーワード%';
 ```
@@ -246,7 +246,7 @@ POST /entries/_search
 -- pg_bigm を使用したシンプルな実装
 CREATE EXTENSION pg_bigm;
 ALTER TABLE entries
-ADD COLUMN search_text TEXT GENERATED ALWAYS AS (concat_ws(' ', title, excerpt, url)) STORED;
+ADD COLUMN search_text TEXT;
 CREATE INDEX entries_search_text_bigm ON entries USING gin (search_text gin_bigm_ops);
 
 -- LIKEクエリで検索（pg_bigmがインデックスを使用）

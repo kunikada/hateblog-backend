@@ -43,10 +43,11 @@ func (r *EntryRepository) Create(ctx context.Context, e *entry.Entry) error {
 	if e.UpdatedAt.IsZero() {
 		e.UpdatedAt = now
 	}
+	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
 
 	const query = `
-INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	_, err := r.pool.Exec(ctx, query,
 		e.ID,
@@ -56,6 +57,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 		e.BookmarkCount,
 		nullableString(e.Excerpt),
 		nullableString(e.Subject),
+		nullableString(searchText),
 		e.CreatedAt,
 		e.UpdatedAt,
 	)
@@ -76,6 +78,7 @@ func (r *EntryRepository) Update(ctx context.Context, e *entry.Entry) error {
 	if e.UpdatedAt.IsZero() {
 		e.UpdatedAt = time.Now()
 	}
+	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
 
 	const query = `
 UPDATE entries
@@ -85,8 +88,9 @@ SET title = $1,
 	bookmark_count = $4,
 	excerpt = $5,
 	subject = $6,
-	updated_at = $7
-WHERE id = $8`
+	search_text = $7,
+	updated_at = $8
+WHERE id = $9`
 
 	tagged := nullableString(e.Subject)
 	_, err := r.pool.Exec(ctx, query,
@@ -96,6 +100,7 @@ WHERE id = $8`
 		e.BookmarkCount,
 		nullableString(e.Excerpt),
 		tagged,
+		nullableString(searchText),
 		e.UpdatedAt,
 		e.ID,
 	)

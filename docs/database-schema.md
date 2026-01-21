@@ -34,7 +34,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 | bookmark_count | INTEGER | NOT NULL | 0 | はてなブックマーク件数 |
 | excerpt | TEXT | NULL | - | 記事本文の抜粋 |
 | subject | TEXT | NULL | - | RSSフィードのsubject（画面非表示、内部利用） |
-| search_text | TEXT | NULL | 生成列 | 検索用に結合したテキスト（title/excerpt/url） |
+| search_text | TEXT | NULL | - | 検索用に結合したテキスト（title/excerpt/url、アプリ側で更新） |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード作成日時 |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL | CURRENT_TIMESTAMP | レコード更新日時 |
 

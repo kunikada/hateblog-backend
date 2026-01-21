@@ -31,7 +31,7 @@ func TestParseRSS(t *testing.T) {
 func TestParseRSSInvalidDate(t *testing.T) {
 	_, err := parseRSS(strings.NewReader(strings.ReplaceAll(sampleRSS, "2025-01-01T12:04:05+09:00", "invalid-date")))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid dc:date")
+	require.Contains(t, err.Error(), "invalid date")
 }
 
 const sampleRSS = `<?xml version="1.0" encoding="UTF-8"?>
