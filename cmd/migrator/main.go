@@ -169,7 +169,7 @@ type bookmarkRow struct {
 type keyphraseRow struct {
 	bookmarkID int64
 	keywordID  int64
-	score      int
+	score      sql.NullInt64
 }
 
 type batchStats struct {
@@ -380,11 +380,25 @@ func migrateBatch(ctx context.Context, mysqlDB *sql.DB, tx pgx.Tx, bookmarks []b
 			continue
 		}
 
+		// Normalize score to 0-100 range (API should return 0-100, but clamp just in case)
+		// NULL or values <= 0 become 0, values > 100 become 100
+		score := 0
+		if kp.score.Valid {
+			rawScore := int(kp.score.Int64)
+			if rawScore > 100 {
+				score = 100
+			} else if rawScore < 0 {
+				score = 0
+			} else {
+				score = rawScore
+			}
+		}
+
 		commandTag, err := tx.Exec(ctx, `
 			INSERT INTO entry_tags (entry_id, tag_id, score, created_at)
 			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (entry_id, tag_id) DO NOTHING
-		`, entryID, tagID, kp.score, now)
+		`, entryID, tagID, score, now)
 		if err != nil {
 			return stats, err
 		}
