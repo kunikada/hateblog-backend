@@ -508,11 +508,16 @@ func ensureTags(ctx context.Context, tx pgx.Tx, keywords map[int64]string, now t
 	nameSet := make(map[string]struct{}, len(keywords))
 	names := make([]string, 0, len(keywords))
 	for _, name := range keywords {
-		if _, exists := nameSet[name]; exists {
+		// Truncate to 255 characters to match DB constraint
+		truncated := name
+		if len(truncated) > 255 {
+			truncated = truncated[:255]
+		}
+		if _, exists := nameSet[truncated]; exists {
 			continue
 		}
-		nameSet[name] = struct{}{}
-		names = append(names, name)
+		nameSet[truncated] = struct{}{}
+		names = append(names, truncated)
 	}
 
 	var inserted int64
@@ -550,9 +555,14 @@ func ensureTags(ctx context.Context, tx pgx.Tx, keywords map[int64]string, now t
 
 	keywordToTag := make(map[int64]string, len(keywords))
 	for keywordID, name := range keywords {
-		tagID, ok := nameToID[name]
+		// Truncate to match what was inserted
+		truncated := name
+		if len(truncated) > 255 {
+			truncated = truncated[:255]
+		}
+		tagID, ok := nameToID[truncated]
 		if !ok {
-			return nil, 0, fmt.Errorf("tag id not found for keyword: %s", name)
+			return nil, 0, fmt.Errorf("tag id not found for keyword: %s", truncated)
 		}
 		keywordToTag[keywordID] = tagID
 	}

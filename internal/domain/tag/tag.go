@@ -20,9 +20,14 @@ type Tag struct {
 	Name string
 }
 
-// NormalizeName trims spaces and converts the tag name to lower-case.
+// NormalizeName trims spaces, converts the tag name to lower-case, and truncates to 255 characters.
 func NormalizeName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	// Truncate to 255 characters to match DB constraint
+	if len(normalized) > 255 {
+		normalized = normalized[:255]
+	}
+	return normalized
 }
 
 // New creates a new Tag entity.
