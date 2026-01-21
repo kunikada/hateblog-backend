@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v10"
@@ -117,20 +119,24 @@ func getPgTableCount(ctx context.Context, db *pgx.Conn, table string) (int64, er
 	return count, nil
 }
 
+func getValidBookmarksCount(ctx context.Context, db *sql.DB) (int64, error) {
+	var count int64
+	row := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM bookmarks
+		WHERE title IS NOT NULL AND title <> ''
+		  AND link IS NOT NULL AND link <> ''
+	`)
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func migrate(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
-	fmt.Println("=== Migrating bookmarks to entries ===")
-	if err := migrateBookmarks(ctx, mysqlDB, pgDB); err != nil {
-		return fmt.Errorf("bookmarks migration failed: %w", err)
-	}
-
-	fmt.Println("\n=== Migrating keywords to tags ===")
-	if err := migrateKeywords(ctx, mysqlDB, pgDB); err != nil {
-		return fmt.Errorf("keywords migration failed: %w", err)
-	}
-
-	fmt.Println("\n=== Migrating keyphrases to entry_tags ===")
-	if err := migrateKeyphrases(ctx, mysqlDB, pgDB); err != nil {
-		return fmt.Errorf("keyphrases migration failed: %w", err)
+	fmt.Println("=== Migrating bookmarks, keywords, keyphrases ===")
+	if err := migrateBatches(ctx, mysqlDB, pgDB); err != nil {
+		return fmt.Errorf("batch migration failed: %w", err)
 	}
 
 	// Verification
@@ -138,388 +144,489 @@ func migrate(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
 	return verifyMigration(ctx, mysqlDB, pgDB)
 }
 
-func migrateBookmarks(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
+type bookmarkRow struct {
+	id          int64
+	title       sql.NullString
+	link        sql.NullString
+	sslp        int
+	description sql.NullString
+	subject     sql.NullString
+	cnt         int
+	ientried    int64
+	icreated    int64
+	imodified   int64
+}
+
+type keyphraseRow struct {
+	bookmarkID int64
+	keywordID  int64
+	score      int
+}
+
+type batchStats struct {
+	processedBookmarks  int64
+	insertedBookmarks   int64
+	skippedBookmarks    int64
+	insertedKeywords    int64
+	insertedKeyphrases  int64
+	skippedKeyphrases   int64
+	skippedEmptyKeyword int64
+}
+
+func migrateBatches(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
 	total, err := getTableCount(ctx, mysqlDB, "bookmarks")
 	if err != nil {
 		return err
 	}
 
-	processed, err := getPgTableCount(ctx, pgDB, "entries")
+	var (
+		lastID          int64
+		processed       int64
+		totalSkipped    int64
+		totalKeySkipped int64
+	)
+
+	lastID, err = getResumeLastID(ctx, mysqlDB, pgDB)
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("Total: %d | Already migrated: %d | Remaining: %d\n", total, processed, total-processed)
-
-	if processed >= total {
-		fmt.Println("[bookmarks] Already completed")
-		return nil
+	if lastID > 0 {
+		fmt.Printf("[resume] Starting after bookmark id=%d based on latest entries.created_at\n", lastID)
 	}
 
+	for {
+		bookmarks, err := fetchBookmarksBatch(ctx, mysqlDB, lastID, batchSize)
+		if err != nil {
+			return err
+		}
+		if len(bookmarks) == 0 {
+			break
+		}
+
+		lastID = bookmarks[len(bookmarks)-1].id
+		processed += int64(len(bookmarks))
+
+		tx, err := pgDB.Begin(ctx)
+		if err != nil {
+			return err
+		}
+
+		stats, err := migrateBatch(ctx, mysqlDB, tx, bookmarks)
+		if err != nil {
+			rollbackTx(ctx, tx)
+			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+
+		totalSkipped += stats.skippedBookmarks
+		totalKeySkipped += stats.skippedKeyphrases
+
+		progress := float64(0)
+		if total > 0 {
+			progress = float64(processed) * 100 / float64(total)
+		}
+
+		fmt.Printf("[batch] %d/%d (%.1f%%) | entries=%d | tags=%d | entry_tags=%d | skipped bookmarks=%d | skipped keyphrases=%d\n",
+			processed, total, progress, stats.insertedBookmarks, stats.insertedKeywords, stats.insertedKeyphrases, stats.skippedBookmarks, stats.skippedKeyphrases)
+	}
+
+	if totalSkipped > 0 {
+		fmt.Printf("[bookmarks] Warning: Skipped %d records due to NULL/empty required fields\n", totalSkipped)
+	}
+	if totalKeySkipped > 0 {
+		fmt.Printf("[keyphrases] Warning: Skipped %d records due to missing mappings\n", totalKeySkipped)
+	}
+
+	return nil
+}
+
+func fetchBookmarksBatch(ctx context.Context, db *sql.DB, lastID int64, limit int) ([]bookmarkRow, error) {
 	query := `
 		SELECT id, title, link, sslp, description, subject, cnt, ientried, icreated, imodified
 		FROM bookmarks
-		LIMIT ? OFFSET ?
+		WHERE id > ?
+		ORDER BY id
+		LIMIT ?
 	`
 
-	skippedBookmarks := 0
+	rows, err := db.QueryContext(ctx, query, lastID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer closeRows(rows)
 
-	for offset := processed; offset < total; offset += batchSize {
-		rows, err := mysqlDB.QueryContext(ctx, query, batchSize, offset)
-		if err != nil {
-			return err
+	var result []bookmarkRow
+	for rows.Next() {
+		var row bookmarkRow
+		if err := rows.Scan(&row.id, &row.title, &row.link, &row.sslp, &row.description, &row.subject, &row.cnt, &row.ientried, &row.icreated, &row.imodified); err != nil {
+			return nil, err
 		}
-
-		tx, err := pgDB.Begin(ctx)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-
-		batchCount := 0
-
-		for rows.Next() {
-			var id int64
-			var title, link sql.NullString
-			var description, subject sql.NullString
-			var sslp, cnt int
-			var ientried, icreated, imodified int64
-
-			if err := rows.Scan(&id, &title, &link, &sslp, &description, &subject, &cnt, &ientried, &icreated, &imodified); err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			// Validate required fields
-			if !title.Valid || title.String == "" {
-				fmt.Printf("Error: bookmark id=%d has NULL or empty title, skipping\n", id)
-				skippedBookmarks++
-				continue
-			}
-			if !link.Valid || link.String == "" {
-				fmt.Printf("Error: bookmark id=%d has NULL or empty link, skipping\n", id)
-				skippedBookmarks++
-				continue
-			}
-
-			newID := uuid.New().String()
-			scheme := "http"
-			if sslp == 1 {
-				scheme = "https"
-			}
-			url := fmt.Sprintf("%s://%s", scheme, link.String)
-
-			postedAt := unixToTimestamp(ientried)
-			createdAt := unixToTimestamp(icreated)
-			updatedAt := unixToTimestamp(imodified)
-
-			// Convert sql.NullString to *string for PostgreSQL
-			var descriptionPtr *string
-			if description.Valid {
-				descriptionPtr = &description.String
-			}
-
-			var subjectPtr *string
-			if subject.Valid {
-				subjectPtr = &subject.String
-			}
-
-			_, err := tx.Exec(ctx, `
-				INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			`, newID, title.String, url, postedAt, cnt, descriptionPtr, subjectPtr, createdAt, updatedAt)
-			if err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			batchCount++
-		}
-
-		rows.Close()
-
-		if err := rows.Err(); err != nil {
-			tx.Rollback(ctx)
-			return err
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return err
-		}
-
-		current := offset + int64(batchCount)
-		if current > total {
-			current = total
-		}
-		if skippedBookmarks > 0 {
-			fmt.Printf("[bookmarks] %d/%d (%.1f%%) | Skipped: %d\n", current, total, float64(current)*100/float64(total), skippedBookmarks)
-		} else {
-			fmt.Printf("[bookmarks] %d/%d (%.1f%%)\n", current, total, float64(current)*100/float64(total))
-		}
+		result = append(result, row)
 	}
 
-	if skippedBookmarks > 0 {
-		fmt.Printf("[bookmarks] Warning: Skipped %d records due to NULL/empty required fields\n", skippedBookmarks)
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return result, nil
 }
 
-func migrateKeywords(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
-	total, err := getTableCount(ctx, mysqlDB, "keywords")
-	if err != nil {
-		return err
-	}
-
-	processed, err := getPgTableCount(ctx, pgDB, "tags")
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Total: %d | Already migrated: %d | Remaining: %d\n", total, processed, total-processed)
-
-	if processed >= total {
-		fmt.Println("[keywords] Already completed")
-		return nil
-	}
-
-	query := `
-		SELECT id, keyword
-		FROM keywords
-		LIMIT ? OFFSET ?
-	`
-
+func migrateBatch(ctx context.Context, mysqlDB *sql.DB, tx pgx.Tx, bookmarks []bookmarkRow) (batchStats, error) {
 	now := time.Now().UTC()
 
-	for offset := processed; offset < total; offset += batchSize {
-		rows, err := mysqlDB.QueryContext(ctx, query, batchSize, offset)
-		if err != nil {
-			return err
-		}
-
-		tx, err := pgDB.Begin(ctx)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-
-		batchCount := 0
-
-		for rows.Next() {
-			var id int64
-			var keyword string
-
-			if err := rows.Scan(&id, &keyword); err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			if keyword == "" {
-				fmt.Printf("Warning: empty keyword for id=%d\n", id)
-				continue
-			}
-
-			newID := uuid.New().String()
-
-			_, err := tx.Exec(ctx, `
-				INSERT INTO tags (id, name, created_at)
-				VALUES ($1, $2, $3)
-			`, newID, keyword, now)
-			if err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			batchCount++
-		}
-
-		rows.Close()
-
-		if err := rows.Err(); err != nil {
-			tx.Rollback(ctx)
-			return err
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return err
-		}
-
-		current := offset + int64(batchCount)
-		if current > total {
-			current = total
-		}
-		fmt.Printf("[keywords] %d/%d (%.1f%%)\n", current, total, float64(current)*100/float64(total))
+	stats := batchStats{
+		processedBookmarks: int64(len(bookmarks)),
 	}
 
-	return nil
+	bookmarkToEntry := make(map[int64]string, len(bookmarks))
+	validBookmarkIDs := make([]int64, 0, len(bookmarks))
+
+	for _, bm := range bookmarks {
+		if !bm.title.Valid || bm.title.String == "" {
+			stats.skippedBookmarks++
+			continue
+		}
+		if !bm.link.Valid || bm.link.String == "" {
+			stats.skippedBookmarks++
+			continue
+		}
+
+		newID := uuid.New().String()
+		scheme := "http"
+		if bm.sslp == 1 {
+			scheme = "https"
+		}
+		url := fmt.Sprintf("%s://%s", scheme, bm.link.String)
+
+		postedAt := unixToTimestamp(bm.ientried)
+		createdAt := unixToTimestamp(bm.icreated)
+		updatedAt := unixToTimestamp(bm.imodified)
+
+		var descriptionPtr *string
+		if bm.description.Valid {
+			descriptionPtr = &bm.description.String
+		}
+
+		var subjectPtr *string
+		if bm.subject.Valid {
+			subjectPtr = &bm.subject.String
+		}
+
+		_, err := tx.Exec(ctx, `
+			INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`, newID, bm.title.String, url, postedAt, bm.cnt, descriptionPtr, subjectPtr, createdAt, updatedAt)
+		if err != nil {
+			return stats, err
+		}
+
+		stats.insertedBookmarks++
+		bookmarkToEntry[bm.id] = newID
+		validBookmarkIDs = append(validBookmarkIDs, bm.id)
+	}
+
+	if len(validBookmarkIDs) == 0 {
+		return stats, nil
+	}
+
+	keyphrases, err := fetchKeyphrasesByBookmarks(ctx, mysqlDB, validBookmarkIDs)
+	if err != nil {
+		return stats, err
+	}
+	if len(keyphrases) == 0 {
+		return stats, nil
+	}
+
+	keywordIDs := make(map[int64]struct{})
+	for _, kp := range keyphrases {
+		keywordIDs[kp.keywordID] = struct{}{}
+	}
+
+	keywords, skippedEmpty, err := fetchKeywordsByIDs(ctx, mysqlDB, keywordIDs)
+	if err != nil {
+		return stats, err
+	}
+	stats.skippedEmptyKeyword += skippedEmpty
+
+	keywordToTagID, insertedTags, err := ensureTags(ctx, tx, keywords, now)
+	if err != nil {
+		return stats, err
+	}
+	stats.insertedKeywords += insertedTags
+
+	for _, kp := range keyphrases {
+		entryID, entryExists := bookmarkToEntry[kp.bookmarkID]
+		tagID, tagExists := keywordToTagID[kp.keywordID]
+		if !entryExists || !tagExists {
+			stats.skippedKeyphrases++
+			continue
+		}
+
+		commandTag, err := tx.Exec(ctx, `
+			INSERT INTO entry_tags (entry_id, tag_id, score, created_at)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (entry_id, tag_id) DO NOTHING
+		`, entryID, tagID, kp.score, now)
+		if err != nil {
+			return stats, err
+		}
+		stats.insertedKeyphrases += commandTag.RowsAffected()
+	}
+
+	return stats, nil
 }
 
-func migrateKeyphrases(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
-	total, err := getTableCount(ctx, mysqlDB, "keyphrases")
-	if err != nil {
-		return err
+func fetchKeyphrasesByBookmarks(ctx context.Context, db *sql.DB, bookmarkIDs []int64) ([]keyphraseRow, error) {
+	if len(bookmarkIDs) == 0 {
+		return nil, nil
 	}
 
-	processed, err := getPgTableCount(ctx, pgDB, "entry_tags")
-	if err != nil {
-		return err
+	placeholders := buildPlaceholders(len(bookmarkIDs))
+	args := make([]any, 0, len(bookmarkIDs))
+	for _, id := range bookmarkIDs {
+		args = append(args, id)
 	}
 
-	fmt.Printf("Total: %d | Already migrated: %d | Remaining: %d\n", total, processed, total-processed)
-
-	if processed >= total {
-		fmt.Println("[keyphrases] Already completed")
-		return nil
-	}
-
-	// First, create mappings for bookmark_id -> entry_id and keyword_id -> tag_id
-	bookmarkToEntryMap := make(map[int64]string)
-	keywordToTagMap := make(map[int64]string)
-
-	// Load bookmark -> entry mapping
-	fmt.Println("[keyphrases] Loading bookmark -> entry mapping...")
-	bookmarkRows, err := mysqlDB.QueryContext(ctx, "SELECT id FROM bookmarks ORDER BY id")
-	if err != nil {
-		return err
-	}
-	entryRows, err := pgDB.Query(ctx, "SELECT id FROM entries ORDER BY created_at")
-	if err != nil {
-		bookmarkRows.Close()
-		return err
-	}
-
-	for bookmarkRows.Next() && entryRows.Next() {
-		var bookmarkID int64
-		var entryID string
-		if err := bookmarkRows.Scan(&bookmarkID); err != nil {
-			bookmarkRows.Close()
-			entryRows.Close()
-			return err
-		}
-		if err := entryRows.Scan(&entryID); err != nil {
-			bookmarkRows.Close()
-			entryRows.Close()
-			return err
-		}
-		bookmarkToEntryMap[bookmarkID] = entryID
-	}
-	bookmarkRows.Close()
-	entryRows.Close()
-
-	// Load keyword -> tag mapping
-	fmt.Println("[keyphrases] Loading keyword -> tag mapping...")
-	keywordRows, err := mysqlDB.QueryContext(ctx, "SELECT id FROM keywords ORDER BY id")
-	if err != nil {
-		return err
-	}
-	tagRows, err := pgDB.Query(ctx, "SELECT id FROM tags ORDER BY created_at")
-	if err != nil {
-		keywordRows.Close()
-		return err
-	}
-
-	for keywordRows.Next() && tagRows.Next() {
-		var keywordID int64
-		var tagID string
-		if err := keywordRows.Scan(&keywordID); err != nil {
-			keywordRows.Close()
-			tagRows.Close()
-			return err
-		}
-		if err := tagRows.Scan(&tagID); err != nil {
-			keywordRows.Close()
-			tagRows.Close()
-			return err
-		}
-		keywordToTagMap[keywordID] = tagID
-	}
-	keywordRows.Close()
-	tagRows.Close()
-
-	fmt.Printf("[keyphrases] Loaded %d bookmark mappings and %d keyword mappings\n", len(bookmarkToEntryMap), len(keywordToTagMap))
-
-	query := `
+	//nolint:gosec // Placeholder list is built from IDs, not user input.
+	query := fmt.Sprintf(`
 		SELECT bookmark_id, keyword_id, score
 		FROM keyphrases
-		LIMIT ? OFFSET ?
-	`
+		WHERE bookmark_id IN (%s)
+	`, placeholders)
 
-	now := time.Now().UTC()
-	skipped := 0
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer closeRows(rows)
 
-	for offset := processed; offset < total; offset += batchSize {
-		rows, err := mysqlDB.QueryContext(ctx, query, batchSize, offset)
-		if err != nil {
-			return err
+	var result []keyphraseRow
+	for rows.Next() {
+		var row keyphraseRow
+		if err := rows.Scan(&row.bookmarkID, &row.keywordID, &row.score); err != nil {
+			return nil, err
 		}
-
-		tx, err := pgDB.Begin(ctx)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-
-		batchCount := 0
-
-		for rows.Next() {
-			var bookmarkID, keywordID int64
-			var score int
-
-			if err := rows.Scan(&bookmarkID, &keywordID, &score); err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			entryID, entryExists := bookmarkToEntryMap[bookmarkID]
-			tagID, tagExists := keywordToTagMap[keywordID]
-
-			if !entryExists || !tagExists {
-				skipped++
-				continue
-			}
-
-			_, err := tx.Exec(ctx, `
-				INSERT INTO entry_tags (entry_id, tag_id, score, created_at)
-				VALUES ($1, $2, $3, $4)
-				ON CONFLICT (entry_id, tag_id) DO NOTHING
-			`, entryID, tagID, score, now)
-			if err != nil {
-				rows.Close()
-				tx.Rollback(ctx)
-				return err
-			}
-
-			batchCount++
-		}
-
-		rows.Close()
-
-		if err := rows.Err(); err != nil {
-			tx.Rollback(ctx)
-			return err
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return err
-		}
-
-		current := offset + int64(batchCount) + int64(skipped)
-		if current > total {
-			current = total
-		}
-		fmt.Printf("[keyphrases] %d/%d (%.1f%%) | Skipped: %d\n", current, total, float64(current)*100/float64(total), skipped)
+		result = append(result, row)
 	}
 
-	if skipped > 0 {
-		fmt.Printf("[keyphrases] Warning: Skipped %d records due to missing mappings\n", skipped)
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return result, nil
+}
+
+func fetchKeywordsByIDs(ctx context.Context, db *sql.DB, keywordIDs map[int64]struct{}) (map[int64]string, int64, error) {
+	if len(keywordIDs) == 0 {
+		return map[int64]string{}, 0, nil
+	}
+
+	ids := make([]int64, 0, len(keywordIDs))
+	for id := range keywordIDs {
+		ids = append(ids, id)
+	}
+
+	placeholders := buildPlaceholders(len(ids))
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	//nolint:gosec // Placeholder list is built from IDs, not user input.
+	query := fmt.Sprintf(`
+		SELECT id, keyword
+		FROM keywords
+		WHERE id IN (%s)
+	`, placeholders)
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer closeRows(rows)
+
+	result := make(map[int64]string, len(ids))
+	var skippedEmpty int64
+
+	for rows.Next() {
+		var id int64
+		var keyword string
+		if err := rows.Scan(&id, &keyword); err != nil {
+			return nil, 0, err
+		}
+		if keyword == "" {
+			skippedEmpty++
+			continue
+		}
+		result[id] = keyword
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return result, skippedEmpty, nil
+}
+
+func ensureTags(ctx context.Context, tx pgx.Tx, keywords map[int64]string, now time.Time) (map[int64]string, int64, error) {
+	if len(keywords) == 0 {
+		return map[int64]string{}, 0, nil
+	}
+
+	nameSet := make(map[string]struct{}, len(keywords))
+	names := make([]string, 0, len(keywords))
+	for _, name := range keywords {
+		if _, exists := nameSet[name]; exists {
+			continue
+		}
+		nameSet[name] = struct{}{}
+		names = append(names, name)
+	}
+
+	var inserted int64
+	for _, name := range names {
+		newID := uuid.New().String()
+		commandTag, err := tx.Exec(ctx, `
+			INSERT INTO tags (id, name, created_at)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (name) DO NOTHING
+		`, newID, name, now)
+		if err != nil {
+			return nil, 0, err
+		}
+		inserted += commandTag.RowsAffected()
+	}
+
+	rows, err := tx.Query(ctx, "SELECT id, name FROM tags WHERE name = ANY($1)", names)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	nameToID := make(map[string]string, len(names))
+	for rows.Next() {
+		var id string
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, 0, err
+		}
+		nameToID[name] = id
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	keywordToTag := make(map[int64]string, len(keywords))
+	for keywordID, name := range keywords {
+		tagID, ok := nameToID[name]
+		if !ok {
+			return nil, 0, fmt.Errorf("tag id not found for keyword: %s", name)
+		}
+		keywordToTag[keywordID] = tagID
+	}
+
+	return keywordToTag, inserted, nil
+}
+
+func buildPlaceholders(count int) string {
+	if count <= 0 {
+		return ""
+	}
+	return strings.TrimRight(strings.Repeat("?,", count), ",")
+}
+
+func closeRows(rows *sql.Rows) {
+	if err := rows.Close(); err != nil {
+		log.Printf("rows close failed: %v", err)
+	}
+}
+
+func rollbackTx(ctx context.Context, tx pgx.Tx) {
+	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		log.Printf("rollback failed: %v", err)
+	}
+}
+
+func getResumeLastID(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) (int64, error) {
+	var latestCreatedAt time.Time
+	if err := pgDB.QueryRow(ctx, `
+		SELECT created_at
+		FROM entries
+		ORDER BY created_at DESC
+		LIMIT 1
+	`).Scan(&latestCreatedAt); err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	rows, err := pgDB.Query(ctx, "SELECT url FROM entries WHERE created_at = $1", latestCreatedAt)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var httpLinks []string
+	var httpsLinks []string
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return 0, err
+		}
+		if strings.HasPrefix(url, "https://") {
+			httpsLinks = append(httpsLinks, strings.TrimPrefix(url, "https://"))
+			continue
+		}
+		if strings.HasPrefix(url, "http://") {
+			httpLinks = append(httpLinks, strings.TrimPrefix(url, "http://"))
+			continue
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	if len(httpLinks) == 0 && len(httpsLinks) == 0 {
+		return 0, nil
+	}
+
+	var conditions []string
+	args := make([]any, 0, len(httpLinks)+len(httpsLinks))
+	if len(httpLinks) > 0 {
+		conditions = append(conditions, fmt.Sprintf("(sslp = 0 AND link IN (%s))", buildPlaceholders(len(httpLinks))))
+		for _, link := range httpLinks {
+			args = append(args, link)
+		}
+	}
+	if len(httpsLinks) > 0 {
+		conditions = append(conditions, fmt.Sprintf("(sslp = 1 AND link IN (%s))", buildPlaceholders(len(httpsLinks))))
+		for _, link := range httpsLinks {
+			args = append(args, link)
+		}
+	}
+
+	//nolint:gosec // Placeholder list is built from URLs derived from stored entries.
+	query := fmt.Sprintf(`
+		SELECT MAX(id)
+		FROM bookmarks
+		WHERE title IS NOT NULL AND title <> ''
+		  AND link IS NOT NULL AND link <> ''
+		  AND (%s)
+	`, strings.Join(conditions, " OR "))
+
+	var maxID sql.NullInt64
+	if err := mysqlDB.QueryRowContext(ctx, query, args...).Scan(&maxID); err != nil {
+		return 0, err
+	}
+	if !maxID.Valid {
+		return 0, nil
+	}
+
+	return maxID.Int64, nil
 }
 
 func unixToTimestamp(unixTime int64) time.Time {
@@ -530,40 +637,27 @@ func unixToTimestamp(unixTime int64) time.Time {
 }
 
 func verifyMigration(ctx context.Context, mysqlDB *sql.DB, pgDB *pgx.Conn) error {
-	tables := []struct {
-		mysqlTable string
-		pgTable    string
-	}{
-		{"bookmarks", "entries"},
-		{"keywords", "tags"},
-		{"keyphrases", "entry_tags"},
+	mysqlCount, err := getValidBookmarksCount(ctx, mysqlDB)
+	if err != nil {
+		return fmt.Errorf("failed to count valid bookmarks: %w", err)
 	}
 
-	allMatch := true
-	for _, t := range tables {
-		mysqlCount, err := getTableCount(ctx, mysqlDB, t.mysqlTable)
-		if err != nil {
-			return fmt.Errorf("failed to count %s: %w", t.mysqlTable, err)
-		}
-
-		pgCount, err := getPgTableCount(ctx, pgDB, t.pgTable)
-		if err != nil {
-			return fmt.Errorf("failed to count %s: %w", t.pgTable, err)
-		}
-
-		status := "✓"
-		if mysqlCount != pgCount {
-			status = "✗"
-			allMatch = false
-		}
-
-		fmt.Printf("%s %s -> %s: MySQL=%d, PostgreSQL=%d\n", status, t.mysqlTable, t.pgTable, mysqlCount, pgCount)
+	pgCount, err := getPgTableCount(ctx, pgDB, "entries")
+	if err != nil {
+		return fmt.Errorf("failed to count entries: %w", err)
 	}
 
-	if !allMatch {
+	status := "✓"
+	if mysqlCount != pgCount {
+		status = "✗"
+	}
+
+	fmt.Printf("%s bookmarks(valid) -> entries: MySQL=%d, PostgreSQL=%d\n", status, mysqlCount, pgCount)
+
+	if mysqlCount != pgCount {
 		return fmt.Errorf("row count mismatch detected")
 	}
 
-	fmt.Println("\n✓ All migrations verified successfully!")
+	fmt.Println("\n✓ Migration verified successfully!")
 	return nil
 }
