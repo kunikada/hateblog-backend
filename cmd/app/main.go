@@ -392,6 +392,10 @@ func run(ctx context.Context) error {
 		middlewares = append(middlewares, func(next http.Handler) http.Handler {
 			dynamicAuth := server.DynamicAPIKeyAuth(apiKeyRepo, log)
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if apiBasePath != "/" && !strings.HasPrefix(r.URL.Path, apiBasePath+"/") {
+					next.ServeHTTP(w, r)
+					return
+				}
 				// Skip authentication for health and api-keys generation endpoints
 				if r.URL.Path == healthPath || r.URL.Path == apiKeysPath {
 					next.ServeHTTP(w, r)
