@@ -38,23 +38,23 @@ func (h *RankingHandler) RegisterRoutes(r chiRouter) {
 func (h *RankingHandler) handleYearly(w http.ResponseWriter, r *http.Request) {
 	year, err := requireQueryInt(r, "year", 2000, 9999)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	limit, err := readQueryInt(r, "limit", 1, maxYearlyRankingLimit, defaultRankingLimit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	result, err := h.service.Yearly(r.Context(), year, limit, minUsers)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -64,28 +64,28 @@ func (h *RankingHandler) handleYearly(w http.ResponseWriter, r *http.Request) {
 func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
 	year, err := requireQueryInt(r, "year", 2000, 9999)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	month, err := requireQueryInt(r, "month", 1, 12)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	limit, err := readQueryInt(r, "limit", 1, maxMonthlyRankingLimit, defaultRankingLimit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	result, err := h.service.Monthly(r.Context(), year, month, limit, minUsers)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -95,28 +95,28 @@ func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
 func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
 	year, err := requireQueryInt(r, "year", 2000, 9999)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	week, err := requireQueryInt(r, "week", 1, 53)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	limit, err := readQueryInt(r, "limit", 1, maxWeeklyRankingLimit, defaultRankingLimit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	result, err := h.service.Weekly(r.Context(), year, week, limit, minUsers)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 

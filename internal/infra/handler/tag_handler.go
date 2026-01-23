@@ -46,23 +46,23 @@ func (h *TagHandler) RegisterRoutes(r chiRouter) {
 
 func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
 	if h.tagService == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 	limit, err := readQueryInt(r, "limit", 1, maxTagListLimit, defaultTagListLimit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	offset, err := readQueryInt(r, "offset", 0, 0, 0)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	tags, err := h.tagService.List(r.Context(), limit, offset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -83,34 +83,34 @@ func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
 
 func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 	if h.tagService == nil || h.entryService == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 	rawTag := chi.URLParam(r, "tag")
 	if rawTag == "" {
-		writeError(w, http.StatusBadRequest, errInvalidTag)
+		writeError(w, r, http.StatusBadRequest, errInvalidTag)
 		return
 	}
 
 	tagEntity, err := h.tagService.GetByName(r.Context(), rawTag)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, r, http.StatusNotFound, err)
 		return
 	}
 
 	limit, err := readQueryInt(r, "limit", 1, maxTagLimit, defaultTagLimit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	offset, err := readQueryInt(r, "offset", 0, 0, 0)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultMin)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		Offset:           offset,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -133,35 +133,35 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 
 func (h *TagHandler) handleTrendingTags(w http.ResponseWriter, r *http.Request) {
 	if h.tagService == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 
 	hours, err := readQueryInt(r, "hours", 0, 0, 24)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if hours != 6 && hours != 12 && hours != 24 && hours != 48 {
-		writeError(w, http.StatusBadRequest, errors.New("hours must be 6, 12, 24, or 48"))
+		writeError(w, r, http.StatusBadRequest, errors.New("hours must be 6, 12, 24, or 48"))
 		return
 	}
 
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, 5)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	limit, err := readQueryInt(r, "limit", 1, 100, 20)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	tags, err := h.tagService.GetTrending(r.Context(), hours, minUsers, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -184,29 +184,29 @@ func (h *TagHandler) handleTrendingTags(w http.ResponseWriter, r *http.Request) 
 
 func (h *TagHandler) handleClickedTags(w http.ResponseWriter, r *http.Request) {
 	if h.tagService == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 
 	days, err := readQueryInt(r, "days", 0, 0, 7)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if days != 1 && days != 7 && days != 30 {
-		writeError(w, http.StatusBadRequest, errors.New("days must be 1, 7, or 30"))
+		writeError(w, r, http.StatusBadRequest, errors.New("days must be 1, 7, or 30"))
 		return
 	}
 
 	limit, err := readQueryInt(r, "limit", 1, 100, 20)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	tags, err := h.tagService.GetClicked(r.Context(), days, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 

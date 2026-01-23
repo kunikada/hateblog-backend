@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -41,13 +42,13 @@ func (h *EntryHandler) RegisterRoutes(r chiRouter) {
 func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) {
 	params, err := buildDayListParams(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	result, err := h.service.ListNewEntries(r.Context(), params)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -57,13 +58,13 @@ func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) 
 func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) {
 	params, err := buildDayListParams(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	result, err := h.service.ListHotEntries(r.Context(), params)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -218,12 +219,25 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
+func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 	message := "internal error"
 	if status == http.StatusBadRequest && err != nil {
 		message = err.Error()
 	}
 	if status >= 500 {
+		fields := []any{"status", status}
+		if err != nil {
+			fields = append(fields, "error", err.Error())
+		}
+		if r != nil {
+			fields = append(fields,
+				"method", r.Method,
+				"path", r.URL.Path,
+				"query", r.URL.RawQuery,
+				"remote_addr", r.RemoteAddr,
+			)
+		}
+		slog.Error("internal server error", fields...)
 		message = "internal error"
 	}
 	writeJSON(w, status, map[string]string{"error": message})

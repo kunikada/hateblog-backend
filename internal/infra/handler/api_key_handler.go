@@ -33,24 +33,24 @@ func (h *APIKeyHandler) RegisterRoutes(r chiRouter) {
 
 func (h *APIKeyHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	if h.service == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 
 	var req createAPIKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	// Validate field lengths
 	if req.Name != nil && len(*req.Name) > 100 {
-		writeError(w, http.StatusBadRequest, errors.New("name must be at most 100 characters"))
+		writeError(w, r, http.StatusBadRequest, errors.New("name must be at most 100 characters"))
 		return
 	}
 
 	if req.Description != nil && len(*req.Description) > 500 {
-		writeError(w, http.StatusBadRequest, errors.New("description must be at most 500 characters"))
+		writeError(w, r, http.StatusBadRequest, errors.New("description must be at most 500 characters"))
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *APIKeyHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Reques
 		CreatedRef:  &referrer,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 

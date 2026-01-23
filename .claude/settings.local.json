@@ -25,7 +25,8 @@
       "Bash(make test:*)",
       "Bash(ls:*)",
       "Bash(crontab:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

@@ -26,23 +26,23 @@ func (h *FaviconHandler) RegisterRoutes(r chiRouter) {
 func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request) {
 	domain := r.URL.Query().Get("domain")
 	if domain == "" {
-		writeError(w, http.StatusBadRequest, errMissingDomain)
+		writeError(w, r, http.StatusBadRequest, errMissingDomain)
 		return
 	}
 
 	host, err := hostname.Normalize(domain)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	data, contentType, err := h.service.Fetch(r.Context(), host)
 	if err != nil {
 		if errors.Is(err, usecaseFavicon.ErrRateLimited) {
-			writeError(w, http.StatusTooManyRequests, err)
+			writeError(w, r, http.StatusTooManyRequests, err)
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 

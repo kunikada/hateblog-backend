@@ -27,17 +27,17 @@ func (h *ArchiveHandler) RegisterRoutes(r chiRouter) {
 func (h *ArchiveHandler) handleArchive(w http.ResponseWriter, r *http.Request) {
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultArchiveMinUsers)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := domainArchive.ValidateMinUsers(minUsers); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	items, err := h.service.List(r.Context(), minUsers)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 

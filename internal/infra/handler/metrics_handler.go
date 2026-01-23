@@ -28,20 +28,20 @@ func (h *MetricsHandler) RegisterRoutes(r chiRouter) {
 
 func (h *MetricsHandler) handleRecordClick(w http.ResponseWriter, r *http.Request) {
 	if h.service == nil {
-		writeError(w, http.StatusInternalServerError, errServiceUnavailable)
+		writeError(w, r, http.StatusInternalServerError, errServiceUnavailable)
 		return
 	}
 	var req clickMetricsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if req.EntryID == uuid.Nil {
-		writeError(w, http.StatusBadRequest, errors.New("entry_id is required"))
+		writeError(w, r, http.StatusBadRequest, errors.New("entry_id is required"))
 		return
 	}
 	if err := h.service.RecordClick(r.Context(), domainEntry.ID(req.EntryID)); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
