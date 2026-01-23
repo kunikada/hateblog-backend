@@ -389,6 +389,10 @@ func run(ctx context.Context) error {
 		if apiBasePath == "/" {
 			apiKeysPath = "/api-keys"
 		}
+		faviconsPath := apiBasePath + "/favicons"
+		if apiBasePath == "/" {
+			faviconsPath = "/favicons"
+		}
 		middlewares = append(middlewares, func(next http.Handler) http.Handler {
 			dynamicAuth := server.DynamicAPIKeyAuth(apiKeyRepo, log)
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -396,8 +400,8 @@ func run(ctx context.Context) error {
 					next.ServeHTTP(w, r)
 					return
 				}
-				// Skip authentication for health and api-keys generation endpoints
-				if r.URL.Path == healthPath || r.URL.Path == apiKeysPath {
+				// Skip authentication for health, api-keys generation, and favicons endpoints
+				if r.URL.Path == healthPath || r.URL.Path == apiKeysPath || r.URL.Path == faviconsPath {
 					next.ServeHTTP(w, r)
 					return
 				}
