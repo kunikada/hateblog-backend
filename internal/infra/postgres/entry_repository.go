@@ -206,6 +206,7 @@ func (r *EntryRepository) ListAndCount(ctx context.Context, q entry.ListQuery) (
 	)
 	for rows.Next() {
 		ent := &entry.Entry{}
+		var excerpt, subject *string
 		var rowTotal int64
 		if err := rows.Scan(
 			&ent.ID,
@@ -213,13 +214,19 @@ func (r *EntryRepository) ListAndCount(ctx context.Context, q entry.ListQuery) (
 			&ent.URL,
 			&ent.PostedAt,
 			&ent.BookmarkCount,
-			&ent.Excerpt,
-			&ent.Subject,
+			&excerpt,
+			&subject,
 			&ent.CreatedAt,
 			&ent.UpdatedAt,
 			&rowTotal,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan entry with total: %w", err)
+		}
+		if excerpt != nil {
+			ent.Excerpt = *excerpt
+		}
+		if subject != nil {
+			ent.Subject = *subject
 		}
 		total = rowTotal
 		entries = append(entries, ent)
@@ -459,18 +466,25 @@ func scanEntries(rows pgx.Rows) ([]*entry.Entry, error) {
 
 func scanEntry(row pgx.Row) (*entry.Entry, error) {
 	ent := &entry.Entry{}
+	var excerpt, subject *string
 	if err := row.Scan(
 		&ent.ID,
 		&ent.Title,
 		&ent.URL,
 		&ent.PostedAt,
 		&ent.BookmarkCount,
-		&ent.Excerpt,
-		&ent.Subject,
+		&excerpt,
+		&subject,
 		&ent.CreatedAt,
 		&ent.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("scan entry: %w", err)
+	}
+	if excerpt != nil {
+		ent.Excerpt = *excerpt
+	}
+	if subject != nil {
+		ent.Subject = *subject
 	}
 	return ent, nil
 }
