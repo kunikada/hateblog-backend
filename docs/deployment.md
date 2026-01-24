@@ -288,7 +288,7 @@ chmod 755 /var/log/hateblog
 
 ### ログローテーション
 
-`/etc/logrotate.d/hateblog` を作成：
+例（ユーザーが `ubuntu` の場合）:
 
 ```bash
 sudo tee /etc/logrotate.d/hateblog <<'EOF'
@@ -299,7 +299,7 @@ sudo tee /etc/logrotate.d/hateblog <<'EOF'
     delaycompress
     missingok
     notifempty
-    create 0644 root root
+    create 0644 ubuntu ubuntu
 }
 EOF
 ```
