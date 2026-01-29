@@ -146,6 +146,11 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 			queryParams: "?q=test&min_users=-1",
 			wantStatus:  http.StatusBadRequest,
 		},
+		{
+			name:        "error: invalid sort",
+			queryParams: "?q=test&sort=popular",
+			wantStatus:  http.StatusBadRequest,
+		},
 	}
 
 	for _, tt := range tests {

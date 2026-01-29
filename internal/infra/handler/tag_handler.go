@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	domainEntry "hateblog/internal/domain/entry"
 	domainTag "hateblog/internal/domain/tag"
 	usecaseEntry "hateblog/internal/usecase/entry"
 	usecaseTag "hateblog/internal/usecase/tag"
@@ -41,7 +42,9 @@ func (h *TagHandler) RegisterRoutes(r chiRouter) {
 	r.Get("/tags", h.handleListTags)
 	r.Get("/tags/trending", h.handleTrendingTags)
 	r.Get("/tags/clicked", h.handleClickedTags)
-	r.Get("/tags/{tag}/entries", h.handleTagEntries)
+	r.Get("/tags/entries", h.handleTagEntries)
+	r.Get("/tags/entries/", h.handleTagEntries)
+	r.Get("/tags/entries/{tag}", h.handleTagEntries)
 }
 
 func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +117,17 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
+	sortType, err := readQuerySort(r, "sort", domainEntry.SortNew)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
 
 	result, cacheHit, err := h.entryService.ListTagEntriesWithCacheStatus(r.Context(), tagEntity.Name, usecaseEntry.TagListParams{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,
+		Sort:             sortType,
 	})
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)

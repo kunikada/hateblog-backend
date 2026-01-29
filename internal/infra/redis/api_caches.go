@@ -90,19 +90,19 @@ func NewSearchCache(client bytesCacheClient) *SearchCache {
 	return &SearchCache{cache: newSnappyJSONCache(client, searchTTL)}
 }
 
-func (c *SearchCache) key(query string, minUsers, limit, offset int) string {
+func (c *SearchCache) key(query string, sort domainEntry.SortType, minUsers, limit, offset int) string {
 	hash := sha256Hex(strings.TrimSpace(query))
-	return "hateblog:search:" + hash + ":" + strconv.Itoa(minUsers) + ":" + strconv.Itoa(limit) + ":" + strconv.Itoa(offset)
+	return "hateblog:search:" + hash + ":" + string(sort) + ":" + strconv.Itoa(minUsers) + ":" + strconv.Itoa(limit) + ":" + strconv.Itoa(offset)
 }
 
 // Get returns cached search results for the given query parameters.
-func (c *SearchCache) Get(ctx context.Context, query string, minUsers, limit, offset int, out any) (bool, error) {
-	return c.cache.Get(ctx, c.key(query, minUsers, limit, offset), out)
+func (c *SearchCache) Get(ctx context.Context, query string, sort domainEntry.SortType, minUsers, limit, offset int, out any) (bool, error) {
+	return c.cache.Get(ctx, c.key(query, sort, minUsers, limit, offset), out)
 }
 
 // Set stores search results for the given query parameters.
-func (c *SearchCache) Set(ctx context.Context, query string, minUsers, limit, offset int, value any) error {
-	return c.cache.Set(ctx, c.key(query, minUsers, limit, offset), value)
+func (c *SearchCache) Set(ctx context.Context, query string, sort domainEntry.SortType, minUsers, limit, offset int, value any) error {
+	return c.cache.Set(ctx, c.key(query, sort, minUsers, limit, offset), value)
 }
 
 // TagsListCache caches tag list responses.

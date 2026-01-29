@@ -41,7 +41,7 @@ func (h *MetricsHandler) handleRecordClick(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := h.service.RecordClick(r.Context(), domainEntry.ID(req.EntryID)); err != nil {
-		writeError(w, r, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 

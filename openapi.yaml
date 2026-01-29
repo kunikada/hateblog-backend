@@ -403,13 +403,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /tags/{tag}/entries:
+  /tags/entries/{tag}:
     get:
       tags:
         - tags
       summary: タグ別エントリー一覧取得
       description: |
-        指定されたタグに紐づくエントリーを新着順で取得します。
+        指定されたタグに紐づくエントリーを新着順または人気順で取得します。
         ブックマーク件数での閾値フィルタリングが可能です。
         タグ閲覧はサーバー側で自動的に記録されます（tag_view_historyテーブル）。
       operationId: getEntriesByTag
@@ -431,6 +431,15 @@ paths:
             minimum: 0
             default: 5
             example: 10
+        - name: sort
+          in: query
+          description: 並び順（new=新着, hot=人気）
+          required: false
+          schema:
+            type: string
+            enum: [new, hot]
+            default: new
+            example: new
         - name: limit
           in: query
           description: 取得件数
@@ -628,6 +637,15 @@ paths:
             minimum: 0
             default: 5
             example: 5
+        - name: sort
+          in: query
+          description: 並び順（new=新着, hot=人気）
+          required: false
+          schema:
+            type: string
+            enum: [new, hot]
+            default: hot
+            example: hot
         - name: limit
           in: query
           description: 取得件数

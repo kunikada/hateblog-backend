@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+
+	domainEntry "hateblog/internal/domain/entry"
 )
 
 func readQueryInt(r *http.Request, key string, min, max, def int) (int, error) {
@@ -34,4 +37,17 @@ func parseInt(name, value string, min, max int) (int, error) {
 		return 0, fmt.Errorf("%s must be <= %d", name, max)
 	}
 	return v, nil
+}
+
+func readQuerySort(r *http.Request, key string, def domainEntry.SortType) (domainEntry.SortType, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(key))
+	if raw == "" {
+		return def, nil
+	}
+	switch domainEntry.SortType(raw) {
+	case domainEntry.SortNew, domainEntry.SortHot:
+		return domainEntry.SortType(raw), nil
+	default:
+		return "", fmt.Errorf("%s must be one of new, hot", key)
+	}
 }

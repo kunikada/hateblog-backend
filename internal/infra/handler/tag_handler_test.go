@@ -164,6 +164,13 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 			mockTag:     newTestTag(tagID, tagName),
 			wantStatus:  http.StatusBadRequest,
 		},
+		{
+			name:        "error: invalid sort",
+			tagPath:     tagName,
+			queryParams: "?sort=popular",
+			mockTag:     newTestTag(tagID, tagName),
+			wantStatus:  http.StatusBadRequest,
+		},
 	}
 
 	for _, tt := range tests {
@@ -191,7 +198,7 @@ func TestTagHandler_GetEntriesByTag(t *testing.T) {
 			})
 			defer ts.Close()
 
-			path := apiPath(fmt.Sprintf("/tags/%s/entries%s", tt.tagPath, tt.queryParams))
+			path := apiPath(fmt.Sprintf("/tags/entries/%s%s", tt.tagPath, tt.queryParams))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 
@@ -235,7 +242,7 @@ func TestTagHandler_GetEntriesByTag_ServiceError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, apiPath("/tags/programming/entries"))
+	resp := ts.get(t, apiPath("/tags/entries/programming"))
 	defer resp.Body.Close()
 
 	errResp := assertErrorResponse(t, resp, http.StatusInternalServerError)
@@ -276,7 +283,7 @@ func TestTagHandler_GetEntriesByTag_RecordView(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, apiPath("/tags/programming/entries"))
+	resp := ts.get(t, apiPath("/tags/entries/programming"))
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
@@ -313,7 +320,7 @@ func TestTagHandler_GetEntriesByTag_RecordViewError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	resp := ts.get(t, apiPath("/tags/programming/entries"))
+	resp := ts.get(t, apiPath("/tags/entries/programming"))
 	defer resp.Body.Close()
 
 	// Should still return 200 even if recording view fails
@@ -373,7 +380,7 @@ func TestTagHandler_BoundaryValues(t *testing.T) {
 			})
 			defer ts.Close()
 
-			path := apiPath(fmt.Sprintf("/tags/test/entries?limit=%d", tt.limit))
+			path := apiPath(fmt.Sprintf("/tags/entries/test?limit=%d", tt.limit))
 			resp := ts.get(t, path)
 			defer resp.Body.Close()
 

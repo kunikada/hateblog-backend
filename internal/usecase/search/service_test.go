@@ -47,8 +47,9 @@ func TestSearchValidatesQuery(t *testing.T) {
 	_, err := svc.Search(context.Background(), " ", Params{})
 	require.Error(t, err)
 
-	result, err := svc.Search(context.Background(), "Go", Params{Limit: 200})
+	result, err := svc.Search(context.Background(), "Go", Params{Limit: domainEntry.MaxLimit + 1})
 	require.NoError(t, err)
 	require.Equal(t, "Go", result.Query)
 	require.Equal(t, domainEntry.MaxLimit, repo.lastQuery.Limit)
+	require.Equal(t, domainEntry.SortHot, repo.lastQuery.Sort)
 }

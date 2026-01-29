@@ -2,6 +2,7 @@ package favicon
 
 import (
 	"context"
+	// #nosec G501 -- 非暗号用途の既知データ判定のため
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
@@ -160,5 +161,6 @@ func isGoogleDefaultFavicon(data []byte) bool {
 	if len(data) == 0 {
 		return false
 	}
+	// #nosec G401 -- 非暗号用途の既知データ判定のため
 	return md5.Sum(data) == googleDefaultMD5
 }

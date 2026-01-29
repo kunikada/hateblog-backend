@@ -157,7 +157,7 @@ if year == currentYear && week == currentWeek {
 
 ---
 
-### 7. タグ別エントリー一覧 (`GET /tags/{tag}/entries`)
+### 7. タグ別エントリー一覧 (`GET /tags/entries/{tag}`)
 
 **キャッシュ戦略**: 時間ベースのTTL + 人気タグの優先キャッシュ
 
@@ -210,7 +210,7 @@ ttl := 1 * time.Hour
 
 **キャッシュ戦略**: 短期TTL + 人気検索クエリの優先キャッシュ
 
-- **キャッシュキー**: `hateblog:search:{query_hash}:{min_users}:{limit}:{offset}`
+- **キャッシュキー**: `hateblog:search:{query_hash}:{sort}:{min_users}:{limit}:{offset}`
 - **TTL**: 15分
 - **理由**: 検索結果は頻繁に変わる可能性がある
 - **キャッシュ対象**: SearchResponse
@@ -219,7 +219,7 @@ ttl := 1 * time.Hour
 **実装メモ**:
 ```go
 queryHash := sha256Hash(query) // クエリをハッシュ化
-cacheKey := fmt.Sprintf("hateblog:search:%s:%d:%d:%d", queryHash, minUsers, limit, offset)
+cacheKey := fmt.Sprintf("hateblog:search:%s:%s:%d:%d:%d", queryHash, sort, minUsers, limit, offset)
 ttl := 15 * time.Minute
 ```
 
@@ -450,7 +450,7 @@ return paginate(filtered, limit, offset)
 
 ---
 
-#### 2. `/tags/{tag}/entries`
+#### 2. `/tags/entries/{tag}`
 
 **キャッシュキー**: `hateblog:tags:{tag_name}:entries:all`
 
@@ -589,7 +589,7 @@ return paginate(allTags, limit, offset)
 
 #### 8. `/search`
 
-**キャッシュキー**: `hateblog:search:{query_hash}:all`
+**キャッシュキー**: `hateblog:search:{query_hash}:{sort}:all`
 
 - クエリごとに全結果をキャッシュ（max 1000件程度）
 - アプリ層でmin_users/limit/offsetを適用
@@ -598,7 +598,7 @@ return paginate(allTags, limit, offset)
 
 ```go
 queryHash := sha256.Sum256([]byte(query))
-cacheKey := fmt.Sprintf("hateblog:search:%x:all", queryHash)
+cacheKey := fmt.Sprintf("hateblog:search:%x:%s:all", queryHash, sort)
 
 var allResults []Entry
 if err := cache.Get(ctx, cacheKey, &allResults); err != nil {
@@ -618,13 +618,13 @@ return paginate(filtered, limit, offset)
 |--------------|--------------|-------|
 | `/entries/new` | `hateblog:entries:{date}:all` | 日付数 |
 | `/entries/hot` | `hateblog:entries:{date}:all` | **同上（共用）** |
-| `/tags/{tag}/entries` | `hateblog:tags:{tag}:entries:all` | タグ数 |
+| `/tags/entries/{tag}` | `hateblog:tags:{tag}:entries:all` | タグ数 |
 | `/rankings/yearly` | `hateblog:rankings:yearly:{year}` | 年数 |
 | `/rankings/monthly` | `hateblog:rankings:monthly:{year}:{month}` | 年月数 |
 | `/rankings/weekly` | `hateblog:rankings:weekly:{year}:{week}` | 年週数 |
 | `/archive` | `hateblog:archive:{year}:{month}:{min_users}` | 年月 × 6 |
 | `/tags` | `hateblog:tags:list:all` | 1 |
-| `/search` | `hateblog:search:{query_hash}:all` | クエリ数 |
+| `/search` | `hateblog:search:{query_hash}:{sort}:all` | クエリ数 |
 
 **総キャッシュキー数の削減効果**:
 - 旧設計: 数千〜数万キー（パラメータ × ページ数）
@@ -774,7 +774,7 @@ func (c *CompressedCache) Get(ctx context.Context, key string, dest interface{})
 | `/entries/hot` | 5-20KB (25件) | **推奨** | 5KB |
 | `/rankings/*` | 10-50KB (100件) | **強く推奨** | 5KB |
 | `/search` | 5-20KB | **推奨** | 5KB |
-| `/tags/{tag}/entries` | 5-20KB | **推奨** | 5KB |
+| `/tags/entries/{tag}` | 5-20KB | **推奨** | 5KB |
 | `/archive` | 1-5KB | ケースバイケース | 10KB |
 | `/tags` | 10-50KB | **推奨** | 5KB |
 

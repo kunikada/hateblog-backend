@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	domainEntry "hateblog/internal/domain/entry"
 	usecaseSearch "hateblog/internal/usecase/search"
 )
 
@@ -38,7 +39,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, err := readQueryInt(r, "limit", 1, maxTagLimit, defaultLimit)
+	limit, err := readQueryInt(r, "limit", 1, domainEntry.MaxLimit, defaultLimit)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
@@ -53,14 +54,20 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
+	sortType, err := readQuerySort(r, "sort", domainEntry.SortHot)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
 
 	result, cacheHit, err := h.service.SearchWithCacheStatus(r.Context(), q, usecaseSearch.Params{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,
+		Sort:             sortType,
 	})
 	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 

@@ -178,7 +178,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - `idx_tag_view_history_viewed_at` - viewed_at DESC（日付別集計用）
 
 **備考:**
-- タグ別エントリー一覧ページ（`/tags/{tag}/entries`）へのアクセスを日別で集計
+- タグ別エントリー一覧ページ（`/tags/entries/{tag}`）へのアクセスを日別で集計
 - 人気タグの分析に使用
 
 ---
@@ -368,14 +368,17 @@ LIMIT ? OFFSET ?;
 idx_entries_bookmark_count (複合インデックス)
 ```
 
-### タグ別エントリー一覧（`GET /tags/{tag}/entries`）
+### タグ別エントリー一覧（`GET /tags/entries/{tag}`）
 ```sql
 -- クエリ例
 SELECT e.* FROM entries e
 INNER JOIN entry_tags et ON e.id = et.entry_id
 INNER JOIN tags t ON et.tag_id = t.id
 WHERE t.name = ?
-ORDER BY e.posted_at DESC;
+ORDER BY e.posted_at DESC; -- sort=new
+
+-- sort=hot の場合は人気順
+-- ORDER BY e.bookmark_count DESC, e.posted_at DESC;
 
 -- 使用インデックス
 idx_entry_tags_tag_id, idx_entries_posted_at
@@ -396,7 +399,10 @@ entries_url_key (UNIQUE制約)
 -- pg_bigm使用時のクエリ例
 SELECT * FROM entries
 WHERE search_text LIKE '%' || ? || '%'
-ORDER BY bookmark_count DESC;
+ORDER BY bookmark_count DESC; -- sort=hot
+
+-- sort=new の場合は新着順
+-- ORDER BY posted_at DESC;
 
 -- 使用インデックス
 idx_entries_search_text_gin

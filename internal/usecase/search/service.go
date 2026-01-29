@@ -26,6 +26,7 @@ type Params struct {
 	MinBookmarkCount int
 	Limit            int
 	Offset           int
+	Sort             domainEntry.SortType
 }
 
 // Result bundles search results.
@@ -47,8 +48,8 @@ type Service struct {
 
 // ResultCache caches search results.
 type ResultCache interface {
-	Get(ctx context.Context, query string, minUsers, limit, offset int, out any) (bool, error)
-	Set(ctx context.Context, query string, minUsers, limit, offset int, value any) error
+	Get(ctx context.Context, query string, sort domainEntry.SortType, minUsers, limit, offset int, out any) (bool, error)
+	Set(ctx context.Context, query string, sort domainEntry.SortType, minUsers, limit, offset int, value any) error
 }
 
 // NewService builds a search service.
@@ -91,10 +92,20 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 	if minUsers < 0 {
 		minUsers = 0
 	}
+	sortType := params.Sort
+	if sortType == "" {
+		sortType = domainEntry.SortHot
+	}
+	switch sortType {
+	case domainEntry.SortNew, domainEntry.SortHot:
+		// ok
+	default:
+		return Result{}, false, fmt.Errorf("sort must be new or hot")
+	}
 
 	if s.cache != nil {
 		var cached Result
-		ok, err := s.cache.Get(ctx, norm, minUsers, limit, offset, &cached)
+		ok, err := s.cache.Get(ctx, norm, sortType, minUsers, limit, offset, &cached)
 		if err != nil {
 			s.logDebug("failed to get search cache", err)
 		} else if ok {
@@ -111,7 +122,7 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 		Keyword:          norm,
 		Limit:            limit,
 		Offset:           offset,
-		Sort:             domainEntry.SortHot,
+		Sort:             sortType,
 		MinBookmarkCount: minUsers,
 	}
 
@@ -135,7 +146,7 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 	}
 
 	if s.cache != nil {
-		if err := s.cache.Set(ctx, norm, minUsers, limit, offset, result); err != nil {
+		if err := s.cache.Set(ctx, norm, sortType, minUsers, limit, offset, result); err != nil {
 			s.logDebug("failed to set search cache", err)
 		}
 	}

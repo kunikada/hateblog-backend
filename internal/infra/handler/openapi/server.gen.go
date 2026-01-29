@@ -416,6 +416,9 @@ type SearchEntriesParams struct {
 	// MinUsers 最低ブックマーク件数フィルタ
 	MinUsers *int `form:"min_users,omitempty" json:"min_users,omitempty"`
 
+	// Sort 並び順（new=新着, hot=人気）
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
+
 	// Limit 取得件数
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -454,6 +457,9 @@ type GetTrendingTagsParamsHours int
 type GetEntriesByTagParams struct {
 	// MinUsers 最低ブックマーク件数（5/10/50/100/500/1000など）
 	MinUsers *int `form:"min_users,omitempty" json:"min_users,omitempty"`
+
+	// Sort 並び順（new=新着, hot=人気）
+	Sort *string `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// Limit 取得件数
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -510,7 +516,7 @@ type ServerInterface interface {
 	// (GET /tags/trending)
 	GetTrendingTags(w http.ResponseWriter, r *http.Request, params GetTrendingTagsParams)
 	// タグ別エントリー一覧取得
-	// (GET /tags/{tag}/entries)
+	// (GET /tags/entries/{tag})
 	GetEntriesByTag(w http.ResponseWriter, r *http.Request, tag string, params GetEntriesByTagParams)
 }
 
@@ -597,7 +603,7 @@ func (_ Unimplemented) GetTrendingTags(w http.ResponseWriter, r *http.Request, p
 }
 
 // タグ別エントリー一覧取得
-// (GET /tags/{tag}/entries)
+// (GET /tags/entries/{tag})
 func (_ Unimplemented) GetEntriesByTag(w http.ResponseWriter, r *http.Request, tag string, params GetEntriesByTagParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -1393,7 +1399,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/tags/trending", wrapper.GetTrendingTags)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/tags/{tag}/entries", wrapper.GetEntriesByTag)
+		r.Get(options.BaseURL+"/tags/entries/{tag}", wrapper.GetEntriesByTag)
 	})
 
 	return r

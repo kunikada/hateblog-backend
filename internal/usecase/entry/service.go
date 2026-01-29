@@ -48,11 +48,12 @@ type DayListParams struct {
 	Limit            int
 }
 
-// TagListParams represents user filters for /tags/{tag}/entries.
+// TagListParams represents user filters for /tags/entries/{tag}.
 type TagListParams struct {
 	MinBookmarkCount int
 	Offset           int
 	Limit            int
+	Sort             domainEntry.SortType
 }
 
 // NewService instantiates the service.
@@ -105,9 +106,25 @@ func (s *Service) ListTagEntriesWithCacheStatus(ctx context.Context, tagName str
 		return ListResult{}, false, err
 	}
 	filtered := filterByMinUsers(all, params.MinBookmarkCount)
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].PostedAt.After(filtered[j].PostedAt)
-	})
+	sortType := params.Sort
+	if sortType == "" {
+		sortType = domainEntry.SortNew
+	}
+	switch sortType {
+	case domainEntry.SortHot:
+		sort.Slice(filtered, func(i, j int) bool {
+			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
+				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
+			}
+			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+		})
+	case domainEntry.SortNew:
+		sort.Slice(filtered, func(i, j int) bool {
+			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+		})
+	default:
+		return ListResult{}, false, fmt.Errorf("unsupported sort %q", sortType)
+	}
 	total := int64(len(filtered))
 	paged := paginate(filtered, params.Offset, params.Limit)
 	return ListResult{Entries: paged, Total: total}, cacheHit, nil
