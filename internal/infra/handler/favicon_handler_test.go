@@ -52,6 +52,23 @@ func TestFaviconHandlerBadRequest(t *testing.T) {
 	}
 }
 
+func TestFaviconHandlerTooEarly(t *testing.T) {
+	handler := NewFaviconHandler(newTestServiceWithLimiter([]byte{1}, "image/png", nil, &testLimiter{allow: false}))
+	r := chi.NewRouter()
+	r.Route(testAPIBasePath, func(r chi.Router) {
+		handler.RegisterRoutes(r)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, apiPath("/favicons?domain=example.com"), nil)
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTooEarly {
+		t.Fatalf("expected 425, got %d", rec.Code)
+	}
+}
+
 func newTestService(data []byte, ctype string, fetchErr error) *usecaseFavicon.Service {
 	fetcher := &testFetcher{
 		data:  data,
@@ -60,6 +77,16 @@ func newTestService(data []byte, ctype string, fetchErr error) *usecaseFavicon.S
 	}
 	cache := &testCache{}
 	return usecaseFavicon.NewService(fetcher, cache, nil, nil)
+}
+
+func newTestServiceWithLimiter(data []byte, ctype string, fetchErr error, limiter usecaseFavicon.Limiter) *usecaseFavicon.Service {
+	fetcher := &testFetcher{
+		data:  data,
+		ctype: ctype,
+		err:   fetchErr,
+	}
+	cache := &testCache{}
+	return usecaseFavicon.NewService(fetcher, cache, limiter, nil)
 }
 
 type testFetcher struct {
@@ -95,4 +122,13 @@ func (t *testCache) Set(ctx context.Context, key string, data []byte, contentTyp
 	t.data = data
 	t.ctype = contentType
 	return nil
+}
+
+type testLimiter struct {
+	allow bool
+	err   error
+}
+
+func (t *testLimiter) Allow(ctx context.Context, domain string) (bool, error) {
+	return t.allow, t.err
 }

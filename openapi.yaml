@@ -720,6 +720,7 @@ paths:
       description: |
         指定されたドメインのFaviconを取得します。
         Google Favicon API経由で取得し、キャッシュして返します。
+        同一ドメインの短時間連続取得は 425 Too Early を返します。
       operationId: getFavicon
       security: []
       parameters:
@@ -746,6 +747,12 @@ paths:
               schema:
                 type: string
                 format: binary
+        '425':
+          description: 短時間の同一ドメイン連続取得による抑止
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: バリデーションエラー
           content:
