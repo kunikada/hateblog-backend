@@ -31,27 +31,33 @@ func NewService(repo Repository, cache Cache) *Service {
 
 // List returns aggregated counts sorted by date desc.
 func (s *Service) List(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, error) {
+	items, _, err := s.ListWithCacheStatus(ctx, minBookmarkCount)
+	return items, err
+}
+
+// ListWithCacheStatus returns aggregates with cache hit info for diagnostics.
+func (s *Service) ListWithCacheStatus(ctx context.Context, minBookmarkCount int) ([]repository.ArchiveCount, bool, error) {
 	if err := domainArchive.ValidateMinUsers(minBookmarkCount); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if s.cache != nil {
 		var cached []repository.ArchiveCount
 		ok, err := s.cache.Get(ctx, minBookmarkCount, &cached)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if ok {
-			return cached, nil
+			return cached, true, nil
 		}
 	}
 	items, err := s.repo.ListArchiveCounts(ctx, minBookmarkCount)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if s.cache != nil {
 		if err := s.cache.Set(ctx, minBookmarkCount, items); err != nil {
-			return items, nil
+			return items, false, nil
 		}
 	}
-	return items, nil
+	return items, false, nil
 }

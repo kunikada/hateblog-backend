@@ -63,12 +63,18 @@ func NewService(entries EntryRepository, history HistoryRepository, cache Result
 
 // Search executes a keyword search.
 func (s *Service) Search(ctx context.Context, query string, params Params) (Result, error) {
+	result, _, err := s.SearchWithCacheStatus(ctx, query, params)
+	return result, err
+}
+
+// SearchWithCacheStatus executes a keyword search and returns cache hit info.
+func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, params Params) (Result, bool, error) {
 	norm := strings.TrimSpace(query)
 	if norm == "" {
-		return Result{}, fmt.Errorf("q is required")
+		return Result{}, false, fmt.Errorf("q is required")
 	}
 	if len(norm) > 500 {
-		return Result{}, fmt.Errorf("q must be <= 500 characters")
+		return Result{}, false, fmt.Errorf("q must be <= 500 characters")
 	}
 	limit := params.Limit
 	if limit <= 0 {
@@ -97,7 +103,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 					s.logDebug("failed to record search history", err)
 				}
 			}
-			return cached, nil
+			return cached, true, nil
 		}
 	}
 
@@ -111,7 +117,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 
 	entries, total, err := s.listAndCount(ctx, queryParams)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 
 	if s.history != nil {
@@ -134,7 +140,7 @@ func (s *Service) Search(ctx context.Context, query string, params Params) (Resu
 		}
 	}
 
-	return result, nil
+	return result, false, nil
 }
 
 func (s *Service) listAndCount(ctx context.Context, query domainEntry.ListQuery) ([]*domainEntry.Entry, int64, error) {

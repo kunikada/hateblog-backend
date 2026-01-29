@@ -86,6 +86,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -154,6 +157,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -195,6 +201,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -246,6 +255,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -306,6 +318,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -366,6 +381,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -435,6 +453,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -501,6 +522,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -552,6 +576,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -623,6 +650,9 @@ paths:
       responses:
         '200':
           description: 成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -660,6 +690,9 @@ paths:
       responses:
         '201':
           description: 記録成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -701,6 +734,9 @@ paths:
       responses:
         '200':
           description: 成功（画像を返す）
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             image/png:
               schema:
@@ -742,6 +778,9 @@ paths:
       responses:
         '201':
           description: APIキー発行成功
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -776,6 +815,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '200':
           description: 正常
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/CacheStatus'
           content:
             application/json:
               schema:
@@ -813,6 +855,13 @@ components:
           example:
             error: "UNAUTHORIZED"
             message: "Missing API key or key ID"
+
+  headers:
+    CacheStatus:
+      description: キャッシュ判定（HIT/MISS）
+      schema:
+        type: string
+        enum: [HIT, MISS]
 
   schemas:
     Entry:

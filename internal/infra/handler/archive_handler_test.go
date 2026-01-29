@@ -103,6 +103,9 @@ func TestArchiveHandler_List(t *testing.T) {
 
 			assertStatus(t, resp, http.StatusOK)
 			assertContentType(t, resp, "application/json")
+			if got := resp.Header.Get(cacheStatusHeader); got != cacheStatusMiss {
+				t.Errorf("cache header = %q, want %q", got, cacheStatusMiss)
+			}
 
 			var result archiveResponse
 			decodeJSON(t, resp, &result)
@@ -164,6 +167,9 @@ func TestArchiveHandler_ResponseFormat(t *testing.T) {
 	defer resp.Body.Close()
 
 	assertStatus(t, resp, http.StatusOK)
+	if got := resp.Header.Get(cacheStatusHeader); got != cacheStatusMiss {
+		t.Errorf("cache header = %q, want %q", got, cacheStatusMiss)
+	}
 
 	var result archiveResponse
 	decodeJSON(t, resp, &result)

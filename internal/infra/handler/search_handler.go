@@ -54,7 +54,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.service.Search(r.Context(), q, usecaseSearch.Params{
+	result, cacheHit, err := h.service.SearchWithCacheStatus(r.Context(), q, usecaseSearch.Params{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,
@@ -75,6 +75,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		resp.Entries = append(resp.Entries, toEntryResponse(ent, h.apiBasePath))
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, resp)
 }
 

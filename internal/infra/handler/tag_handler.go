@@ -60,7 +60,7 @@ func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tags, err := h.tagService.List(r.Context(), limit, offset)
+	tags, cacheHit, err := h.tagService.ListWithCacheStatus(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -78,6 +78,7 @@ func (h *TagHandler) handleListTags(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -114,7 +115,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.entryService.ListTagEntries(r.Context(), tagEntity.Name, usecaseEntry.TagListParams{
+	result, cacheHit, err := h.entryService.ListTagEntriesWithCacheStatus(r.Context(), tagEntity.Name, usecaseEntry.TagListParams{
 		MinBookmarkCount: minUsers,
 		Limit:            limit,
 		Offset:           offset,
@@ -128,6 +129,7 @@ func (h *TagHandler) handleTagEntries(w http.ResponseWriter, r *http.Request) {
 		slog.Default().Warn("failed to record tag view", "tag", tagEntity.Name, "error", err)
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildEntryListResponse(result, limit, offset, h.apiBasePath))
 }
 

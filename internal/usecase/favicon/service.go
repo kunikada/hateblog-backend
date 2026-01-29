@@ -57,8 +57,14 @@ func NewService(fetcher Fetcher, cache Cache, limiter Limiter, logger *slog.Logg
 
 // Fetch returns a favicon for the given domain, using cache when possible.
 func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, error) {
+	data, contentType, _, err := s.FetchWithCacheStatus(ctx, domain)
+	return data, contentType, err
+}
+
+// FetchWithCacheStatus returns a favicon and cache hit info.
+func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]byte, string, bool, error) {
 	if s.fetcher == nil {
-		return nil, "", ErrNotInitialized
+		return nil, "", false, ErrNotInitialized
 	}
 
 	var (
@@ -69,17 +75,17 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, err
 	if s.cache != nil {
 		key, err = s.cache.BuildKey(domain)
 		if err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
 
 		if data, contentType, ok, err := s.cache.Get(ctx, key); err == nil && ok {
-			return data, contentType, nil
+			return data, contentType, true, nil
 		} else if err != nil {
 			s.logDebug("favicon cache get failed", err)
 		}
 	} else {
 		if _, err := hostname.Normalize(domain); err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
 	}
 
@@ -87,14 +93,15 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, err
 		if allowed, err := s.limiter.Allow(ctx, domain); err != nil {
 			s.logDebug("favicon rate limit check failed", err)
 		} else if !allowed {
-			return nil, "", ErrRateLimited
+			return nil, "", false, ErrRateLimited
 		}
 	}
 
 	data, contentType, err := s.fetcher.Fetch(ctx, domain)
 	if err != nil {
 		s.logDebug("favicon fetch failed", err)
-		return s.fallback()
+		data, fallbackType, fallbackErr := s.fallback()
+		return data, fallbackType, false, fallbackErr
 	}
 
 	if s.cache != nil {
@@ -103,7 +110,7 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, err
 		}
 	}
 
-	return data, contentType, nil
+	return data, contentType, false, nil
 }
 
 func (s *Service) fallback() ([]byte, string, error) {

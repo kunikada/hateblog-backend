@@ -45,6 +45,12 @@ func (s *Service) GetByName(ctx context.Context, name string) (*tag.Tag, error) 
 
 // List returns tags sorted by name.
 func (s *Service) List(ctx context.Context, limit, offset int) ([]tag.Tag, error) {
+	tags, _, err := s.ListWithCacheStatus(ctx, limit, offset)
+	return tags, err
+}
+
+// ListWithCacheStatus returns tags and cache hit info.
+func (s *Service) ListWithCacheStatus(ctx context.Context, limit, offset int) ([]tag.Tag, bool, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -55,22 +61,22 @@ func (s *Service) List(ctx context.Context, limit, offset int) ([]tag.Tag, error
 		var cached []tag.Tag
 		ok, err := s.cache.Get(ctx, limit, offset, &cached)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if ok {
-			return cached, nil
+			return cached, true, nil
 		}
 	}
 	tags, err := s.repo.List(ctx, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if s.cache != nil {
 		if err := s.cache.Set(ctx, limit, offset, tags); err != nil {
-			return tags, nil
+			return tags, false, nil
 		}
 	}
-	return tags, nil
+	return tags, false, nil
 }
 
 // RecordView increments the view counter for the tag.

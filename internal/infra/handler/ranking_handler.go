@@ -52,12 +52,13 @@ func (h *RankingHandler) handleYearly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.service.Yearly(r.Context(), year, limit, minUsers)
+	result, cacheHit, err := h.service.YearlyWithCacheStatus(r.Context(), year, limit, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildRankingResponse("yearly", year, nil, nil, result, h.apiBasePath))
 }
 
@@ -83,12 +84,13 @@ func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.service.Monthly(r.Context(), year, month, limit, minUsers)
+	result, cacheHit, err := h.service.MonthlyWithCacheStatus(r.Context(), year, month, limit, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildRankingResponse("monthly", year, &month, nil, result, h.apiBasePath))
 }
 
@@ -114,12 +116,13 @@ func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.service.Weekly(r.Context(), year, week, limit, minUsers)
+	result, cacheHit, err := h.service.WeeklyWithCacheStatus(r.Context(), year, week, limit, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result, h.apiBasePath))
 }
 

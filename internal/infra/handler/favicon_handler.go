@@ -36,7 +36,7 @@ func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	data, contentType, err := h.service.Fetch(r.Context(), host)
+	data, contentType, cacheHit, err := h.service.FetchWithCacheStatus(r.Context(), host)
 	if err != nil {
 		if errors.Is(err, usecaseFavicon.ErrRateLimited) {
 			writeError(w, r, http.StatusTooManyRequests, err)
@@ -46,6 +46,7 @@ func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)

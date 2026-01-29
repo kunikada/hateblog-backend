@@ -40,6 +40,12 @@ func NewService(repo Repository, yearly CacheYearly, monthly CacheMonthly, weekl
 
 // Yearly returns ranking entries for the given year.
 func (s *Service) Yearly(ctx context.Context, year, limit, minUsers int) (Result, error) {
+	result, _, err := s.YearlyWithCacheStatus(ctx, year, limit, minUsers)
+	return result, err
+}
+
+// YearlyWithCacheStatus returns ranking entries and cache hit info.
+func (s *Service) YearlyWithCacheStatus(ctx context.Context, year, limit, minUsers int) (Result, bool, error) {
 	if limit <= 0 {
 		limit = domainEntry.DefaultLimit
 	}
@@ -51,22 +57,22 @@ func (s *Service) Yearly(ctx context.Context, year, limit, minUsers int) (Result
 		var cached rankingCachePayload
 		ok, err := s.yearlyCache.Get(ctx, year, minUsers, &cached)
 		if err != nil {
-			return Result{}, err
+			return Result{}, false, err
 		}
 		if ok {
 			return Result{
 				Entries: sliceLimit(cached.Entries, limit),
 				Total:   cached.Total,
-			}, nil
+			}, true, nil
 		}
 	}
 	from, to, err := yearRange(year)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	all, total, err := s.listEntriesAndCount(ctx, from, to, max, minUsers)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	if s.yearlyCache != nil {
 		_ = s.yearlyCache.Set(ctx, year, minUsers, rankingCachePayload{Entries: all, Total: total})
@@ -74,11 +80,17 @@ func (s *Service) Yearly(ctx context.Context, year, limit, minUsers int) (Result
 	return Result{
 		Entries: sliceLimit(all, limit),
 		Total:   total,
-	}, nil
+	}, false, nil
 }
 
 // Monthly returns ranking entries for the given year/month.
 func (s *Service) Monthly(ctx context.Context, year, month, limit, minUsers int) (Result, error) {
+	result, _, err := s.MonthlyWithCacheStatus(ctx, year, month, limit, minUsers)
+	return result, err
+}
+
+// MonthlyWithCacheStatus returns ranking entries and cache hit info.
+func (s *Service) MonthlyWithCacheStatus(ctx context.Context, year, month, limit, minUsers int) (Result, bool, error) {
 	if limit <= 0 {
 		limit = domainEntry.DefaultLimit
 	}
@@ -90,22 +102,22 @@ func (s *Service) Monthly(ctx context.Context, year, month, limit, minUsers int)
 		var cached rankingCachePayload
 		ok, err := s.monthlyCache.Get(ctx, year, month, minUsers, &cached)
 		if err != nil {
-			return Result{}, err
+			return Result{}, false, err
 		}
 		if ok {
 			return Result{
 				Entries: sliceLimit(cached.Entries, limit),
 				Total:   cached.Total,
-			}, nil
+			}, true, nil
 		}
 	}
 	from, to, err := monthRange(year, month)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	all, total, err := s.listEntriesAndCount(ctx, from, to, max, minUsers)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	if s.monthlyCache != nil {
 		_ = s.monthlyCache.Set(ctx, year, month, minUsers, rankingCachePayload{Entries: all, Total: total})
@@ -113,11 +125,17 @@ func (s *Service) Monthly(ctx context.Context, year, month, limit, minUsers int)
 	return Result{
 		Entries: sliceLimit(all, limit),
 		Total:   total,
-	}, nil
+	}, false, nil
 }
 
 // Weekly returns ranking entries for the given ISO week.
 func (s *Service) Weekly(ctx context.Context, year, week, limit, minUsers int) (Result, error) {
+	result, _, err := s.WeeklyWithCacheStatus(ctx, year, week, limit, minUsers)
+	return result, err
+}
+
+// WeeklyWithCacheStatus returns ranking entries and cache hit info.
+func (s *Service) WeeklyWithCacheStatus(ctx context.Context, year, week, limit, minUsers int) (Result, bool, error) {
 	if limit <= 0 {
 		limit = domainEntry.DefaultLimit
 	}
@@ -129,22 +147,22 @@ func (s *Service) Weekly(ctx context.Context, year, week, limit, minUsers int) (
 		var cached rankingCachePayload
 		ok, err := s.weeklyCache.Get(ctx, year, week, minUsers, &cached)
 		if err != nil {
-			return Result{}, err
+			return Result{}, false, err
 		}
 		if ok {
 			return Result{
 				Entries: sliceLimit(cached.Entries, limit),
 				Total:   cached.Total,
-			}, nil
+			}, true, nil
 		}
 	}
 	from, to, err := isoWeekRange(year, week)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	all, total, err := s.listEntriesAndCount(ctx, from, to, max, minUsers)
 	if err != nil {
-		return Result{}, err
+		return Result{}, false, err
 	}
 	if s.weeklyCache != nil {
 		_ = s.weeklyCache.Set(ctx, year, week, minUsers, rankingCachePayload{Entries: all, Total: total})
@@ -152,7 +170,7 @@ func (s *Service) Weekly(ctx context.Context, year, week, limit, minUsers int) (
 	return Result{
 		Entries: sliceLimit(all, limit),
 		Total:   total,
-	}, nil
+	}, false, nil
 }
 
 // CacheYearly stores yearly ranking payloads.

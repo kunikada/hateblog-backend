@@ -35,11 +35,12 @@ func (h *ArchiveHandler) handleArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.service.List(r.Context(), minUsers)
+	items, cacheHit, err := h.service.ListWithCacheStatus(r.Context(), minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	setCacheStatusHeader(w, cacheHit)
 
 	resp := archiveResponse{
 		Items: make([]archiveItemResponse, 0, len(items)),

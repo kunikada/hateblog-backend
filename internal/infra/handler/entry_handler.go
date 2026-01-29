@@ -46,12 +46,13 @@ func (h *EntryHandler) handleNewEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := h.service.ListNewEntries(r.Context(), params)
+	result, cacheHit, err := h.service.ListNewEntriesWithCacheStatus(r.Context(), params)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset, h.apiBasePath))
 }
 
@@ -62,12 +63,13 @@ func (h *EntryHandler) handleHotEntries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := h.service.ListHotEntries(r.Context(), params)
+	result, cacheHit, err := h.service.ListHotEntriesWithCacheStatus(r.Context(), params)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
+	setCacheStatusHeader(w, cacheHit)
 	writeJSON(w, http.StatusOK, buildEntryListResponse(result, params.Limit, params.Offset, h.apiBasePath))
 }
 
@@ -215,6 +217,9 @@ type entryTagResponse struct {
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
+	if w.Header().Get(cacheStatusHeader) == "" {
+		w.Header().Set(cacheStatusHeader, cacheStatusMiss)
+	}
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
 }

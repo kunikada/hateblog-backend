@@ -69,22 +69,40 @@ func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEn
 
 // ListNewEntries returns entries ordered by posted_at DESC.
 func (s *Service) ListNewEntries(ctx context.Context, params DayListParams) (ListResult, error) {
-	return s.listDayEntries(ctx, domainEntry.SortNew, params)
+	result, _, err := s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortNew, params)
+	return result, err
 }
 
 // ListHotEntries returns entries ordered by bookmark count.
 func (s *Service) ListHotEntries(ctx context.Context, params DayListParams) (ListResult, error) {
-	return s.listDayEntries(ctx, domainEntry.SortHot, params)
+	result, _, err := s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortHot, params)
+	return result, err
+}
+
+// ListNewEntriesWithCacheStatus returns entries and cache hit info.
+func (s *Service) ListNewEntriesWithCacheStatus(ctx context.Context, params DayListParams) (ListResult, bool, error) {
+	return s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortNew, params)
+}
+
+// ListHotEntriesWithCacheStatus returns entries and cache hit info.
+func (s *Service) ListHotEntriesWithCacheStatus(ctx context.Context, params DayListParams) (ListResult, bool, error) {
+	return s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortHot, params)
 }
 
 // ListTagEntries returns tag entries ordered by posted_at DESC.
 func (s *Service) ListTagEntries(ctx context.Context, tagName string, params TagListParams) (ListResult, error) {
+	result, _, err := s.ListTagEntriesWithCacheStatus(ctx, tagName, params)
+	return result, err
+}
+
+// ListTagEntriesWithCacheStatus returns entries and cache hit info.
+func (s *Service) ListTagEntriesWithCacheStatus(ctx context.Context, tagName string, params TagListParams) (ListResult, bool, error) {
 	if tagName == "" {
-		return ListResult{}, fmt.Errorf("tag is required")
+		return ListResult{}, false, fmt.Errorf("tag is required")
 	}
-	all, err := s.loadAllTagEntries(ctx, tagName)
+	all, cacheHit, err := s.loadAllTagEntries(ctx, tagName)
 	if err != nil {
-		return ListResult{}, err
+		return ListResult{}, false, err
 	}
 	filtered := filterByMinUsers(all, params.MinBookmarkCount)
 	sort.Slice(filtered, func(i, j int) bool {
@@ -92,17 +110,17 @@ func (s *Service) ListTagEntries(ctx context.Context, tagName string, params Tag
 	})
 	total := int64(len(filtered))
 	paged := paginate(filtered, params.Offset, params.Limit)
-	return ListResult{Entries: paged, Total: total}, nil
+	return ListResult{Entries: paged, Total: total}, cacheHit, nil
 }
 
-func (s *Service) listDayEntries(ctx context.Context, sortType domainEntry.SortType, params DayListParams) (ListResult, error) {
+func (s *Service) listDayEntriesWithCacheStatus(ctx context.Context, sortType domainEntry.SortType, params DayListParams) (ListResult, bool, error) {
 	var empty ListResult
 	if params.Date == "" {
-		return empty, fmt.Errorf("date is required")
+		return empty, false, fmt.Errorf("date is required")
 	}
-	all, err := s.loadAllDayEntries(ctx, params.Date)
+	all, cacheHit, err := s.loadAllDayEntries(ctx, params.Date)
 	if err != nil {
-		return empty, err
+		return empty, false, err
 	}
 	filtered := filterByMinUsers(all, params.MinBookmarkCount)
 	switch sortType {
@@ -120,7 +138,7 @@ func (s *Service) listDayEntries(ctx context.Context, sortType domainEntry.SortT
 	}
 	total := int64(len(filtered))
 	paged := paginate(filtered, params.Offset, params.Limit)
-	return ListResult{Entries: paged, Total: total}, nil
+	return ListResult{Entries: paged, Total: total}, cacheHit, nil
 }
 
 func (s *Service) logDebug(msg string, err error) {
@@ -139,17 +157,17 @@ func (s *Service) logDebug(msg string, err error) {
 	s.logger.Debug(msg, attrs...)
 }
 
-func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domainEntry.Entry, error) {
+func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domainEntry.Entry, bool, error) {
 	if s.dayCache != nil {
 		if cached, ok, err := s.dayCache.Get(ctx, date); err == nil && ok {
-			return cached, nil
+			return cached, true, nil
 		} else if err != nil {
 			s.logDebug("day cache lookup failed", err)
 		}
 	}
 	from, to, err := jstDayRange(date, s.jstLocation)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	query := domainEntry.ListQuery{
 		Sort:             domainEntry.SortNew,
@@ -160,20 +178,20 @@ func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domain
 	}
 	entries, err := s.repo.List(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if s.dayCache != nil {
 		if err := s.dayCache.Set(ctx, date, entries); err != nil {
 			s.logDebug("day cache set failed", err)
 		}
 	}
-	return entries, nil
+	return entries, false, nil
 }
 
-func (s *Service) loadAllTagEntries(ctx context.Context, tagName string) ([]*domainEntry.Entry, error) {
+func (s *Service) loadAllTagEntries(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error) {
 	if s.tagEntries != nil {
 		if cached, ok, err := s.tagEntries.Get(ctx, tagName); err == nil && ok {
-			return cached, nil
+			return cached, true, nil
 		} else if err != nil {
 			s.logDebug("tag entries cache lookup failed", err)
 		}
@@ -186,14 +204,14 @@ func (s *Service) loadAllTagEntries(ctx context.Context, tagName string) ([]*dom
 	}
 	entries, err := s.repo.List(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if s.tagEntries != nil {
 		if err := s.tagEntries.Set(ctx, tagName, entries); err != nil {
 			s.logDebug("tag entries cache set failed", err)
 		}
 	}
-	return entries, nil
+	return entries, false, nil
 }
 
 func filterByMinUsers(entries []*domainEntry.Entry, minUsers int) []*domainEntry.Entry {
