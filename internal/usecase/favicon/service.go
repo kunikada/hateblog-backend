@@ -2,7 +2,9 @@ package favicon
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 
@@ -104,6 +106,11 @@ func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]by
 		return data, fallbackType, false, fallbackErr
 	}
 
+	if isGoogleDefaultFavicon(data) {
+		data = googleDefaultFallback
+		contentType = googleDefaultFallbackType
+	}
+
 	if s.cache != nil {
 		if err := s.cache.Set(ctx, key, data, contentType); err != nil {
 			s.logDebug("favicon cache set failed", err)
@@ -127,6 +134,9 @@ func (s *Service) logDebug(msg string, err error) {
 }
 
 var defaultFaviconFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==")
+var googleDefaultFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAYFBMVEX////9/f3Z2dnX19fr6+va2trW1tb+/v78/PyJiYnb29vc3Ny1tbWFhYWMjIzT09PY2Ni+vr64uLiPj4+3t7eIiIinp6erq6uLi4vu7u77+/vMzMyKioqpqam5ubn39/f5jK5fAAAAZ0lEQVQYla2PRxKAIBAElyCwJnTNmP7/S0ULxbt9mulbA3gYF5xBgMlEeJTU/houIk6FafSzXANiUdrrVTUReYFYNlyolugRiF1P9BE4/CrUGIl2MgDOdUEwc9dpPS/rZuHtPRP3sA5/ewnKoV106QAAAABJRU5ErkJggg==")
+var googleDefaultFallbackType = "image/png"
+var googleDefaultMD5 = mustDecodeMD5("3ca64f83fdcf25135d87e08af65e68c9")
 
 func mustDecodeBase64(value string) []byte {
 	data, err := base64.StdEncoding.DecodeString(value)
@@ -134,4 +144,21 @@ func mustDecodeBase64(value string) []byte {
 		panic("invalid fallback favicon data")
 	}
 	return data
+}
+
+func mustDecodeMD5(value string) [16]byte {
+	data, err := hex.DecodeString(value)
+	if err != nil || len(data) != md5.Size {
+		panic("invalid md5 hash")
+	}
+	var sum [16]byte
+	copy(sum[:], data)
+	return sum
+}
+
+func isGoogleDefaultFavicon(data []byte) bool {
+	if len(data) == 0 {
+		return false
+	}
+	return md5.Sum(data) == googleDefaultMD5
 }
