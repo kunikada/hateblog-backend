@@ -252,7 +252,7 @@ func TestRankingHandler_Monthly(t *testing.T) {
 		},
 		{
 			name:        "error: limit too large",
-			queryParams: "?year=2025&month=1&limit=101",
+			queryParams: "?year=2025&month=1&limit=1001",
 			wantStatus:  http.StatusBadRequest,
 		},
 	}

@@ -496,7 +496,7 @@ func TestListQuery_Normalize(t *testing.T) {
 		{
 			name: "caps limit at MaxLimit",
 			query: ListQuery{
-				Limit: 200,
+				Limit: 2000,
 			},
 			want: ListQuery{
 				Limit: MaxLimit,

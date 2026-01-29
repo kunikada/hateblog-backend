@@ -9,8 +9,8 @@ import (
 const (
 	defaultRankingLimit       = 100
 	maxYearlyRankingLimit     = 1000
-	maxMonthlyRankingLimit    = 100
-	maxWeeklyRankingLimit     = 100
+	maxMonthlyRankingLimit    = 1000
+	maxWeeklyRankingLimit     = 1000
 	defaultRankingMinBookmark = 5
 )
 

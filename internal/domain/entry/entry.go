@@ -36,7 +36,7 @@ const (
 	// DefaultLimit is used when ListQuery.Limit is zero.
 	DefaultLimit = 20
 	// MaxLimit caps ListQuery.Limit to avoid unbounded queries.
-	MaxLimit = 100
+	MaxLimit = 1000
 )
 
 // Entry represents a hateblog entry domain model.
