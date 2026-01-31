@@ -108,8 +108,8 @@ func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]by
 	}
 
 	if isGoogleDefaultFavicon(data) {
-		data = googleDefaultFallback
-		contentType = googleDefaultFallbackType
+		data = defaultFaviconFallback
+		contentType = "image/png"
 	}
 
 	if s.cache != nil {
@@ -134,10 +134,12 @@ func (s *Service) logDebug(msg string, err error) {
 	}
 }
 
-var defaultFaviconFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==")
-var googleDefaultFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAYFBMVEX////9/f3Z2dnX19fr6+va2trW1tb+/v78/PyJiYnb29vc3Ny1tbWFhYWMjIzT09PY2Ni+vr64uLiPj4+3t7eIiIinp6erq6uLi4vu7u77+/vMzMyKioqpqam5ubn39/f5jK5fAAAAZ0lEQVQYla2PRxKAIBAElyCwJnTNmP7/S0ULxbt9mulbA3gYF5xBgMlEeJTU/houIk6FafSzXANiUdrrVTUReYFYNlyolugRiF1P9BE4/CrUGIl2MgDOdUEwc9dpPS/rZuHtPRP3sA5/ewnKoV106QAAAABJRU5ErkJggg==")
-var googleDefaultFallbackType = "image/png"
-var googleDefaultMD5 = mustDecodeMD5("3ca64f83fdcf25135d87e08af65e68c9")
+var googleDefaultMD5s = map[[16]byte]struct{}{
+	mustDecodeMD5("da549ee9810b6e9ca9f20cb07f485386"): {},
+	mustDecodeMD5("4ee9f9041a4162c729f1fbc84a6dc068"): {},
+	mustDecodeMD5("ff68d592bce74f85d0252ebe282d7a7f"): {},
+	mustDecodeMD5("2c087d6ebe5e78d38d7e9742a897f0c7"): {},
+}
 
 func mustDecodeBase64(value string) []byte {
 	data, err := base64.StdEncoding.DecodeString(value)
@@ -162,5 +164,6 @@ func isGoogleDefaultFavicon(data []byte) bool {
 		return false
 	}
 	// #nosec G401 -- 非暗号用途の既知データ判定のため
-	return md5.Sum(data) == googleDefaultMD5
+	_, ok := googleDefaultMD5s[md5.Sum(data)]
+	return ok
 }
