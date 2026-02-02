@@ -36,7 +36,6 @@ func run() int {
 		lockName          = flag.String("lock", "fetcher", "advisory lock name")
 		maxEntries        = flag.Int("max-entries", 300, "maximum number of unique entries to process per run")
 		noTags            = flag.Bool("no-tags", false, "disable Yahoo keyphrase tagging even when YAHOO_APP_ID is set")
-		tagTopN           = flag.Int("tag-top", 5, "max number of tags to attach per inserted entry")
 		yahooMinInterval  = flag.Duration("yahoo-interval", 200*time.Millisecond, "minimum interval between Yahoo API requests")
 		executionDeadline = flag.Duration("deadline", 5*time.Minute, "overall execution deadline")
 	)
@@ -164,7 +163,7 @@ func run() int {
 
 	tagged := 0
 	abnormalScoreCount := 0
-	if !*noTags && strings.TrimSpace(cfg.External.YahooAPIKey) != "" && *tagTopN > 0 {
+	if !*noTags && strings.TrimSpace(cfg.External.YahooAPIKey) != "" {
 		untagged, err := fetchUntaggedEntries(ctx, db.Pool, *maxEntries)
 		if err != nil {
 			log.Error("fetch untagged entries failed", "err", err)
@@ -183,7 +182,7 @@ func run() int {
 				URL:     entry.URL,
 				Excerpt: entry.Excerpt,
 			}
-			tagCount, abnormal, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entry.ID, item, *tagTopN)
+			tagCount, abnormal, err := attachTags(ctx, tagRepo, db.Pool, yahooClient, entry.ID, item)
 			if err != nil {
 				if _, ok := yahoo.IsTooManyRequests(err); ok {
 					log.Warn("tagging stopped due to rate limit", "url", entry.URL, "err", err)
@@ -377,7 +376,6 @@ func attachTags(
 	yahooClient *yahoo.Client,
 	entryID uuid.UUID,
 	item feedItem,
-	topN int,
 ) (int, int, error) {
 	if pool == nil {
 		return 0, 0, fmt.Errorf("pool is nil")
@@ -392,10 +390,6 @@ func attachTags(
 	}
 
 	sort.Slice(phrases, func(i, j int) bool { return phrases[i].Score > phrases[j].Score })
-	if topN > len(phrases) {
-		topN = len(phrases)
-	}
-	phrases = phrases[:topN]
 
 	added := 0
 	abnormalCount := 0
