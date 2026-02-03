@@ -332,17 +332,20 @@ func migrateBatch(ctx context.Context, mysqlDB *sql.DB, tx pgx.Tx, bookmarks []b
 		}
 		searchText := domainEntry.BuildSearchText(bm.title.String, description, url)
 
-		_, err := tx.Exec(ctx, `
+		ct, err := tx.Exec(ctx, `
 			INSERT INTO entries (id, title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			ON CONFLICT (url) DO NOTHING
 		`, newID, bm.title.String, url, postedAt, bm.cnt, descriptionPtr, subjectPtr, nullableText(searchText), createdAt, updatedAt)
 		if err != nil {
 			return stats, err
 		}
 
-		stats.insertedBookmarks++
-		bookmarkToEntry[bm.id] = newID
-		validBookmarkIDs = append(validBookmarkIDs, bm.id)
+		if ct.RowsAffected() > 0 {
+			stats.insertedBookmarks++
+			bookmarkToEntry[bm.id] = newID
+			validBookmarkIDs = append(validBookmarkIDs, bm.id)
+		}
 	}
 
 	if len(validBookmarkIDs) == 0 {
