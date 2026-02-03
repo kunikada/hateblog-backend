@@ -62,9 +62,22 @@
 - 投稿から365日以内: 低頻度で更新
 - posted-older: posted_at を見ずに更新遅れを循環更新
 
+#### HTTP→HTTPS URL正規化
+
+- 目的: `http:` で始まるエントリーのURLを、ブックマーク件数が多い方（http or https）に正規化する
+- 既存の4パターン更新の後に実行する
+
+##### 処理フロー
+
+1. `url` が `http:` で始まるエントリーを `updated_at ASC` 基準で `LIMIT 25` 抽出する
+2. 各エントリーについて http URL と https URL の2つを用意し、計50件を一括APIでリクエストする
+3. http と https の結果を比較し、ブックマーク件数が多い方の URL・件数でエントリーを更新する（`url`, `bookmark_count`, `updated_at`）
+4. https URL のエントリーが既にDBに存在する場合は、httpsエントリーを残し件数を更新した上で、httpエントリーを削除する（関連する `entry_tags`, `click_metrics` は CASCADE で自動削除）
+
 #### 実装上の要点
 
 - 1回の実行で4パターンを順に実行し、各パターンで `entries.updated_at ASC` を基準に `LIMIT 50` で抽出する
+- 4パターン更新の後、HTTP→HTTPS URL正規化を実行する
 - 一括APIはURLをチャンクに分割して呼び出す（最大50URL/リクエスト）
 - 失敗したチャンクはログに残し、ジョブとしては失敗終了（再実行で回復できる前提）
 

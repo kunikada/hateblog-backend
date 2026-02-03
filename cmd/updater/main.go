@@ -159,6 +159,26 @@ func run() int {
 		log.Info("updater bucket finished", "bucket", bucket.name, "targets", len(urls), "updated", updated, "missing", missing)
 	}
 
+	log.Info("updater bucket phase finished", "targets", totalTargets, "updated", totalUpdated, "missing", totalMissing)
+
+	// HTTP→HTTPS URL正規化
+	const httpNormalizeLimit = 25
+	httpEntries, err := selectHTTPEntries(ctx, db.Pool, httpNormalizeLimit)
+	if err != nil {
+		log.Error("select http entries failed", "err", err)
+		return 1
+	}
+	if len(httpEntries) == 0 {
+		log.Info("no http entries to normalize")
+	} else {
+		normalized, merged, err := normalizeHTTPURLs(ctx, db.Pool, hatenaClient, httpEntries, log)
+		if err != nil {
+			log.Error("http normalization failed", "err", err)
+			return 1
+		}
+		log.Info("http normalization finished", "targets", len(httpEntries), "updated", normalized, "merged", merged)
+	}
+
 	log.Info("updater finished", "targets", totalTargets, "updated", totalUpdated, "missing", totalMissing, "elapsed", time.Since(startedAt))
 	return 0
 }
@@ -198,6 +218,162 @@ LIMIT $1`
 		urls = append(urls, u)
 	}
 	return urls, rows.Err()
+}
+
+// selectHTTPEntries は url が http: で始まるエントリーの id と url を updated_at ASC で抽出する。
+func selectHTTPEntries(ctx context.Context, pool *pgxpool.Pool, limit int) ([]httpEntry, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("pool is nil")
+	}
+
+	const q = `
+SELECT id, url
+FROM entries
+WHERE url LIKE 'http://%'
+ORDER BY updated_at ASC
+LIMIT $1`
+
+	rows, err := pool.Query(ctx, q, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query http entries: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []httpEntry
+	for rows.Next() {
+		var e httpEntry
+		if err := rows.Scan(&e.id, &e.url); err != nil {
+			return nil, fmt.Errorf("scan http entry: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
+type httpEntry struct {
+	id  string
+	url string
+}
+
+// normalizeHTTPURLs は http エントリーに対して http/https 両方のブックマーク件数を取得し、
+// 多い方の URL・件数でエントリーを更新する。
+// httpsエントリーが既にDBに存在する場合は、件数が多い方を残してもう片方を削除する。
+func normalizeHTTPURLs(ctx context.Context, pool *pgxpool.Pool, client *hatena.Client, entries []httpEntry, log logger) (updated int, deleted int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, nil
+	}
+
+	// http URL と https URL の両方を用意
+	allURLs := make([]string, 0, len(entries)*2)
+	httpsURLs := make([]string, 0, len(entries))
+	for _, e := range entries {
+		httpsURL := "https://" + strings.TrimPrefix(e.url, "http://")
+		allURLs = append(allURLs, e.url)
+		allURLs = append(allURLs, httpsURL)
+		httpsURLs = append(httpsURLs, httpsURL)
+	}
+
+	// DBにhttpsエントリーが既に存在するか確認
+	existingHTTPS, err := findExistingEntries(ctx, pool, httpsURLs)
+	if err != nil {
+		return 0, 0, fmt.Errorf("find existing https entries: %w", err)
+	}
+
+	counts, err := client.GetBookmarkCounts(ctx, allURLs)
+	if err != nil {
+		return 0, 0, fmt.Errorf("fetch bookmark counts for http normalization: %w", err)
+	}
+
+	now := time.Now()
+	for _, e := range entries {
+		httpsURL := "https://" + strings.TrimPrefix(e.url, "http://")
+		httpCount := counts[e.url]
+		httpsCount := counts[httpsURL]
+
+		bestCount := httpCount
+		if httpsCount > httpCount {
+			bestCount = httpsCount
+		}
+
+		if existing, ok := existingHTTPS[httpsURL]; ok {
+			// httpsエントリーが既にDBに存在する → マージして片方を削除
+			// httpsエントリーを残し、httpエントリーを削除する
+			if err := mergeAndDelete(ctx, pool, existing.id, e.id, bestCount, now); err != nil {
+				return updated, deleted, fmt.Errorf("merge entries: %w", err)
+			}
+			updated++
+			deleted++
+			log.Debug("merged http into https entry", "http_id", e.id, "https_id", existing.id, "url", httpsURL, "count", bestCount)
+		} else {
+			// httpsエントリーが存在しない → 件数比較でURL書き換え
+			bestURL := e.url
+			if httpsCount > httpCount {
+				bestURL = httpsURL
+			}
+			const q = `
+UPDATE entries
+SET url = $1,
+    bookmark_count = $2,
+    updated_at = $3
+WHERE id = $4`
+			tag, err := pool.Exec(ctx, q, bestURL, bestCount, now, e.id)
+			if err != nil {
+				return updated, deleted, fmt.Errorf("update http entry: %w", err)
+			}
+			if tag.RowsAffected() > 0 {
+				updated++
+			}
+		}
+	}
+	return updated, deleted, nil
+}
+
+// findExistingEntries は指定URLのエントリーがDBに存在するか確認し、存在するものを返す。
+func findExistingEntries(ctx context.Context, pool *pgxpool.Pool, urls []string) (map[string]httpEntry, error) {
+	if len(urls) == 0 {
+		return nil, nil
+	}
+
+	const q = `SELECT id, url FROM entries WHERE url = ANY($1)`
+	rows, err := pool.Query(ctx, q, urls)
+	if err != nil {
+		return nil, fmt.Errorf("query existing entries: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]httpEntry, len(urls))
+	for rows.Next() {
+		var e httpEntry
+		if err := rows.Scan(&e.id, &e.url); err != nil {
+			return nil, fmt.Errorf("scan existing entry: %w", err)
+		}
+		result[e.url] = e
+	}
+	return result, rows.Err()
+}
+
+// mergeAndDelete は残すエントリーのbookmark_countを更新し、不要なエントリーを削除する。
+func mergeAndDelete(ctx context.Context, pool *pgxpool.Pool, keepID, deleteID string, count int, now time.Time) error {
+	const updateQ = `
+UPDATE entries
+SET bookmark_count = $1,
+    updated_at = $2
+WHERE id = $3`
+	if _, err := pool.Exec(ctx, updateQ, count, now, keepID); err != nil {
+		return fmt.Errorf("update kept entry: %w", err)
+	}
+
+	const deleteQ = `DELETE FROM entries WHERE id = $1`
+	if _, err := pool.Exec(ctx, deleteQ, deleteID); err != nil {
+		return fmt.Errorf("delete merged entry: %w", err)
+	}
+	return nil
+}
+
+// logger はログ出力のインタフェース。
+type logger interface {
+	Info(msg string, args ...any)
+	Debug(msg string, args ...any)
 }
 
 func applyCounts(ctx context.Context, pool *pgxpool.Pool, urls []string, counts map[string]int) (updated int, missing int, err error) {
