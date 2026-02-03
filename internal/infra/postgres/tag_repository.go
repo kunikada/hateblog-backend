@@ -10,6 +10,7 @@ import (
 
 	"hateblog/internal/domain/repository"
 	"hateblog/internal/domain/tag"
+	"hateblog/internal/pkg/apptime"
 )
 
 var _ repository.TagRepository = (*TagRepository)(nil)
@@ -121,7 +122,7 @@ func (r *TagRepository) IncrementViewHistory(ctx context.Context, tagID tag.ID, 
 	if tagID == uuid.Nil {
 		return fmt.Errorf("tag id is required")
 	}
-	date := time.Date(viewedAt.Year(), viewedAt.Month(), viewedAt.Day(), 0, 0, 0, 0, time.UTC)
+	date := apptime.TruncateToDay(viewedAt)
 	const query = `
 INSERT INTO tag_view_history (tag_id, viewed_at, count)
 VALUES ($1, $2, 1)
@@ -151,14 +152,14 @@ SELECT
 FROM tags t
 INNER JOIN entry_tags et ON et.tag_id = t.id
 INNER JOIN entries e ON e.id = et.entry_id
-WHERE e.posted_at >= NOW() - $1::interval
+WHERE e.posted_at >= $1
   AND e.bookmark_count >= $2
 GROUP BY t.id, t.name
 ORDER BY occurrence_count DESC, t.name ASC
 LIMIT $3`
 
-	interval := fmt.Sprintf("%d hours", hours)
-	rows, err := r.pool.Query(ctx, query, interval, minBookmarkCount, limit)
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	rows, err := r.pool.Query(ctx, query, since, minBookmarkCount, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get trending tags: %w", err)
 	}
@@ -193,13 +194,13 @@ SELECT
 FROM tags t
 INNER JOIN entry_tags et ON et.tag_id = t.id
 INNER JOIN click_metrics cm ON cm.entry_id = et.entry_id
-WHERE cm.clicked_at >= CURRENT_DATE - $1::interval
+WHERE cm.clicked_at >= $1
 GROUP BY t.id, t.name
 ORDER BY click_count DESC, t.name ASC
 LIMIT $2`
 
-	interval := fmt.Sprintf("%d days", days)
-	rows, err := r.pool.Query(ctx, query, interval, limit)
+	since := apptime.TruncateToDay(time.Now().AddDate(0, 0, -days))
+	rows, err := r.pool.Query(ctx, query, since, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get clicked tags: %w", err)
 	}

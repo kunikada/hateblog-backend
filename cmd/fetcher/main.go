@@ -20,6 +20,7 @@ import (
 	"hateblog/internal/infra/external/hatena"
 	"hateblog/internal/infra/external/yahoo"
 	"hateblog/internal/infra/postgres"
+	"hateblog/internal/pkg/apptime"
 	"hateblog/internal/pkg/batchutil"
 	"hateblog/internal/platform/config"
 	"hateblog/internal/platform/database"
@@ -156,7 +157,7 @@ func run() int {
 			updated++
 		}
 		// Collect the day for archive_counts update
-		day := time.Date(item.PostedAt.Year(), item.PostedAt.Month(), item.PostedAt.Day(), 0, 0, 0, 0, time.UTC)
+		day := apptime.TruncateToDay(item.PostedAt)
 		affectedDays[day] = struct{}{}
 
 	}

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
-	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/apptime"
 )
 
 // DayEntriesCache stores entries by date.
@@ -30,7 +30,6 @@ type Service struct {
 	dayCache      DayEntriesCache
 	tagEntries    TagEntriesCache
 	logger        *slog.Logger
-	jstLocation   *time.Location
 	maxAllResults int
 }
 
@@ -63,7 +62,6 @@ func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEn
 		dayCache:      dayCache,
 		tagEntries:    tagEntriesCache,
 		logger:        logger,
-		jstLocation:   time.Local,
 		maxAllResults: 100000,
 	}
 }
@@ -182,7 +180,7 @@ func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domain
 			s.logDebug("day cache lookup failed", err)
 		}
 	}
-	from, to, err := jstDayRange(date, s.jstLocation)
+	from, to, err := apptime.DayRange(date)
 	if err != nil {
 		return nil, false, err
 	}
@@ -262,15 +260,4 @@ func paginate(entries []*domainEntry.Entry, offset, limit int) []*domainEntry.En
 		end = len(entries)
 	}
 	return entries[offset:end]
-}
-
-func jstDayRange(date string, loc *time.Location) (time.Time, time.Time, error) {
-	if loc == nil {
-		loc = time.Local
-	}
-	start, err := time.ParseInLocation("20060102", date, loc)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid date: %s", date)
-	}
-	return start, start.AddDate(0, 0, 1), nil
 }
