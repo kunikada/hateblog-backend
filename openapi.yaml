@@ -43,7 +43,7 @@ paths:
         - entries
       summary: 新着順エントリー一覧取得
       description: |
-        指定日付のエントリーを新着順（posted_at DESC）で取得します。
+        指定日付のエントリーを新着順（created_at DESC）で取得します。
         ブックマーク件数での閾値フィルタリングが可能です。
       operationId: getNewEntries
       parameters:
@@ -114,7 +114,7 @@ paths:
         - entries
       summary: 人気順エントリー一覧取得
       description: |
-        指定日付のエントリーを人気順（bookmark_count DESC, posted_at DESC）で取得します。
+        指定日付のエントリーを人気順（bookmark_count DESC, created_at DESC）で取得します。
         ブックマーク件数での閾値フィルタリングが可能です。
       operationId: getHotEntries
       parameters:

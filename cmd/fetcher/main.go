@@ -73,7 +73,7 @@ func run() int {
 		log = platformLogger.WrapWithSentry(log)
 	}
 	platformLogger.SetDefault(log)
-	startedAt := time.Now()
+	startedAt := apptime.Now()
 	log.Info("fetcher started", "max_entries", *maxEntries, "deadline", *executionDeadline)
 	defer func() {
 		if ctx.Err() == context.DeadlineExceeded {
@@ -142,7 +142,7 @@ func run() int {
 		default:
 		}
 
-		_, isInsert, err := insertEntry(ctx, db.Pool, item)
+		_, isInsert, createdAt, err := insertEntry(ctx, db.Pool, item)
 		if err != nil {
 			log.Error("insert entry failed", "url", item.URL, "err", err)
 			return 1
@@ -156,8 +156,9 @@ func run() int {
 		} else {
 			updated++
 		}
-		// Collect the day for archive_counts update
-		day := apptime.TruncateToDay(item.PostedAt)
+		// Collect created_at day for archive_counts update.
+		// On conflict update keeps existing created_at, so updates refresh the original day.
+		day := apptime.TruncateToDay(createdAt)
 		affectedDays[day] = struct{}{}
 
 	}
@@ -278,18 +279,19 @@ func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string,
 	return items, nil
 }
 
-func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, isInsert *bool, err error) {
+func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, isInsert *bool, createdAt time.Time, err error) {
 	if pool == nil {
-		return uuid.Nil, nil, fmt.Errorf("pool is nil")
+		return uuid.Nil, nil, time.Time{}, fmt.Errorf("pool is nil")
 	}
 	if strings.TrimSpace(item.URL) == "" {
-		return uuid.Nil, nil, fmt.Errorf("url is required")
+		return uuid.Nil, nil, time.Time{}, fmt.Errorf("url is required")
 	}
 	if item.PostedAt.IsZero() {
-		return uuid.Nil, nil, fmt.Errorf("posted_at is required")
+		return uuid.Nil, nil, time.Time{}, fmt.Errorf("posted_at is required")
 	}
 
-	now := time.Now()
+	now := apptime.Now()
+	createdAt = resolveCreatedAt(now, item.PostedAt)
 	searchText := domainEntry.BuildSearchText(item.Title, item.Excerpt, item.URL)
 	const q = `
 INSERT INTO entries (title, url, posted_at, bookmark_count, excerpt, subject, search_text, created_at, updated_at)
@@ -301,11 +303,13 @@ ON CONFLICT (url) DO UPDATE SET
 	excerpt = EXCLUDED.excerpt,
 	subject = EXCLUDED.subject,
 	search_text = EXCLUDED.search_text,
+	-- Keep existing created_at for stable ingestion day grouping.
 	updated_at = EXCLUDED.updated_at
-RETURNING id, (xmax = 0) AS inserted`
+RETURNING id, (xmax = 0) AS inserted, created_at`
 
 	var entryID uuid.UUID
 	var inserted bool
+	var storedCreatedAt time.Time
 	row := pool.QueryRow(ctx, q,
 		item.Title,
 		item.URL,
@@ -314,16 +318,20 @@ RETURNING id, (xmax = 0) AS inserted`
 		nullableText(item.Excerpt),
 		nullableText(item.Subject),
 		nullableText(searchText),
-		now,
+		createdAt,
 		now,
 	)
-	if err := row.Scan(&entryID, &inserted); err != nil {
+	if err := row.Scan(&entryID, &inserted, &storedCreatedAt); err != nil {
 		if err == pgx.ErrNoRows {
-			return uuid.Nil, nil, nil
+			return uuid.Nil, nil, time.Time{}, nil
 		}
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, time.Time{}, err
 	}
-	return entryID, &inserted, nil
+	return entryID, &inserted, storedCreatedAt, nil
+}
+
+func resolveCreatedAt(now, postedAt time.Time) time.Time {
+	return apptime.ResolveCreatedAt(now, postedAt)
 }
 
 func refreshArchiveCountsForDay(ctx context.Context, pool *pgxpool.Pool, day time.Time) error {
@@ -352,7 +360,7 @@ INSERT INTO archive_counts (day, threshold, count)
 SELECT DATE($1) AS day, t.threshold, COUNT(1)
 FROM entries
 CROSS JOIN (VALUES (5), (10), (50), (100), (500), (1000)) AS t(threshold)
-WHERE DATE(entries.posted_at) = DATE($1)
+WHERE DATE(entries.created_at) = DATE($1)
   AND entries.bookmark_count >= t.threshold
 GROUP BY t.threshold`
 	if _, err = tx.Exec(ctx, insertQuery, day); err != nil {
@@ -449,7 +457,7 @@ FROM entries e
 WHERE NOT EXISTS (
 	SELECT 1 FROM entry_tags et WHERE et.entry_id = e.id
 )
-ORDER BY e.posted_at DESC
+ORDER BY e.created_at DESC
 LIMIT $1`
 	rows, err := pool.Query(ctx, q, limit)
 	if err != nil {

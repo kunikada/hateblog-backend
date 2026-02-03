@@ -66,7 +66,7 @@ func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEn
 	}
 }
 
-// ListNewEntries returns entries ordered by posted_at DESC.
+// ListNewEntries returns entries ordered by created_at DESC.
 func (s *Service) ListNewEntries(ctx context.Context, params DayListParams) (ListResult, error) {
 	result, _, err := s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortNew, params)
 	return result, err
@@ -88,7 +88,7 @@ func (s *Service) ListHotEntriesWithCacheStatus(ctx context.Context, params DayL
 	return s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortHot, params)
 }
 
-// ListTagEntries returns tag entries ordered by posted_at DESC.
+// ListTagEntries returns tag entries ordered by created_at DESC.
 func (s *Service) ListTagEntries(ctx context.Context, tagName string, params TagListParams) (ListResult, error) {
 	result, _, err := s.ListTagEntriesWithCacheStatus(ctx, tagName, params)
 	return result, err
@@ -114,11 +114,11 @@ func (s *Service) ListTagEntriesWithCacheStatus(ctx context.Context, tagName str
 			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
 				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
 			}
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	case domainEntry.SortNew:
 		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	default:
 		return ListResult{}, false, fmt.Errorf("unsupported sort %q", sortType)
@@ -144,11 +144,11 @@ func (s *Service) listDayEntriesWithCacheStatus(ctx context.Context, sortType do
 			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
 				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
 			}
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	default:
 		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	}
 	total := int64(len(filtered))

@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestNullableText(t *testing.T) {
@@ -74,6 +75,52 @@ func TestSanitizeUTF8(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := sanitizeUTF8(tt.input); got != tt.want {
 				t.Errorf("sanitizeUTF8(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveCreatedAt(t *testing.T) {
+	jst := time.FixedZone("JST", 9*60*60)
+	now := time.Date(2026, 2, 3, 12, 0, 0, 0, jst)
+
+	tests := []struct {
+		name     string
+		now      time.Time
+		postedAt time.Time
+		want     time.Time
+	}{
+		{
+			name:     "24時間未満は現在時刻",
+			now:      now,
+			postedAt: now.Add(-23*time.Hour - 59*time.Minute - 59*time.Second),
+			want:     now,
+		},
+		{
+			name:     "ちょうど24時間前はposted_at",
+			now:      now,
+			postedAt: now.Add(-24 * time.Hour),
+			want:     now.Add(-24 * time.Hour),
+		},
+		{
+			name:     "24時間超はposted_at",
+			now:      now,
+			postedAt: now.Add(-24*time.Hour - 1*time.Second),
+			want:     now.Add(-24*time.Hour - 1*time.Second),
+		},
+		{
+			name:     "タイムゾーン差分があっても24時間判定は絶対時刻基準",
+			now:      now,
+			postedAt: time.Date(2026, 2, 2, 3, 0, 1, 0, time.UTC), // JSTで 2026-02-02 12:00:01
+			want:     now,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveCreatedAt(tt.now, tt.postedAt)
+			if !got.Equal(tt.want) {
+				t.Fatalf("resolveCreatedAt() = %s, want %s", got, tt.want)
 			}
 		})
 	}

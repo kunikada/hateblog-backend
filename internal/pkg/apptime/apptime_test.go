@@ -48,6 +48,11 @@ func TestTruncateToDay(t *testing.T) {
 	})
 }
 
+func TestNow(t *testing.T) {
+	got := Now()
+	require.Equal(t, time.Local, got.Location())
+}
+
 func TestParseDate(t *testing.T) {
 	t.Run("valid date", func(t *testing.T) {
 		got, err := ParseDate("20240101")
@@ -167,4 +172,48 @@ func TestISOWeekRange(t *testing.T) {
 		_, _, err := ISOWeekRange(2024, 54)
 		require.Error(t, err)
 	})
+}
+
+func TestResolveCreatedAt(t *testing.T) {
+	jst := time.FixedZone("JST", 9*60*60)
+	now := time.Date(2026, 2, 3, 12, 0, 0, 0, jst)
+
+	tests := []struct {
+		name     string
+		now      time.Time
+		postedAt time.Time
+		want     time.Time
+	}{
+		{
+			name:     "less than 24 hours returns now",
+			now:      now,
+			postedAt: now.Add(-23*time.Hour - 59*time.Minute - 59*time.Second),
+			want:     now,
+		},
+		{
+			name:     "exactly 24 hours returns posted_at",
+			now:      now,
+			postedAt: now.Add(-24 * time.Hour),
+			want:     now.Add(-24 * time.Hour),
+		},
+		{
+			name:     "more than 24 hours returns posted_at",
+			now:      now,
+			postedAt: now.Add(-24*time.Hour - 1*time.Second),
+			want:     now.Add(-24*time.Hour - 1*time.Second),
+		},
+		{
+			name:     "timezone boundary uses absolute elapsed duration",
+			now:      now,
+			postedAt: time.Date(2026, 2, 2, 3, 0, 1, 0, time.UTC),
+			want:     now,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveCreatedAt(tt.now, tt.postedAt)
+			require.True(t, got.Equal(tt.want), "got=%s want=%s", got, tt.want)
+		})
+	}
 }

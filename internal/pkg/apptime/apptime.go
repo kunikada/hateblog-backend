@@ -5,11 +5,27 @@ import (
 	"time"
 )
 
+const createdAtFallbackThreshold = 24 * time.Hour
+
+// Now returns current time in application timezone (time.Local).
+func Now() time.Time {
+	return time.Now().In(time.Local)
+}
+
 // TruncateToDay returns midnight (00:00:00) of the given time in the
 // application timezone (time.Local).
 func TruncateToDay(t time.Time) time.Time {
 	t = t.In(time.Local)
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+}
+
+// ResolveCreatedAt returns created_at from now/posted_at rule.
+// When posted_at is 24 hours or older, posted_at is used as created_at.
+func ResolveCreatedAt(now, postedAt time.Time) time.Time {
+	if now.Sub(postedAt) >= createdAtFallbackThreshold {
+		return postedAt
+	}
+	return now
 }
 
 // ParseDate parses a "YYYYMMDD" date string in the application timezone.

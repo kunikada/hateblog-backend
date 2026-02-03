@@ -16,6 +16,7 @@ import (
 	domainArchive "hateblog/internal/domain/archive"
 	"hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/apptime"
 )
 
 var _ repository.EntryRepository = (*EntryRepository)(nil)
@@ -38,7 +39,7 @@ func (r *EntryRepository) Create(ctx context.Context, e *entry.Entry) error {
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()
 	}
-	now := time.Now()
+	now := apptime.Now()
 	if e.CreatedAt.IsZero() {
 		e.CreatedAt = now
 	}
@@ -77,7 +78,7 @@ func (r *EntryRepository) Update(ctx context.Context, e *entry.Entry) error {
 		return fmt.Errorf("entry id is required")
 	}
 	if e.UpdatedAt.IsZero() {
-		e.UpdatedAt = time.Now()
+		e.UpdatedAt = apptime.Now()
 	}
 	searchText := entry.BuildSearchText(e.Title, e.Excerpt, e.URL)
 	const query = `
@@ -358,13 +359,13 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 	}
 
 	if !q.PostedAtFrom.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("posted_at >= $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argPos))
 		args = append(args, q.PostedAtFrom)
 		argPos++
 	}
 
 	if !q.PostedAtTo.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("posted_at < $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("created_at < $%d", argPos))
 		args = append(args, q.PostedAtTo)
 		argPos++
 	}
@@ -380,9 +381,9 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 
 	switch q.Sort {
 	case entry.SortHot:
-		builder.WriteString(" ORDER BY bookmark_count DESC, posted_at DESC")
+		builder.WriteString(" ORDER BY bookmark_count DESC, created_at DESC")
 	default:
-		builder.WriteString(" ORDER BY posted_at DESC")
+		builder.WriteString(" ORDER BY created_at DESC")
 	}
 
 	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
@@ -423,13 +424,13 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 	}
 
 	if !q.PostedAtFrom.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("posted_at >= $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argPos))
 		args = append(args, q.PostedAtFrom)
 		argPos++
 	}
 
 	if !q.PostedAtTo.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("posted_at < $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("created_at < $%d", argPos))
 		args = append(args, q.PostedAtTo)
 		argPos++
 	}
@@ -441,9 +442,9 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 
 	switch q.Sort {
 	case entry.SortHot:
-		builder.WriteString(" ORDER BY bookmark_count DESC, posted_at DESC")
+		builder.WriteString(" ORDER BY bookmark_count DESC, created_at DESC")
 	default:
-		builder.WriteString(" ORDER BY posted_at DESC")
+		builder.WriteString(" ORDER BY created_at DESC")
 	}
 
 	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
@@ -576,13 +577,13 @@ func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (s
 	}
 
 	if !q.PostedAtFrom.IsZero() {
-		builder.WriteString(fmt.Sprintf(" AND e.posted_at >= $%d", argPos))
+		builder.WriteString(fmt.Sprintf(" AND e.created_at >= $%d", argPos))
 		args = append(args, q.PostedAtFrom)
 		argPos++
 	}
 
 	if !q.PostedAtTo.IsZero() {
-		builder.WriteString(fmt.Sprintf(" AND e.posted_at < $%d", argPos))
+		builder.WriteString(fmt.Sprintf(" AND e.created_at < $%d", argPos))
 		args = append(args, q.PostedAtTo)
 		argPos++
 	}
@@ -600,9 +601,9 @@ func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (s
 
 	switch q.Sort {
 	case entry.SortHot:
-		builder.WriteString(" ORDER BY c.bookmark_count DESC, c.posted_at DESC")
+		builder.WriteString(" ORDER BY c.bookmark_count DESC, c.created_at DESC")
 	default:
-		builder.WriteString(" ORDER BY c.posted_at DESC")
+		builder.WriteString(" ORDER BY c.created_at DESC")
 	}
 
 	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
