@@ -1,8 +1,15 @@
 # PostgreSQL with pg_bigm extension for Japanese full-text search
 FROM postgres:18-bookworm
 
+ARG PG_BIGM_REF=v1.2-20250903
+ARG PG_BIGM_SHA256=4d4fb48161e3f9e99207851299379c83b3e5d1d3c1a07c35f6a3153d577b3142
+
 # Build and install pg_bigm from source (apt package for PG18 is unavailable)
 RUN set -eux; \
+    if [ -z "${PG_BIGM_SHA256:-}" ]; then \
+    echo "PG_BIGM_SHA256 is required" >&2; \
+    exit 1; \
+    fi; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -17,7 +24,8 @@ RUN set -eux; \
     python3.11 python3.11-minimal libpython3-stdlib libpython3.11-minimal \
     libpython3.11-stdlib libgc1 \
     && apt-get autoremove -y; \
-    curl -fL https://github.com/pgbigm/pg_bigm/archive/refs/tags/v1.2-20250903.tar.gz -o /tmp/pg_bigm.tar.gz; \
+    curl -fL "https://codeload.github.com/pgbigm/pg_bigm/tar.gz/${PG_BIGM_REF}" -o /tmp/pg_bigm.tar.gz; \
+    echo "${PG_BIGM_SHA256}  /tmp/pg_bigm.tar.gz" | sha256sum -c -; \
     tar -xf /tmp/pg_bigm.tar.gz -C /tmp; \
     pg_bigm_dir="$(find /tmp -maxdepth 1 -type d -name 'pg_bigm-*' | head -n 1)"; \
     if [ -z "$pg_bigm_dir" ]; then \

@@ -98,7 +98,7 @@ ON CONFLICT (name) DO UPDATE SET
 	name = EXCLUDED.name
 RETURNING id, name`
 
-	now := time.Now()
+	now := apptime.Now()
 	if err := r.pool.QueryRow(ctx, query, t.ID, tag.NormalizeName(t.Name), now).Scan(&t.ID, &t.Name); err != nil {
 		return fmt.Errorf("upsert tag: %w", err)
 	}
@@ -152,13 +152,13 @@ SELECT
 FROM tags t
 INNER JOIN entry_tags et ON et.tag_id = t.id
 INNER JOIN entries e ON e.id = et.entry_id
-WHERE e.posted_at >= $1
+WHERE e.created_at >= $1
   AND e.bookmark_count >= $2
 GROUP BY t.id, t.name
 ORDER BY occurrence_count DESC, t.name ASC
 LIMIT $3`
 
-	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	since := apptime.Now().Add(-time.Duration(hours) * time.Hour)
 	rows, err := r.pool.Query(ctx, query, since, minBookmarkCount, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get trending tags: %w", err)
@@ -199,7 +199,7 @@ GROUP BY t.id, t.name
 ORDER BY click_count DESC, t.name ASC
 LIMIT $2`
 
-	since := apptime.TruncateToDay(time.Now().AddDate(0, 0, -days))
+	since := apptime.TruncateToDay(apptime.Now().AddDate(0, 0, -days))
 	rows, err := r.pool.Query(ctx, query, since, limit)
 	if err != nil {
 		return nil, fmt.Errorf("get clicked tags: %w", err)

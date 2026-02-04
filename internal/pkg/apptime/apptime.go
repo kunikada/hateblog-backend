@@ -7,9 +7,10 @@ import (
 
 const createdAtFallbackThreshold = 24 * time.Hour
 
-// Now returns current time in application timezone (time.Local).
+// Now returns current time.
+// It keeps monotonic clock readings for elapsed-time measurements.
 func Now() time.Time {
-	return time.Now().In(time.Local)
+	return time.Now()
 }
 
 // TruncateToDay returns midnight (00:00:00) of the given time in the
