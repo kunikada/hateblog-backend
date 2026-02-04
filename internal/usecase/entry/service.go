@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
-	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/apptime"
 )
 
 // DayEntriesCache stores entries by date.
@@ -30,7 +30,6 @@ type Service struct {
 	dayCache      DayEntriesCache
 	tagEntries    TagEntriesCache
 	logger        *slog.Logger
-	jstLocation   *time.Location
 	maxAllResults int
 }
 
@@ -63,12 +62,11 @@ func NewService(repo repository.EntryRepository, dayCache DayEntriesCache, tagEn
 		dayCache:      dayCache,
 		tagEntries:    tagEntriesCache,
 		logger:        logger,
-		jstLocation:   time.Local,
 		maxAllResults: 100000,
 	}
 }
 
-// ListNewEntries returns entries ordered by posted_at DESC.
+// ListNewEntries returns entries ordered by created_at DESC.
 func (s *Service) ListNewEntries(ctx context.Context, params DayListParams) (ListResult, error) {
 	result, _, err := s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortNew, params)
 	return result, err
@@ -90,7 +88,7 @@ func (s *Service) ListHotEntriesWithCacheStatus(ctx context.Context, params DayL
 	return s.listDayEntriesWithCacheStatus(ctx, domainEntry.SortHot, params)
 }
 
-// ListTagEntries returns tag entries ordered by posted_at DESC.
+// ListTagEntries returns tag entries ordered by created_at DESC.
 func (s *Service) ListTagEntries(ctx context.Context, tagName string, params TagListParams) (ListResult, error) {
 	result, _, err := s.ListTagEntriesWithCacheStatus(ctx, tagName, params)
 	return result, err
@@ -116,11 +114,11 @@ func (s *Service) ListTagEntriesWithCacheStatus(ctx context.Context, tagName str
 			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
 				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
 			}
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	case domainEntry.SortNew:
 		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	default:
 		return ListResult{}, false, fmt.Errorf("unsupported sort %q", sortType)
@@ -146,11 +144,11 @@ func (s *Service) listDayEntriesWithCacheStatus(ctx context.Context, sortType do
 			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
 				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
 			}
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	default:
 		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].PostedAt.After(filtered[j].PostedAt)
+			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
 	}
 	total := int64(len(filtered))
@@ -182,7 +180,7 @@ func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domain
 			s.logDebug("day cache lookup failed", err)
 		}
 	}
-	from, to, err := jstDayRange(date, s.jstLocation)
+	from, to, err := apptime.DayRange(date)
 	if err != nil {
 		return nil, false, err
 	}
@@ -262,15 +260,4 @@ func paginate(entries []*domainEntry.Entry, offset, limit int) []*domainEntry.En
 		end = len(entries)
 	}
 	return entries[offset:end]
-}
-
-func jstDayRange(date string, loc *time.Location) (time.Time, time.Time, error) {
-	if loc == nil {
-		loc = time.Local
-	}
-	start, err := time.ParseInLocation("20060102", date, loc)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid date: %s", date)
-	}
-	return start, start.AddDate(0, 0, 1), nil
 }

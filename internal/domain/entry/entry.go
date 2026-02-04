@@ -26,7 +26,7 @@ type ID = uuid.UUID
 type SortType string
 
 const (
-	// SortNew orders entries by posted_at DESC.
+	// SortNew orders entries by created_at DESC.
 	SortNew SortType = "new"
 	// SortHot orders entries by bookmark_count DESC.
 	SortHot SortType = "hot"
@@ -189,6 +189,8 @@ type ListQuery struct {
 	Limit            int
 	Sort             SortType
 	Keyword          string
+	// PostedAtFrom/To are kept for API compatibility.
+	// Repository implementations currently apply this range to created_at.
 	PostedAtFrom     time.Time
 	PostedAtTo       time.Time
 	MaxLimitOverride int

@@ -2,10 +2,10 @@ package ranking
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	domainEntry "hateblog/internal/domain/entry"
+	"hateblog/internal/pkg/apptime"
 )
 
 // Repository describes entry operations required for ranking computations.
@@ -66,7 +66,7 @@ func (s *Service) YearlyWithCacheStatus(ctx context.Context, year, limit, minUse
 			}, true, nil
 		}
 	}
-	from, to, err := yearRange(year)
+	from, to, err := apptime.YearRange(year)
 	if err != nil {
 		return Result{}, false, err
 	}
@@ -111,7 +111,7 @@ func (s *Service) MonthlyWithCacheStatus(ctx context.Context, year, month, limit
 			}, true, nil
 		}
 	}
-	from, to, err := monthRange(year, month)
+	from, to, err := apptime.MonthRange(year, month)
 	if err != nil {
 		return Result{}, false, err
 	}
@@ -156,7 +156,7 @@ func (s *Service) WeeklyWithCacheStatus(ctx context.Context, year, week, limit, 
 			}, true, nil
 		}
 	}
-	from, to, err := isoWeekRange(year, week)
+	from, to, err := apptime.ISOWeekRange(year, week)
 	if err != nil {
 		return Result{}, false, err
 	}
@@ -216,14 +216,6 @@ func (s *Service) listEntriesAndCount(ctx context.Context, from, to time.Time, l
 	return entries, total, nil
 }
 
-func yearRange(year int) (time.Time, time.Time, error) {
-	if year < 2000 || year > 9999 {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid year: %d", year)
-	}
-	start := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
-	return start, start.AddDate(1, 0, 0), nil
-}
-
 func sliceLimit(entries []*domainEntry.Entry, limit int) []*domainEntry.Entry {
 	if limit <= 0 {
 		return entries
@@ -232,30 +224,4 @@ func sliceLimit(entries []*domainEntry.Entry, limit int) []*domainEntry.Entry {
 		return entries
 	}
 	return entries[:limit]
-}
-
-func monthRange(year, month int) (time.Time, time.Time, error) {
-	if month < 1 || month > 12 {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid month: %d", month)
-	}
-	start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	return start, start.AddDate(0, 1, 0), nil
-}
-
-func isoWeekRange(year, week int) (time.Time, time.Time, error) {
-	if week < 1 || week > 53 {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid week: %d", week)
-	}
-	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.UTC)
-	weekday := int(jan4.Weekday())
-	if weekday == 0 {
-		weekday = 7
-	}
-	start := jan4.AddDate(0, 0, -(weekday - 1))
-	start = start.AddDate(0, 0, (week-1)*7)
-	isoYear, isoWeek := start.ISOWeek()
-	if isoYear != year || isoWeek != week {
-		return time.Time{}, time.Time{}, fmt.Errorf("week %d out of range for year %d", week, year)
-	}
-	return start, start.AddDate(0, 0, 7), nil
 }

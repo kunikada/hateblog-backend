@@ -184,7 +184,7 @@ func refreshArchiveCounts(t *testing.T, pool *pgxpool.Pool) {
 
 	const query = `
 INSERT INTO archive_counts (day, threshold, count)
-SELECT DATE(posted_at) AS day, t.threshold, COUNT(1)
+SELECT DATE(created_at) AS day, t.threshold, COUNT(1)
 FROM entries
 CROSS JOIN (VALUES (5), (10), (50), (100), (500), (1000)) AS t(threshold)
 WHERE entries.bookmark_count >= t.threshold

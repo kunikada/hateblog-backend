@@ -44,10 +44,11 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 - CHECK: `bookmark_count >= 0`
 
 **インデックス:**
-- `idx_entries_posted_at` - posted_at DESC（新着順リスト用）
-- `idx_entries_bookmark_count` - bookmark_count DESC, posted_at DESC（人気順リスト用）
+- `idx_entries_posted_at` - posted_at DESC（RSS投稿日時ベースの参照用）
+- `idx_entries_bookmark_count` - bookmark_count DESC, posted_at DESC（RSS投稿日時ベースの参照用）
+- `idx_entries_bookmark_count_created_at` - bookmark_count DESC, created_at DESC（人気順リスト・ランキング用）
 - `idx_entries_url` - url（ユニーク制約により自動作成）
-- `idx_entries_created_at` - created_at（データ投入監視用）
+- `idx_entries_created_at` - created_at（一覧・ランキング基準、データ投入監視用）
 
 **全文検索用インデックス（pg_bigm使用時）:**
 - `idx_entries_search_text_gin` - GIN(search_text gin_bigm_ops)
@@ -125,7 +126,7 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 
 **備考:**
 - 日次バッチで全期間を再集計
-- fetcher 実行時に当日分のみ再集計
+- fetcher 実行時に `created_at` 基準の当日分のみ再集計
 
 ---
 
@@ -349,11 +350,11 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 -- クエリ例
 SELECT * FROM entries
 WHERE bookmark_count >= ?
-ORDER BY posted_at DESC
+ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
 
 -- 使用インデックス
-idx_entries_posted_at
+idx_entries_bookmark_count_created_at
 ```
 
 ### 人気順リスト（`GET /entries/hot`）
@@ -361,11 +362,11 @@ idx_entries_posted_at
 -- クエリ例
 SELECT * FROM entries
 WHERE bookmark_count >= ?
-ORDER BY bookmark_count DESC, posted_at DESC
+ORDER BY bookmark_count DESC, created_at DESC
 LIMIT ? OFFSET ?;
 
 -- 使用インデックス
-idx_entries_bookmark_count (複合インデックス)
+idx_entries_created_at
 ```
 
 ### タグ別エントリー一覧（`GET /tags/entries/{tag}`）
@@ -375,13 +376,13 @@ SELECT e.* FROM entries e
 INNER JOIN entry_tags et ON e.id = et.entry_id
 INNER JOIN tags t ON et.tag_id = t.id
 WHERE t.name = ?
-ORDER BY e.posted_at DESC; -- sort=new
+ORDER BY e.created_at DESC; -- sort=new
 
 -- sort=hot の場合は人気順
--- ORDER BY e.bookmark_count DESC, e.posted_at DESC;
+-- ORDER BY e.bookmark_count DESC, e.created_at DESC;
 
 -- 使用インデックス
-idx_entry_tags_tag_id, idx_entries_posted_at
+idx_entry_tags_tag_id, idx_entries_created_at
 ```
 
 ### URL重複チェック（データ投入時）
@@ -402,7 +403,7 @@ WHERE search_text LIKE '%' || ? || '%'
 ORDER BY bookmark_count DESC; -- sort=hot
 
 -- sort=new の場合は新着順
--- ORDER BY posted_at DESC;
+-- ORDER BY created_at DESC;
 
 -- 使用インデックス
 idx_entries_search_text_gin
@@ -425,6 +426,7 @@ idx_entries_search_text_gin
 - `000006_create_search_history.up.sql` - search_history テーブル作成（日別集計）
 - `000007_create_api_keys.up.sql` - api_keys テーブル作成（API認証管理）
 - `000012_create_archive_counts.up.sql` - archive_counts テーブル作成（事前集計）
+- `000013_update_created_at_strategy.up.sql` - created_at基準への切替（archive_counts再集計・複合インデックス追加）
 
 ### 2. 全文検索マイグレーション（pg_bigm導入時）
 - `000008_enable_pg_bigm.up.sql` - pg_bigm 拡張の有効化

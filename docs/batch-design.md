@@ -36,6 +36,7 @@
 
 1. フィードURL群を順に取得し、RSSをパースする
 2. 各アイテムをEntryとして正規化（URL、タイトル、抜粋、subject、posted_at、bookmark_count）
+   - `posted_at` が現在時刻より24時間以上前のときは、`created_at=posted_at` で投入する
 3. 既存判定（URLユニーク制約）により重複を除外しつつ投入する
 4. （任意）タイトル+抜粋からYahooキーフレーズ抽出し、上位3〜5件をタグ化して紐付ける
 
@@ -94,6 +95,8 @@
 
 1. `archive_counts` を全削除する
 2. `entries` から `day` / `threshold`（5, 10, 50, 100, 500, 1000）単位で集計し再投入する
+   - `day` は `created_at` 基準
+3. 既存環境は `000013_update_created_at_strategy` を適用する（または `cmd/admin archive rebuild` を実行する）
 
 ## ログ・監視
 

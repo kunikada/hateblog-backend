@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/apptime"
 )
 
 var _ repository.SearchHistoryRepository = (*SearchHistoryRepository)(nil)
@@ -29,7 +30,7 @@ func (r *SearchHistoryRepository) Record(ctx context.Context, query string, sear
 	if norm == "" {
 		return fmt.Errorf("query is required")
 	}
-	date := time.Date(searchedAt.Year(), searchedAt.Month(), searchedAt.Day(), 0, 0, 0, 0, time.UTC)
+	date := apptime.TruncateToDay(searchedAt)
 	const stmt = `
 INSERT INTO search_history (query, searched_at, count)
 VALUES ($1, $2, 1)

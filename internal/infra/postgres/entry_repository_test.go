@@ -279,7 +279,7 @@ func TestEntryRepository_List(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, entries, 2)
 
-		// Should be ordered by posted_at DESC
+		// Should be ordered by created_at DESC
 		assert.Equal(t, e2.ID, entries[0].ID)
 		assert.Equal(t, e1.ID, entries[1].ID)
 	})
@@ -364,12 +364,15 @@ func TestEntryRepository_List(t *testing.T) {
 		now := time.Now().UTC()
 		e1 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = now.Add(-48 * time.Hour)
+			e.CreatedAt = e.PostedAt
 		})
 		e2 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = now.Add(-24 * time.Hour)
+			e.CreatedAt = e.PostedAt
 		})
 		e3 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = now
+			e.CreatedAt = e.PostedAt
 		})
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
@@ -671,12 +674,15 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		// Insert entries on different days
 		e1 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = today
+			e.CreatedAt = today
 		})
 		e2 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = today
+			e.CreatedAt = today
 		})
 		e3 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = today.Add(-24 * time.Hour)
+			e.CreatedAt = e.PostedAt
 		})
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
@@ -703,10 +709,12 @@ func TestEntryRepository_ListArchiveCounts(t *testing.T) {
 		e1 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = today
 			e.BookmarkCount = 10
+			e.CreatedAt = today
 		})
 		e2 := testEntry(func(e *domainEntry.Entry) {
 			e.PostedAt = today
 			e.BookmarkCount = 100
+			e.CreatedAt = today
 		})
 		insertEntry(t, pool, e1)
 		insertEntry(t, pool, e2)
