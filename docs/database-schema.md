@@ -136,19 +136,16 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 
 | カラム名 | データ型 | NULL | デフォルト | 説明 |
 |---------|---------|------|-----------|------|
-| id | UUID | NOT NULL | gen_random_uuid() | 集計ID（主キー） |
-| entry_id | UUID | NOT NULL | - | エントリーID（外部キー） |
-| clicked_at | DATE | NOT NULL | - | クリック日（日別集計） |
+| entry_id | UUID | NOT NULL | - | エントリーID（複合主キー・外部キー） |
+| clicked_at | DATE | NOT NULL | - | クリック日（複合主キー・日別集計） |
 | count | INTEGER | NOT NULL | 0 | クリック回数 |
 
 **制約:**
-- PRIMARY KEY: `id`
-- UNIQUE: `(entry_id, clicked_at)`
+- PRIMARY KEY: `(entry_id, clicked_at)`
 - FOREIGN KEY: `entry_id` REFERENCES `entries(id)` ON DELETE CASCADE
 - CHECK: `count >= 0`
 
 **インデックス:**
-- `idx_click_metrics_entry_date` - (entry_id, clicked_at)（ユニーク制約により自動作成）
 - `idx_click_metrics_clicked_at` - clicked_at DESC（日付別集計用）
 
 **備考:**
@@ -163,19 +160,16 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 
 | カラム名 | データ型 | NULL | デフォルト | 説明 |
 |---------|---------|------|-----------|------|
-| id | UUID | NOT NULL | gen_random_uuid() | 集計ID（主キー） |
-| tag_id | UUID | NOT NULL | - | タグID（外部キー） |
-| viewed_at | DATE | NOT NULL | - | 閲覧日（日別集計） |
+| tag_id | UUID | NOT NULL | - | タグID（複合主キー・外部キー） |
+| viewed_at | DATE | NOT NULL | - | 閲覧日（複合主キー・日別集計） |
 | count | INTEGER | NOT NULL | 0 | 閲覧回数 |
 
 **制約:**
-- PRIMARY KEY: `id`
-- UNIQUE: `(tag_id, viewed_at)`
+- PRIMARY KEY: `(tag_id, viewed_at)`
 - FOREIGN KEY: `tag_id` REFERENCES `tags(id)` ON DELETE CASCADE
 - CHECK: `count >= 0`
 
 **インデックス:**
-- `idx_tag_view_history_tag_date` - (tag_id, viewed_at)（ユニーク制約により自動作成）
 - `idx_tag_view_history_viewed_at` - viewed_at DESC（日付別集計用）
 
 **備考:**
@@ -190,18 +184,15 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 
 | カラム名 | データ型 | NULL | デフォルト | 説明 |
 |---------|---------|------|-----------|------|
-| id | UUID | NOT NULL | gen_random_uuid() | 集計ID（主キー） |
-| query | TEXT | NOT NULL | - | 検索クエリ |
-| searched_at | DATE | NOT NULL | - | 検索日（日別集計） |
+| query | TEXT | NOT NULL | - | 検索クエリ（複合主キー） |
+| searched_at | DATE | NOT NULL | - | 検索日（複合主キー・日別集計） |
 | count | INTEGER | NOT NULL | 0 | 検索回数 |
 
 **制約:**
-- PRIMARY KEY: `id`
-- UNIQUE: `(query, searched_at)`
+- PRIMARY KEY: `(query, searched_at)`
 - CHECK: `count >= 0`
 
 **インデックス:**
-- `idx_search_history_query_date` - (query, searched_at)（ユニーク制約により自動作成）
 - `idx_search_history_searched_at` - searched_at DESC（日付別集計用）
 - `idx_search_history_count` - count DESC（人気検索キーワード分析用）
 
@@ -256,18 +247,16 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 ┌──────────────────────┐
 │   click_metrics      │
 ├──────────────────────┤
-│ id (PK, UUID)        │
-│ entry_id (FK, UUID)  │────┐
-│ clicked_at (DATE)    │    │
+│ entry_id (PK,FK,UUID)│────┐
+│ clicked_at (PK,DATE) │    │
 │ count                │    │ N:1
 └──────────────────────┘    │
                             │
 ┌──────────────────────┐    │
 │  tag_view_history    │    │
 ├──────────────────────┤    │
-│ id (PK, UUID)        │    │
-│ tag_id (FK, UUID)    │──┐ │
-│ viewed_at (DATE)     │  │ │
+│ tag_id (PK,FK,UUID)  │──┐ │
+│ viewed_at (PK,DATE)  │  │ │
 │ count                │  │ │
 └──────────────────────┘  │ │
                           │ │
@@ -280,9 +269,8 @@ hateblog バックエンドのデータベーススキーマ定義。PostgreSQL 
 ┌──────────────────────┐
 │   search_history     │
 ├──────────────────────┤
-│ id (PK, UUID)        │
-│ query                │
-│ searched_at (DATE)   │
+│ query (PK)           │
+│ searched_at (PK,DATE)│
 │ count                │
 └──────────────────────┘
 
@@ -427,6 +415,7 @@ idx_entries_search_text_gin
 - `000007_create_api_keys.up.sql` - api_keys テーブル作成（API認証管理）
 - `000012_create_archive_counts.up.sql` - archive_counts テーブル作成（事前集計）
 - `000013_update_created_at_strategy.up.sql` - created_at基準への切替（archive_counts再集計・複合インデックス追加）
+- `000014_remove_history_ids.up.sql` - 履歴テーブルのID列削除・複合主キーへ変更
 
 ### 2. 全文検索マイグレーション（pg_bigm導入時）
 - `000008_enable_pg_bigm.up.sql` - pg_bigm 拡張の有効化

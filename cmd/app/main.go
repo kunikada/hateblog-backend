@@ -289,7 +289,7 @@ func run(ctx context.Context) error {
 		tagEntriesCache = infraRedis.NewTagEntriesCache(redisClient, cfg.Cache.TagEntriesTTL)
 		searchCache = infraRedis.NewSearchCache(redisClient, cfg.Cache.SearchTTL)
 		tagsListCache = infraRedis.NewTagsListCache(redisClient, cfg.Cache.TagsListTTL)
-		archiveCache = infraRedis.NewArchiveCache(redisClient, cfg.Cache.ArchiveTTL)
+		archiveCache = infraRedis.NewArchiveCache(redisClient, cfg.Cache.EntriesDayTTL, cfg.Cache.ArchiveTTL)
 		yearlyRankingCache = infraRedis.NewYearlyRankingCache(redisClient, cfg.Cache.YearlyRankingCurrentTTL, cfg.Cache.YearlyRankingPastTTL)
 		monthlyRankingCache = infraRedis.NewMonthlyRankingCache(redisClient, cfg.Cache.MonthlyRankingCurrentTTL, cfg.Cache.MonthlyRankingPastTTL)
 		weeklyRankingCache = infraRedis.NewWeeklyRankingCache(redisClient, cfg.Cache.WeeklyRankingCurrentTTL, cfg.Cache.WeeklyRankingPastTTL)
