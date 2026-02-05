@@ -93,14 +93,14 @@ func (r RedisConfig) Address() string {
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
-	LogLevel      string `env:"APP_LOG_LEVEL" envDefault:"info"`
-	LogFormat     string `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
-	TimeZone      string `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
-	CacheEnabled  bool   `env:"APP_CACHE_ENABLED" envDefault:"true"`
-	EnableMetrics bool   `env:"APP_ENABLE_METRICS" envDefault:"true"`
-	APIBasePath   string `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
-	APIKeyRequired bool   `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
-	APIKeyPrefix   string `env:"APP_API_KEY_PREFIX" envDefault:"hb_live_"`
+	LogLevel       string        `env:"APP_LOG_LEVEL" envDefault:"info"`
+	LogFormat      string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
+	TimeZone       string        `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
+	CacheEnabled   bool          `env:"APP_CACHE_ENABLED" envDefault:"true"`
+	EnableMetrics  bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
+	APIBasePath    string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
+	APIKeyRequired bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
+	APIKeyPrefix   string        `env:"APP_API_KEY_PREFIX" envDefault:"hb_live_"`
 	APIKeyTTL      time.Duration `env:"APP_API_KEY_TTL" envDefault:"0"`
 
 	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`

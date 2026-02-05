@@ -19,6 +19,8 @@ type Cache interface {
 	BuildKey(domain string) (string, error)
 	Get(ctx context.Context, key string) ([]byte, string, bool, error)
 	Set(ctx context.Context, key string, data []byte, contentType string) error
+	SetNegative(ctx context.Context, key string) error
+	IsNegative(ctx context.Context, key string) (bool, error)
 }
 
 // Limiter throttles external favicon fetches.
@@ -72,6 +74,14 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, boo
 			return nil, "", false, err
 		}
 
+		// Check negative cache first
+		if negative, err := s.cache.IsNegative(ctx, key); err != nil {
+			s.logDebug("favicon negative cache check failed", err)
+		} else if negative {
+			data, fallbackType, fallbackErr := s.fallback()
+			return data, fallbackType, true, fallbackErr
+		}
+
 		if data, contentType, ok, err := s.cache.Get(ctx, key); err == nil && ok {
 			return data, contentType, true, nil
 		} else if err != nil {
@@ -94,6 +104,12 @@ func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, boo
 	data, contentType, err := s.fetcher.Fetch(ctx, domain)
 	if err != nil {
 		s.logDebug("favicon fetch failed", err)
+		// Save negative cache to avoid repeated requests
+		if s.cache != nil {
+			if negErr := s.cache.SetNegative(ctx, key); negErr != nil {
+				s.logDebug("favicon negative cache set failed", negErr)
+			}
+		}
 		data, fallbackType, fallbackErr := s.fallback()
 		return data, fallbackType, false, fallbackErr
 	}

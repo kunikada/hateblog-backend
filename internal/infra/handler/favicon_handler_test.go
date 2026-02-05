@@ -124,6 +124,14 @@ func (t *testCache) Set(ctx context.Context, key string, data []byte, contentTyp
 	return nil
 }
 
+func (t *testCache) SetNegative(ctx context.Context, key string) error {
+	return nil
+}
+
+func (t *testCache) IsNegative(ctx context.Context, key string) (bool, error) {
+	return false, nil
+}
+
 type testLimiter struct {
 	allow bool
 	err   error

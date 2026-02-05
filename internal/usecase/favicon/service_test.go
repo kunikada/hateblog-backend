@@ -65,6 +65,19 @@ func TestFetchFallbackOnError(t *testing.T) {
 	require.Equal(t, defaultFaviconFallback, data)
 	require.Equal(t, "image/png", ctype)
 	require.False(t, cacheHit)
+	require.True(t, cache.setNegCalled)
+}
+
+func TestFetchReturnsFromNegativeCache(t *testing.T) {
+	cache := &mockCache{key: "favicon:example.com", negative: true}
+	fetcher := &mockFetcher{data: []byte{1}, ctype: "image/png"}
+	service := NewService(fetcher, cache, nil, nil)
+
+	data, ctype, cacheHit, err := service.Fetch(context.Background(), "example.com")
+	require.NoError(t, err)
+	require.Equal(t, defaultFaviconFallback, data)
+	require.Equal(t, "image/png", ctype)
+	require.True(t, cacheHit) // negative cache is still a cache hit
 }
 
 type mockFetcher struct {
@@ -81,10 +94,12 @@ func (m *mockFetcher) Fetch(ctx context.Context, domain string) ([]byte, string,
 }
 
 type mockCache struct {
-	key       string
-	getData   []byte
-	getType   string
-	setCalled bool
+	key          string
+	getData      []byte
+	getType      string
+	setCalled    bool
+	negative     bool
+	setNegCalled bool
 }
 
 func (m *mockCache) BuildKey(domain string) (string, error) {
@@ -101,6 +116,15 @@ func (m *mockCache) Get(ctx context.Context, key string) ([]byte, string, bool, 
 func (m *mockCache) Set(ctx context.Context, key string, data []byte, contentType string) error {
 	m.setCalled = true
 	return nil
+}
+
+func (m *mockCache) SetNegative(ctx context.Context, key string) error {
+	m.setNegCalled = true
+	return nil
+}
+
+func (m *mockCache) IsNegative(ctx context.Context, key string) (bool, error) {
+	return m.negative, nil
 }
 
 type mockLimiter struct {
