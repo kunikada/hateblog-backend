@@ -24,9 +24,6 @@ type cacheClient interface {
 
 // NewFaviconCache constructs a cache wrapper.
 func NewFaviconCache(client cacheClient, ttl time.Duration) *FaviconCache {
-	if ttl <= 0 {
-		ttl = 24 * time.Hour
-	}
 	return &FaviconCache{
 		client: client,
 		ttl:    ttl,
