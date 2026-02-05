@@ -2,10 +2,7 @@ package favicon
 
 import (
 	"context"
-	// #nosec G501 -- 非暗号用途の既知データ判定のため
-	"crypto/md5"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 
@@ -22,6 +19,8 @@ type Cache interface {
 	BuildKey(domain string) (string, error)
 	Get(ctx context.Context, key string) ([]byte, string, bool, error)
 	Set(ctx context.Context, key string, data []byte, contentType string) error
+	SetNegative(ctx context.Context, key string) error
+	IsNegative(ctx context.Context, key string) (bool, error)
 }
 
 // Limiter throttles external favicon fetches.
@@ -59,13 +58,7 @@ func NewService(fetcher Fetcher, cache Cache, limiter Limiter, logger *slog.Logg
 }
 
 // Fetch returns a favicon for the given domain, using cache when possible.
-func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, error) {
-	data, contentType, _, err := s.FetchWithCacheStatus(ctx, domain)
-	return data, contentType, err
-}
-
-// FetchWithCacheStatus returns a favicon and cache hit info.
-func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]byte, string, bool, error) {
+func (s *Service) Fetch(ctx context.Context, domain string) ([]byte, string, bool, error) {
 	if s.fetcher == nil {
 		return nil, "", false, ErrNotInitialized
 	}
@@ -79,6 +72,14 @@ func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]by
 		key, err = s.cache.BuildKey(domain)
 		if err != nil {
 			return nil, "", false, err
+		}
+
+		// Check negative cache first
+		if negative, err := s.cache.IsNegative(ctx, key); err != nil {
+			s.logDebug("favicon negative cache check failed", err)
+		} else if negative {
+			data, fallbackType, fallbackErr := s.fallback()
+			return data, fallbackType, true, fallbackErr
 		}
 
 		if data, contentType, ok, err := s.cache.Get(ctx, key); err == nil && ok {
@@ -103,13 +104,14 @@ func (s *Service) FetchWithCacheStatus(ctx context.Context, domain string) ([]by
 	data, contentType, err := s.fetcher.Fetch(ctx, domain)
 	if err != nil {
 		s.logDebug("favicon fetch failed", err)
+		// Save negative cache to avoid repeated requests
+		if s.cache != nil {
+			if negErr := s.cache.SetNegative(ctx, key); negErr != nil {
+				s.logDebug("favicon negative cache set failed", negErr)
+			}
+		}
 		data, fallbackType, fallbackErr := s.fallback()
 		return data, fallbackType, false, fallbackErr
-	}
-
-	if isGoogleDefaultFavicon(data) {
-		data = googleDefaultFallback
-		contentType = googleDefaultFallbackType
 	}
 
 	if s.cache != nil {
@@ -134,10 +136,7 @@ func (s *Service) logDebug(msg string, err error) {
 	}
 }
 
-var defaultFaviconFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==")
-var googleDefaultFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAYFBMVEX////9/f3Z2dnX19fr6+va2trW1tb+/v78/PyJiYnb29vc3Ny1tbWFhYWMjIzT09PY2Ni+vr64uLiPj4+3t7eIiIinp6erq6uLi4vu7u77+/vMzMyKioqpqam5ubn39/f5jK5fAAAAZ0lEQVQYla2PRxKAIBAElyCwJnTNmP7/S0ULxbt9mulbA3gYF5xBgMlEeJTU/houIk6FafSzXANiUdrrVTUReYFYNlyolugRiF1P9BE4/CrUGIl2MgDOdUEwc9dpPS/rZuHtPRP3sA5/ewnKoV106QAAAABJRU5ErkJggg==")
-var googleDefaultFallbackType = "image/png"
-var googleDefaultMD5 = mustDecodeMD5("3ca64f83fdcf25135d87e08af65e68c9")
+var defaultFaviconFallback = mustDecodeBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABN0lEQVR4AdxTO46DMBCdIckF0uYGkdJFuUAKoIDb8LkCl4EKCW5BBQJRAA0FnAAB3p2RnOUjdvtFGo/93ptn45EVOPjyPBdZlgnKBxKGVwZd14miKLhwnmcWUCajNE0F8QwuBjagXUjU9z1M07Sgf6aICMSTjkIyiud5QlHYR2J/5svlAmEYChJype/7QPENwjiOhO8CEaFtW6jrGsqyhNPpxBo2oNn5fObjx3EMURSBPJUQAqqq4hiGgaSr+BhIlO6AhEEQQJIk0DQNIKKkd3lnIBWICHQquT7KhwZHBVv8PxgYhvFp2fb/jtbU2tfrxbRyv9/Rsix0HAeJYPSXQdM01HUdr9cr93Z1ia7rstH7/ebe00NCRLjdbkCFFFvvlYEkn88n2raNpmmCqqr4eDx4N8kv8xcAAAD//3cFwBYAAAAGSURBVAMA+OeNBadagYoAAAAASUVORK5CYII=")
 
 func mustDecodeBase64(value string) []byte {
 	data, err := base64.StdEncoding.DecodeString(value)
@@ -145,22 +144,4 @@ func mustDecodeBase64(value string) []byte {
 		panic("invalid fallback favicon data")
 	}
 	return data
-}
-
-func mustDecodeMD5(value string) [16]byte {
-	data, err := hex.DecodeString(value)
-	if err != nil || len(data) != md5.Size {
-		panic("invalid md5 hash")
-	}
-	var sum [16]byte
-	copy(sum[:], data)
-	return sum
-}
-
-func isGoogleDefaultFavicon(data []byte) bool {
-	if len(data) == 0 {
-		return false
-	}
-	// #nosec G401 -- 非暗号用途の既知データ判定のため
-	return md5.Sum(data) == googleDefaultMD5
 }

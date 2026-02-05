@@ -12,20 +12,20 @@ import (
 	domainTag "hateblog/internal/domain/tag"
 )
 
-const (
-	entriesDayTTL = 5 * time.Minute
-	tagEntriesTTL = 10 * time.Minute
-	searchTTL     = 15 * time.Minute
-	tagsListTTL   = 1 * time.Hour
-	archiveTTL    = 24 * time.Hour
-
-	yearlyRankingCurrentTTL  = 1 * time.Hour
-	yearlyRankingPastTTL     = 7 * 24 * time.Hour
-	monthlyRankingCurrentTTL = 1 * time.Hour
-	monthlyRankingPastTTL    = 24 * time.Hour
-	weeklyRankingCurrentTTL  = 30 * time.Minute
-	weeklyRankingPastTTL     = 24 * time.Hour
-)
+// CacheTTLConfig holds TTL settings for API caches.
+type CacheTTLConfig struct {
+	EntriesDayTTL            time.Duration
+	TagEntriesTTL            time.Duration
+	SearchTTL                time.Duration
+	TagsListTTL              time.Duration
+	ArchiveTTL               time.Duration
+	YearlyRankingCurrentTTL  time.Duration
+	YearlyRankingPastTTL     time.Duration
+	MonthlyRankingCurrentTTL time.Duration
+	MonthlyRankingPastTTL    time.Duration
+	WeeklyRankingCurrentTTL  time.Duration
+	WeeklyRankingPastTTL     time.Duration
+}
 
 // DayEntriesCache caches all entries for a given JST date (YYYYMMDD).
 type DayEntriesCache struct {
@@ -33,8 +33,8 @@ type DayEntriesCache struct {
 }
 
 // NewDayEntriesCache builds a day entries cache.
-func NewDayEntriesCache(client bytesCacheClient) *DayEntriesCache {
-	return &DayEntriesCache{cache: newSnappyJSONCache(client, entriesDayTTL)}
+func NewDayEntriesCache(client bytesCacheClient, ttl time.Duration) *DayEntriesCache {
+	return &DayEntriesCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
 func (c *DayEntriesCache) key(date string) string {
@@ -59,8 +59,8 @@ type TagEntriesCache struct {
 }
 
 // NewTagEntriesCache builds a tag entries cache.
-func NewTagEntriesCache(client bytesCacheClient) *TagEntriesCache {
-	return &TagEntriesCache{cache: newSnappyJSONCache(client, tagEntriesTTL)}
+func NewTagEntriesCache(client bytesCacheClient, ttl time.Duration) *TagEntriesCache {
+	return &TagEntriesCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
 func (c *TagEntriesCache) key(tagName string) string {
@@ -86,8 +86,8 @@ type SearchCache struct {
 }
 
 // NewSearchCache builds a search cache.
-func NewSearchCache(client bytesCacheClient) *SearchCache {
-	return &SearchCache{cache: newSnappyJSONCache(client, searchTTL)}
+func NewSearchCache(client bytesCacheClient, ttl time.Duration) *SearchCache {
+	return &SearchCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
 func (c *SearchCache) key(query string, sort domainEntry.SortType, minUsers, limit, offset int) string {
@@ -111,8 +111,8 @@ type TagsListCache struct {
 }
 
 // NewTagsListCache builds a tags list cache.
-func NewTagsListCache(client bytesCacheClient) *TagsListCache {
-	return &TagsListCache{cache: newSnappyJSONCache(client, tagsListTTL)}
+func NewTagsListCache(client bytesCacheClient, ttl time.Duration) *TagsListCache {
+	return &TagsListCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
 func (c *TagsListCache) key(limit, offset int) string {
@@ -135,8 +135,8 @@ type ArchiveCache struct {
 }
 
 // NewArchiveCache builds an archive cache.
-func NewArchiveCache(client bytesCacheClient) *ArchiveCache {
-	return &ArchiveCache{cache: newSnappyJSONCache(client, archiveTTL)}
+func NewArchiveCache(client bytesCacheClient, ttl time.Duration) *ArchiveCache {
+	return &ArchiveCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
 func (c *ArchiveCache) key(minUsers int) string {
@@ -155,12 +155,14 @@ func (c *ArchiveCache) Set(ctx context.Context, minUsers int, value any) error {
 
 // YearlyRankingCache caches yearly ranking entries (up to max) per min_users.
 type YearlyRankingCache struct {
-	client bytesCacheClient
+	client     bytesCacheClient
+	currentTTL time.Duration
+	pastTTL    time.Duration
 }
 
 // NewYearlyRankingCache builds a yearly ranking cache.
-func NewYearlyRankingCache(client bytesCacheClient) *YearlyRankingCache {
-	return &YearlyRankingCache{client: client}
+func NewYearlyRankingCache(client bytesCacheClient, currentTTL, pastTTL time.Duration) *YearlyRankingCache {
+	return &YearlyRankingCache{client: client, currentTTL: currentTTL, pastTTL: pastTTL}
 }
 
 func (c *YearlyRankingCache) key(year, minUsers int) string {
@@ -169,9 +171,9 @@ func (c *YearlyRankingCache) key(year, minUsers int) string {
 
 func (c *YearlyRankingCache) ttl(year int, now time.Time) time.Duration {
 	if year == now.Year() {
-		return yearlyRankingCurrentTTL
+		return c.currentTTL
 	}
-	return yearlyRankingPastTTL
+	return c.pastTTL
 }
 
 // Get returns cached yearly rankings.
@@ -186,12 +188,14 @@ func (c *YearlyRankingCache) Set(ctx context.Context, year, minUsers int, value 
 
 // MonthlyRankingCache caches monthly ranking entries (up to max) per min_users.
 type MonthlyRankingCache struct {
-	client bytesCacheClient
+	client     bytesCacheClient
+	currentTTL time.Duration
+	pastTTL    time.Duration
 }
 
 // NewMonthlyRankingCache builds a monthly ranking cache.
-func NewMonthlyRankingCache(client bytesCacheClient) *MonthlyRankingCache {
-	return &MonthlyRankingCache{client: client}
+func NewMonthlyRankingCache(client bytesCacheClient, currentTTL, pastTTL time.Duration) *MonthlyRankingCache {
+	return &MonthlyRankingCache{client: client, currentTTL: currentTTL, pastTTL: pastTTL}
 }
 
 func (c *MonthlyRankingCache) key(year, month, minUsers int) string {
@@ -200,9 +204,9 @@ func (c *MonthlyRankingCache) key(year, month, minUsers int) string {
 
 func (c *MonthlyRankingCache) ttl(year, month int, now time.Time) time.Duration {
 	if year == now.Year() && month == int(now.Month()) {
-		return monthlyRankingCurrentTTL
+		return c.currentTTL
 	}
-	return monthlyRankingPastTTL
+	return c.pastTTL
 }
 
 // Get returns cached monthly rankings.
@@ -217,12 +221,14 @@ func (c *MonthlyRankingCache) Set(ctx context.Context, year, month, minUsers int
 
 // WeeklyRankingCache caches weekly ranking entries (up to max) per min_users.
 type WeeklyRankingCache struct {
-	client bytesCacheClient
+	client     bytesCacheClient
+	currentTTL time.Duration
+	pastTTL    time.Duration
 }
 
 // NewWeeklyRankingCache builds a weekly ranking cache.
-func NewWeeklyRankingCache(client bytesCacheClient) *WeeklyRankingCache {
-	return &WeeklyRankingCache{client: client}
+func NewWeeklyRankingCache(client bytesCacheClient, currentTTL, pastTTL time.Duration) *WeeklyRankingCache {
+	return &WeeklyRankingCache{client: client, currentTTL: currentTTL, pastTTL: pastTTL}
 }
 
 func (c *WeeklyRankingCache) key(year, week, minUsers int) string {
@@ -232,9 +238,9 @@ func (c *WeeklyRankingCache) key(year, week, minUsers int) string {
 func (c *WeeklyRankingCache) ttl(year, week int, now time.Time) time.Duration {
 	nowYear, nowWeek := now.ISOWeek()
 	if year == nowYear && week == nowWeek {
-		return weeklyRankingCurrentTTL
+		return c.currentTTL
 	}
-	return weeklyRankingPastTTL
+	return c.pastTTL
 }
 
 // Get returns cached weekly rankings.

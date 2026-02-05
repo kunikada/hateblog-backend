@@ -285,15 +285,15 @@ func run(ctx context.Context) error {
 	)
 
 	if cfg.App.CacheEnabled {
-		dayEntriesCache = infraRedis.NewDayEntriesCache(redisClient)
-		tagEntriesCache = infraRedis.NewTagEntriesCache(redisClient)
-		searchCache = infraRedis.NewSearchCache(redisClient)
-		tagsListCache = infraRedis.NewTagsListCache(redisClient)
-		archiveCache = infraRedis.NewArchiveCache(redisClient)
-		yearlyRankingCache = infraRedis.NewYearlyRankingCache(redisClient)
-		monthlyRankingCache = infraRedis.NewMonthlyRankingCache(redisClient)
-		weeklyRankingCache = infraRedis.NewWeeklyRankingCache(redisClient)
-		faviconCache = infraRedis.NewFaviconCache(redisClient, cfg.App.FaviconCacheTTL)
+		dayEntriesCache = infraRedis.NewDayEntriesCache(redisClient, cfg.Cache.EntriesDayTTL)
+		tagEntriesCache = infraRedis.NewTagEntriesCache(redisClient, cfg.Cache.TagEntriesTTL)
+		searchCache = infraRedis.NewSearchCache(redisClient, cfg.Cache.SearchTTL)
+		tagsListCache = infraRedis.NewTagsListCache(redisClient, cfg.Cache.TagsListTTL)
+		archiveCache = infraRedis.NewArchiveCache(redisClient, cfg.Cache.ArchiveTTL)
+		yearlyRankingCache = infraRedis.NewYearlyRankingCache(redisClient, cfg.Cache.YearlyRankingCurrentTTL, cfg.Cache.YearlyRankingPastTTL)
+		monthlyRankingCache = infraRedis.NewMonthlyRankingCache(redisClient, cfg.Cache.MonthlyRankingCurrentTTL, cfg.Cache.MonthlyRankingPastTTL)
+		weeklyRankingCache = infraRedis.NewWeeklyRankingCache(redisClient, cfg.Cache.WeeklyRankingCurrentTTL, cfg.Cache.WeeklyRankingPastTTL)
+		faviconCache = infraRedis.NewFaviconCache(redisClient, cfg.Cache.FaviconTTL)
 	}
 
 	entryService := usecaseEntry.NewService(entryRepo, dayEntriesCache, tagEntriesCache, log)

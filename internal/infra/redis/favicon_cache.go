@@ -24,9 +24,6 @@ type cacheClient interface {
 
 // NewFaviconCache constructs a cache wrapper.
 func NewFaviconCache(client cacheClient, ttl time.Duration) *FaviconCache {
-	if ttl <= 0 {
-		ttl = 24 * time.Hour
-	}
 	return &FaviconCache{
 		client: client,
 		ttl:    ttl,
@@ -77,4 +74,21 @@ func (c *FaviconCache) Set(ctx context.Context, key string, data []byte, content
 		return fmt.Errorf("favicon cache encode: %w", err)
 	}
 	return c.client.Set(ctx, key, payload, c.ttl)
+}
+
+// SetNegative stores a negative cache entry for failed fetches.
+func (c *FaviconCache) SetNegative(ctx context.Context, key string) error {
+	return c.client.Set(ctx, key+":neg", "1", c.ttl)
+}
+
+// IsNegative checks if a negative cache entry exists.
+func (c *FaviconCache) IsNegative(ctx context.Context, key string) (bool, error) {
+	_, err := c.client.Get(ctx, key+":neg")
+	if err != nil {
+		if errors.Is(err, cache.ErrCacheMiss) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

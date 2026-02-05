@@ -24,6 +24,9 @@ type Config struct {
 	// Application configuration
 	App AppConfig
 
+	// Cache configuration
+	Cache CacheConfig
+
 	// External API configuration
 	External ExternalConfig
 
@@ -90,20 +93,44 @@ func (r RedisConfig) Address() string {
 
 // AppConfig holds application-specific configuration
 type AppConfig struct {
-	LogLevel        string        `env:"APP_LOG_LEVEL" envDefault:"info"`
-	LogFormat       string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
-	TimeZone        string        `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
-	CacheEnabled    bool          `env:"APP_CACHE_ENABLED" envDefault:"true"`
-	FaviconCacheTTL time.Duration `env:"APP_FAVICON_CACHE_TTL" envDefault:"168h"` // 7 days
-	EnableMetrics   bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
-	APIBasePath     string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
-	APIKeyRequired  bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
-	APIKeyPrefix    string        `env:"APP_API_KEY_PREFIX" envDefault:"hb_live_"`
-	APIKeyTTL       time.Duration `env:"APP_API_KEY_TTL" envDefault:"0"`
+	LogLevel       string        `env:"APP_LOG_LEVEL" envDefault:"info"`
+	LogFormat      string        `env:"APP_LOG_FORMAT" envDefault:"text"` // text or json
+	TimeZone       string        `env:"APP_TIMEZONE" envDefault:"Asia/Tokyo"`
+	CacheEnabled   bool          `env:"APP_CACHE_ENABLED" envDefault:"true"`
+	EnableMetrics  bool          `env:"APP_ENABLE_METRICS" envDefault:"true"`
+	APIBasePath    string        `env:"APP_API_BASE_PATH" envDefault:"/api/v1"`
+	APIKeyRequired bool          `env:"APP_API_KEY_REQUIRED" envDefault:"false"`
+	APIKeyPrefix   string        `env:"APP_API_KEY_PREFIX" envDefault:"hb_live_"`
+	APIKeyTTL      time.Duration `env:"APP_API_KEY_TTL" envDefault:"0"`
 
 	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`
 	RateLimitWindow      time.Duration `env:"APP_RATE_LIMIT_WINDOW" envDefault:"1m"`
 	RateLimitMaxRequests int           `env:"APP_RATE_LIMIT_MAX_REQUESTS" envDefault:"120"`
+}
+
+// CacheConfig holds cache TTL configuration
+type CacheConfig struct {
+	// Entry caches
+	EntriesDayTTL time.Duration `env:"CACHE_ENTRIES_DAY_TTL" envDefault:"5m"`
+	TagEntriesTTL time.Duration `env:"CACHE_TAG_ENTRIES_TTL" envDefault:"10m"`
+	FaviconTTL    time.Duration `env:"CACHE_FAVICON_TTL" envDefault:"24h"`
+
+	// Search and list caches
+	SearchTTL   time.Duration `env:"CACHE_SEARCH_TTL" envDefault:"15m"`
+	TagsListTTL time.Duration `env:"CACHE_TAGS_LIST_TTL" envDefault:"1h"`
+	ArchiveTTL  time.Duration `env:"CACHE_ARCHIVE_TTL" envDefault:"24h"`
+
+	// Yearly ranking TTLs
+	YearlyRankingCurrentTTL time.Duration `env:"CACHE_YEARLY_RANKING_CURRENT_TTL" envDefault:"1h"`
+	YearlyRankingPastTTL    time.Duration `env:"CACHE_YEARLY_RANKING_PAST_TTL" envDefault:"168h"` // 7 days
+
+	// Monthly ranking TTLs
+	MonthlyRankingCurrentTTL time.Duration `env:"CACHE_MONTHLY_RANKING_CURRENT_TTL" envDefault:"1h"`
+	MonthlyRankingPastTTL    time.Duration `env:"CACHE_MONTHLY_RANKING_PAST_TTL" envDefault:"24h"`
+
+	// Weekly ranking TTLs
+	WeeklyRankingCurrentTTL time.Duration `env:"CACHE_WEEKLY_RANKING_CURRENT_TTL" envDefault:"30m"`
+	WeeklyRankingPastTTL    time.Duration `env:"CACHE_WEEKLY_RANKING_PAST_TTL" envDefault:"24h"`
 }
 
 // ExternalConfig holds external API configuration
