@@ -16,10 +16,11 @@ func TestFetchUsesCache(t *testing.T) {
 	}
 	service := NewService(&mockFetcher{}, cache, nil, nil)
 
-	data, ctype, err := service.Fetch(context.Background(), "example.com")
+	data, ctype, cacheHit, err := service.Fetch(context.Background(), "example.com")
 	require.NoError(t, err)
 	require.Equal(t, []byte{1}, data)
 	require.Equal(t, "image/png", ctype)
+	require.True(t, cacheHit)
 	require.False(t, cache.setCalled)
 }
 
@@ -31,16 +32,17 @@ func TestFetchMissFetchesAndCaches(t *testing.T) {
 	}
 	service := NewService(fetcher, cache, nil, nil)
 
-	data, ctype, err := service.Fetch(context.Background(), "example.com")
+	data, ctype, cacheHit, err := service.Fetch(context.Background(), "example.com")
 	require.NoError(t, err)
 	require.Equal(t, []byte{9}, data)
 	require.Equal(t, "image/x-icon", ctype)
+	require.False(t, cacheHit)
 	require.True(t, cache.setCalled)
 }
 
 func TestFetchMissingDeps(t *testing.T) {
 	service := NewService(nil, nil, nil, nil)
-	_, _, err := service.Fetch(context.Background(), "example.com")
+	_, _, _, err := service.Fetch(context.Background(), "example.com")
 	require.Error(t, err)
 }
 
@@ -49,7 +51,7 @@ func TestFetchRespectsRateLimit(t *testing.T) {
 	limiter := &mockLimiter{allow: false}
 	service := NewService(&mockFetcher{}, cache, limiter, nil)
 
-	_, _, err := service.Fetch(context.Background(), "example.com")
+	_, _, _, err := service.Fetch(context.Background(), "example.com")
 	require.ErrorIs(t, err, ErrRateLimited)
 }
 
@@ -58,10 +60,11 @@ func TestFetchFallbackOnError(t *testing.T) {
 	fetcher := &mockFetcher{err: errors.New("boom")}
 	service := NewService(fetcher, cache, nil, nil)
 
-	data, ctype, err := service.Fetch(context.Background(), "example.com")
+	data, ctype, cacheHit, err := service.Fetch(context.Background(), "example.com")
 	require.NoError(t, err)
 	require.Equal(t, defaultFaviconFallback, data)
 	require.Equal(t, "image/png", ctype)
+	require.False(t, cacheHit)
 }
 
 type mockFetcher struct {
