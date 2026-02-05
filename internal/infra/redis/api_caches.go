@@ -129,28 +129,45 @@ func (c *TagsListCache) Set(ctx context.Context, limit, offset int, value any) e
 	return c.cache.Set(ctx, c.key(limit, offset), value)
 }
 
-// ArchiveCache caches archive responses.
+// ArchiveCache caches archive responses with separate TTLs for today and past data.
 type ArchiveCache struct {
-	cache *snappyJSONCache
+	client   bytesCacheClient
+	todayTTL time.Duration
+	pastTTL  time.Duration
 }
 
 // NewArchiveCache builds an archive cache.
-func NewArchiveCache(client bytesCacheClient, ttl time.Duration) *ArchiveCache {
-	return &ArchiveCache{cache: newSnappyJSONCache(client, ttl)}
+// todayTTL is used for today's data, pastTTL for historical data.
+func NewArchiveCache(client bytesCacheClient, todayTTL, pastTTL time.Duration) *ArchiveCache {
+	return &ArchiveCache{client: client, todayTTL: todayTTL, pastTTL: pastTTL}
 }
 
-func (c *ArchiveCache) key(minUsers int) string {
-	return fmt.Sprintf("hateblog:archive:all:%d", minUsers)
+func (c *ArchiveCache) todayKey(minUsers int) string {
+	return fmt.Sprintf("hateblog:archive:today:%d", minUsers)
 }
 
-// Get returns cached archive responses.
-func (c *ArchiveCache) Get(ctx context.Context, minUsers int, out any) (bool, error) {
-	return c.cache.Get(ctx, c.key(minUsers), out)
+func (c *ArchiveCache) pastKey(minUsers int) string {
+	return fmt.Sprintf("hateblog:archive:past:%d", minUsers)
 }
 
-// Set stores archive responses.
-func (c *ArchiveCache) Set(ctx context.Context, minUsers int, value any) error {
-	return c.cache.Set(ctx, c.key(minUsers), value)
+// GetToday returns cached today's archive count.
+func (c *ArchiveCache) GetToday(ctx context.Context, minUsers int, out any) (bool, error) {
+	return newSnappyJSONCache(c.client, c.todayTTL).Get(ctx, c.todayKey(minUsers), out)
+}
+
+// SetToday stores today's archive count.
+func (c *ArchiveCache) SetToday(ctx context.Context, minUsers int, value any) error {
+	return newSnappyJSONCache(c.client, c.todayTTL).Set(ctx, c.todayKey(minUsers), value)
+}
+
+// GetPast returns cached past archive counts.
+func (c *ArchiveCache) GetPast(ctx context.Context, minUsers int, out any) (bool, error) {
+	return newSnappyJSONCache(c.client, c.pastTTL).Get(ctx, c.pastKey(minUsers), out)
+}
+
+// SetPast stores past archive counts.
+func (c *ArchiveCache) SetPast(ctx context.Context, minUsers int, value any) error {
+	return newSnappyJSONCache(c.client, c.pastTTL).Set(ctx, c.pastKey(minUsers), value)
 }
 
 // YearlyRankingCache caches yearly ranking entries (up to max) per min_users.
