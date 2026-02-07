@@ -286,7 +286,7 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 
 	for _, year := range splitCSVInts(*yearly) {
 		for _, mu := range splitCSVInts(*minUsers) {
-			if _, err := rankingService.Yearly(ctx, year, 1000, mu); err != nil {
+			if _, err := rankingService.Yearly(ctx, year, 1000, 0, mu); err != nil {
 				return fmt.Errorf("warm yearly ranking: year=%d min_users=%d: %w", year, mu, err)
 			}
 		}
@@ -297,7 +297,7 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 			return err
 		}
 		for _, mu := range splitCSVInts(*minUsers) {
-			if _, err := rankingService.Monthly(ctx, year, month, 100, mu); err != nil {
+			if _, err := rankingService.Monthly(ctx, year, month, 100, 0, mu); err != nil {
 				return fmt.Errorf("warm monthly ranking: %s min_users=%d: %w", ym, mu, err)
 			}
 		}
@@ -308,7 +308,7 @@ func runCacheWarmup(ctx context.Context, args []string) error {
 			return err
 		}
 		for _, mu := range splitCSVInts(*minUsers) {
-			if _, err := rankingService.Weekly(ctx, year, week, 100, mu); err != nil {
+			if _, err := rankingService.Weekly(ctx, year, week, 100, 0, mu); err != nil {
 				return fmt.Errorf("warm weekly ranking: %s min_users=%d: %w", yw, mu, err)
 			}
 		}

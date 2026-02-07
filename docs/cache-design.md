@@ -83,15 +83,17 @@ ttl := 24 * time.Hour
 
 **キャッシュ戦略**: 長期TTL（不変データ）
 
-- **キャッシュキー**: `hateblog:rankings:yearly:{year}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:yearly:{year}:{min_users}`
 - **TTL**: 7日間（過去年は実質無期限）
 - **理由**: 過去年のランキングは確定データ
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, minUsers)
 // 過去年は長期キャッシュ、当年は短期
 if year < time.Now().Year() {
     ttl = 30 * 24 * time.Hour // 30日
@@ -109,15 +111,17 @@ if year < time.Now().Year() {
 
 **キャッシュ戦略**: 時間ベースのTTL
 
-- **キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{min_users}`
 - **TTL**: 1時間（当月）/ 24時間（過去月）
 - **理由**: 過去月は確定、当月は更新中
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, minUsers)
 now := time.Now()
 if year == now.Year() && month == int(now.Month()) {
     ttl = 1 * time.Hour
@@ -135,15 +139,17 @@ if year == now.Year() && month == int(now.Month()) {
 
 **キャッシュ戦略**: 時間ベースのTTL
 
-- **キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{min_users}`
 - **TTL**: 30分（当週）/ 24時間（過去週）
 - **理由**: 週の途中は頻繁に更新される
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:weekly:%d:%d:%d", year, week, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:weekly:%d:%d:%d", year, week, minUsers)
 currentYear, currentWeek := time.Now().ISOWeek()
 if year == currentYear && week == currentWeek {
     ttl = 30 * time.Minute
@@ -482,70 +488,79 @@ return paginate(filtered, limit, offset)
 
 #### 3. `/rankings/yearly`
 
-**キャッシュキー**: `hateblog:rankings:yearly:{year}`
+**キャッシュキー**: `hateblog:rankings:yearly:{year}:{min_users}`
 
-- limitパラメータは最大1000なので、1000件をキャッシュ
-- アプリ層でlimitを適用してslice
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**:
 - 過去年: 7日間（ほぼ不変）
 - 当年: 1時間
 
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d", year)
+cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, minUsers)
 
 var entries []Entry
-if err := cache.Get(ctx, cacheKey, &entries); err != nil {
-    entries = fetchYearlyRankingFromDB(year, 1000) // 最大1000件取得
-    ttl := 7 * 24 * time.Hour
-    if year == time.Now().Year() {
-        ttl = 1 * time.Hour
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &entries); err != nil {
+        entries = fetchYearlyRankingFromDB(year, 100)
+        ttl := 7 * 24 * time.Hour
+        if year == time.Now().Year() {
+            ttl = 1 * time.Hour
+        }
+        cache.Set(ctx, cacheKey, entries, ttl)
     }
-    cache.Set(ctx, cacheKey, entries, ttl)
+} else {
+    entries = fetchYearlyRankingFromDBWithOffset(year, limit, offset)
 }
-
-return entries[:min(limit, len(entries))]
+return entries
 ```
 
 ---
 
 #### 4. `/rankings/monthly`
 
-**キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}`
+**キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{min_users}`
 
-- 同様に最大100件をキャッシュ、アプリ層でlimit適用
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**:
 - 過去月: 24時間
 - 当月: 1時間
 
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d", year, month)
+cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, minUsers)
 
 var entries []Entry
-if err := cache.Get(ctx, cacheKey, &entries); err != nil {
-    entries = fetchMonthlyRankingFromDB(year, month, 100)
-    ttl := 24 * time.Hour
-    if year == now.Year() && month == int(now.Month()) {
-        ttl = 1 * time.Hour
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &entries); err != nil {
+        entries = fetchMonthlyRankingFromDB(year, month, 100)
+        ttl := 24 * time.Hour
+        if year == now.Year() && month == int(now.Month()) {
+            ttl = 1 * time.Hour
+        }
+        cache.Set(ctx, cacheKey, entries, ttl)
     }
-    cache.Set(ctx, cacheKey, entries, ttl)
+} else {
+    entries = fetchMonthlyRankingFromDBWithOffset(year, month, limit, offset)
 }
-
-return entries[:min(limit, len(entries))]
+return entries
 ```
 
 ---
 
 #### 5. `/rankings/weekly`
 
-**キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}`
+**キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{min_users}`
 
 **TTL**:
 - 過去週: 24時間
 - 当週: 30分
 
-実装は月次ランキングと同様。
+limitパラメータは最大100で、`limit=100` かつ `offset=0` のときのみ100件をキャッシュ。それ以外はDB取得のみ。
 
 ---
 
@@ -619,9 +634,9 @@ return paginate(filtered, limit, offset)
 | `/entries/new` | `hateblog:entries:{date}:all` | 日付数 |
 | `/entries/hot` | `hateblog:entries:{date}:all` | **同上（共用）** |
 | `/tags/entries/{tag}` | `hateblog:tags:{tag}:entries:all` | タグ数 |
-| `/rankings/yearly` | `hateblog:rankings:yearly:{year}` | 年数 |
-| `/rankings/monthly` | `hateblog:rankings:monthly:{year}:{month}` | 年月数 |
-| `/rankings/weekly` | `hateblog:rankings:weekly:{year}:{week}` | 年週数 |
+| `/rankings/yearly` | `hateblog:rankings:yearly:{year}:{min_users}` | 年数 × min_users |
+| `/rankings/monthly` | `hateblog:rankings:monthly:{year}:{month}:{min_users}` | 年月数 × min_users |
+| `/rankings/weekly` | `hateblog:rankings:weekly:{year}:{week}:{min_users}` | 年週数 × min_users |
 | `/archive` | `hateblog:archive:{year}:{month}:{min_users}` | 年月 × 6 |
 | `/tags` | `hateblog:tags:list:all` | 1 |
 | `/search` | `hateblog:search:{query_hash}:{sort}:all` | クエリ数 |
