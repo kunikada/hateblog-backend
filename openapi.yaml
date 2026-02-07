@@ -71,7 +71,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 25
             example: 25
         - name: offset
@@ -142,7 +142,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 25
             example: 25
         - name: offset

@@ -116,7 +116,17 @@ func (m *mockEntryRepository) List(ctx context.Context, query domainEntry.ListQu
 	if m.listFunc != nil {
 		return m.listFunc(ctx, query)
 	}
-	return m.entries, nil
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	if query.Offset >= len(m.entries) {
+		return []*domainEntry.Entry{}, nil
+	}
+	entries := m.entries[query.Offset:]
+	if query.Limit <= 0 || query.Limit >= len(entries) {
+		return entries, nil
+	}
+	return entries[:query.Limit], nil
 }
 
 func (m *mockEntryRepository) Count(ctx context.Context, query domainEntry.ListQuery) (int64, error) {

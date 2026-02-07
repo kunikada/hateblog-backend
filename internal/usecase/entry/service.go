@@ -20,8 +20,8 @@ type DayEntriesCache interface {
 
 // TagEntriesCache stores entries by tag.
 type TagEntriesCache interface {
-	Get(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error)
-	Set(ctx context.Context, tagName string, entries []*domainEntry.Entry) error
+	Get(ctx context.Context, tagName string, sort domainEntry.SortType, minUsers int, out any) (bool, error)
+	Set(ctx context.Context, tagName string, sort domainEntry.SortType, minUsers int, value any) error
 }
 
 // Service orchestrates entry use cases.
@@ -99,33 +99,71 @@ func (s *Service) ListTagEntriesWithCacheStatus(ctx context.Context, tagName str
 	if tagName == "" {
 		return ListResult{}, false, fmt.Errorf("tag is required")
 	}
-	all, cacheHit, err := s.loadAllTagEntries(ctx, tagName)
-	if err != nil {
-		return ListResult{}, false, err
+	limit := params.Limit
+	if limit <= 0 {
+		limit = domainEntry.DefaultLimit
 	}
-	filtered := filterByMinUsers(all, params.MinBookmarkCount)
+	const maxLimit = 100
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	minUsers := params.MinBookmarkCount
+	if minUsers < 0 {
+		minUsers = 0
+	}
 	sortType := params.Sort
 	if sortType == "" {
 		sortType = domainEntry.SortNew
 	}
 	switch sortType {
-	case domainEntry.SortHot:
-		sort.Slice(filtered, func(i, j int) bool {
-			if filtered[i].BookmarkCount != filtered[j].BookmarkCount {
-				return filtered[i].BookmarkCount > filtered[j].BookmarkCount
-			}
-			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
-		})
-	case domainEntry.SortNew:
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
-		})
+	case domainEntry.SortHot, domainEntry.SortNew:
+		// ok
 	default:
 		return ListResult{}, false, fmt.Errorf("unsupported sort %q", sortType)
 	}
-	total := int64(len(filtered))
-	paged := paginate(filtered, params.Offset, params.Limit)
-	return ListResult{Entries: paged, Total: total}, cacheHit, nil
+
+	useCache := limit == maxLimit && offset == 0 && s.tagEntries != nil
+	if useCache {
+		var cached ListResult
+		ok, err := s.tagEntries.Get(ctx, tagName, sortType, minUsers, &cached)
+		if err != nil {
+			s.logDebug("tag entries cache lookup failed", err)
+		} else if ok {
+			return cached, true, nil
+		}
+	}
+
+	query := domainEntry.ListQuery{
+		Tags:             []string{tagName},
+		Sort:             sortType,
+		Limit:            limit,
+		Offset:           offset,
+		MaxLimitOverride: maxLimit,
+		MinBookmarkCount: minUsers,
+	}
+	entries, err := s.repo.List(ctx, query)
+	if err != nil {
+		return ListResult{}, false, err
+	}
+	total, err := s.repo.Count(ctx, query)
+	if err != nil {
+		return ListResult{}, false, err
+	}
+
+	if useCache {
+		if err := s.tagEntries.Set(ctx, tagName, sortType, minUsers, tagEntriesCachePayload{
+			Entries: entries,
+			Total:   total,
+		}); err != nil {
+			s.logDebug("tag entries cache set failed", err)
+		}
+	}
+
+	return ListResult{Entries: entries, Total: total}, false, nil
 }
 
 func (s *Service) listDayEntriesWithCacheStatus(ctx context.Context, sortType domainEntry.SortType, params DayListParams) (ListResult, bool, error) {
@@ -203,31 +241,7 @@ func (s *Service) loadAllDayEntries(ctx context.Context, date string) ([]*domain
 	return entries, false, nil
 }
 
-func (s *Service) loadAllTagEntries(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error) {
-	if s.tagEntries != nil {
-		if cached, ok, err := s.tagEntries.Get(ctx, tagName); err == nil && ok {
-			return cached, true, nil
-		} else if err != nil {
-			s.logDebug("tag entries cache lookup failed", err)
-		}
-	}
-	query := domainEntry.ListQuery{
-		Tags:             []string{tagName},
-		Sort:             domainEntry.SortNew,
-		Limit:            s.maxAllResults,
-		MaxLimitOverride: s.maxAllResults,
-	}
-	entries, err := s.repo.List(ctx, query)
-	if err != nil {
-		return nil, false, err
-	}
-	if s.tagEntries != nil {
-		if err := s.tagEntries.Set(ctx, tagName, entries); err != nil {
-			s.logDebug("tag entries cache set failed", err)
-		}
-	}
-	return entries, false, nil
-}
+type tagEntriesCachePayload = ListResult
 
 func filterByMinUsers(entries []*domainEntry.Entry, minUsers int) []*domainEntry.Entry {
 	if minUsers < 0 {
