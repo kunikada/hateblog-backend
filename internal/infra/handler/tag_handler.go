@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultTagLimit     = 25
-	maxTagLimit         = 1000
+	maxTagLimit         = 100
 	defaultTagListLimit = 50
 	maxTagListLimit     = 200
 )

@@ -83,15 +83,17 @@ ttl := 24 * time.Hour
 
 **キャッシュ戦略**: 長期TTL（不変データ）
 
-- **キャッシュキー**: `hateblog:rankings:yearly:{year}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:yearly:{year}:{min_users}`
 - **TTL**: 7日間（過去年は実質無期限）
 - **理由**: 過去年のランキングは確定データ
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, minUsers)
 // 過去年は長期キャッシュ、当年は短期
 if year < time.Now().Year() {
     ttl = 30 * 24 * time.Hour // 30日
@@ -109,15 +111,17 @@ if year < time.Now().Year() {
 
 **キャッシュ戦略**: 時間ベースのTTL
 
-- **キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{min_users}`
 - **TTL**: 1時間（当月）/ 24時間（過去月）
 - **理由**: 過去月は確定、当月は更新中
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, minUsers)
 now := time.Now()
 if year == now.Year() && month == int(now.Month()) {
     ttl = 1 * time.Hour
@@ -135,15 +139,17 @@ if year == now.Year() && month == int(now.Month()) {
 
 **キャッシュ戦略**: 時間ベースのTTL
 
-- **キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{limit}`
+- **キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{min_users}`
 - **TTL**: 30分（当週）/ 24時間（過去週）
 - **理由**: 週の途中は頻繁に更新される
 - **キャッシュ対象**: RankingResponse
 - **DB負荷軽減効果**: 高（重い集計クエリ）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:weekly:%d:%d:%d", year, week, limit)
+cacheKey := fmt.Sprintf("hateblog:rankings:weekly:%d:%d:%d", year, week, minUsers)
 currentYear, currentWeek := time.Now().ISOWeek()
 if year == currentYear && week == currentWeek {
     ttl = 30 * time.Minute
@@ -159,18 +165,20 @@ if year == currentYear && week == currentWeek {
 
 ### 7. タグ別エントリー一覧 (`GET /tags/entries/{tag}`)
 
-**キャッシュ戦略**: 時間ベースのTTL + 人気タグの優先キャッシュ
+**キャッシュ戦略**: 時間ベースのTTL（初回ページのみ）
 
-- **キャッシュキー**: `hateblog:tags:{tag_name}:entries:{min_users}:{limit}:{offset}`
+- **キャッシュキー**: `hateblog:tags:{tag_name}:entries:{sort}:{min_users}:100:0`
 - **TTL**: 10分
 - **理由**: タグ別エントリーは中程度の更新頻度
 - **キャッシュ対象**: EntryListResponse
 - **DB負荷軽減効果**: 中〜高（人気タグは高負荷）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
-cacheKey := fmt.Sprintf("hateblog:tags:%s:entries:%d:%d:%d",
-    url.QueryEscape(tagName), minUsers, limit, offset)
+cacheKey := fmt.Sprintf("hateblog:tags:%s:entries:%s:%d:100:0",
+    url.QueryEscape(tagName), sort, minUsers)
 ttl := 10 * time.Minute
 ```
 
@@ -208,18 +216,20 @@ ttl := 1 * time.Hour
 
 ### 9. キーワード検索 (`GET /search`)
 
-**キャッシュ戦略**: 短期TTL + 人気検索クエリの優先キャッシュ
+**キャッシュ戦略**: 短期TTL（初回ページのみ）
 
-- **キャッシュキー**: `hateblog:search:{query_hash}:{sort}:{min_users}:{limit}:{offset}`
+- **キャッシュキー**: `hateblog:search:{query_hash}:{sort}:{min_users}:100:0`
 - **TTL**: 15分
 - **理由**: 検索結果は頻繁に変わる可能性がある
 - **キャッシュ対象**: SearchResponse
 - **DB負荷軽減効果**: 高（全文検索は重い）
+- **キャッシュ対象条件**: `limit=100` かつ `offset=0` のときのみ
+- **limit上限**: 100
 
 **実装メモ**:
 ```go
 queryHash := sha256Hash(query) // クエリをハッシュ化
-cacheKey := fmt.Sprintf("hateblog:search:%s:%s:%d:%d:%d", queryHash, sort, minUsers, limit, offset)
+cacheKey := fmt.Sprintf("hateblog:search:%s:%s:%d:100:0", queryHash, sort, minUsers)
 ttl := 15 * time.Minute
 ```
 
@@ -452,100 +462,112 @@ return paginate(filtered, limit, offset)
 
 #### 2. `/tags/entries/{tag}`
 
-**キャッシュキー**: `hateblog:tags:{tag_name}:entries:all`
+**キャッシュキー**: `hateblog:tags:{tag_name}:entries:{sort}:{min_users}:100:0`
 
-- タグごとに全エントリーをキャッシュ
-- アプリ層でmin_users/limit/offsetを適用
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**: 10分
 
 **実装例**:
 
 ```go
-cacheKey := fmt.Sprintf("hateblog:tags:%s:entries:all", tagName)
+cacheKey := fmt.Sprintf("hateblog:tags:%s:entries:%s:%d:100:0", tagName, sort, minUsers)
 
-var allEntries []Entry
-if err := cache.Get(ctx, cacheKey, &allEntries); err != nil {
-    allEntries = fetchEntriesByTagFromDB(tagName)
-    cache.Set(ctx, cacheKey, allEntries, 10*time.Minute)
+var entries []Entry
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &entries); err != nil {
+        entries = fetchEntriesByTagFromDB(tagName, sort, minUsers, 100, 0)
+        cache.Set(ctx, cacheKey, entries, 10*time.Minute)
+    }
+} else {
+    entries = fetchEntriesByTagFromDB(tagName, sort, minUsers, limit, offset)
 }
-
-filtered := filterByMinUsers(allEntries, minUsers)
-return paginate(filtered, limit, offset)
+return entries
 ```
 
 **効果**:
 - 人気タグのDB負荷を大幅削減
-- タグごとに1キーのみ
+- `limit=100&offset=0` のみキャッシュ
 
 ---
 
 #### 3. `/rankings/yearly`
 
-**キャッシュキー**: `hateblog:rankings:yearly:{year}`
+**キャッシュキー**: `hateblog:rankings:yearly:{year}:{min_users}`
 
-- limitパラメータは最大1000なので、1000件をキャッシュ
-- アプリ層でlimitを適用してslice
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**:
 - 過去年: 7日間（ほぼ不変）
 - 当年: 1時間
 
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d", year)
+cacheKey := fmt.Sprintf("hateblog:rankings:yearly:%d:%d", year, minUsers)
 
 var entries []Entry
-if err := cache.Get(ctx, cacheKey, &entries); err != nil {
-    entries = fetchYearlyRankingFromDB(year, 1000) // 最大1000件取得
-    ttl := 7 * 24 * time.Hour
-    if year == time.Now().Year() {
-        ttl = 1 * time.Hour
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &entries); err != nil {
+        entries = fetchYearlyRankingFromDB(year, 100)
+        ttl := 7 * 24 * time.Hour
+        if year == time.Now().Year() {
+            ttl = 1 * time.Hour
+        }
+        cache.Set(ctx, cacheKey, entries, ttl)
     }
-    cache.Set(ctx, cacheKey, entries, ttl)
+} else {
+    entries = fetchYearlyRankingFromDBWithOffset(year, limit, offset)
 }
-
-return entries[:min(limit, len(entries))]
+return entries
 ```
 
 ---
 
 #### 4. `/rankings/monthly`
 
-**キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}`
+**キャッシュキー**: `hateblog:rankings:monthly:{year}:{month}:{min_users}`
 
-- 同様に最大100件をキャッシュ、アプリ層でlimit適用
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**:
 - 過去月: 24時間
 - 当月: 1時間
 
 ```go
-cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d", year, month)
+cacheKey := fmt.Sprintf("hateblog:rankings:monthly:%d:%d:%d", year, month, minUsers)
 
 var entries []Entry
-if err := cache.Get(ctx, cacheKey, &entries); err != nil {
-    entries = fetchMonthlyRankingFromDB(year, month, 100)
-    ttl := 24 * time.Hour
-    if year == now.Year() && month == int(now.Month()) {
-        ttl = 1 * time.Hour
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &entries); err != nil {
+        entries = fetchMonthlyRankingFromDB(year, month, 100)
+        ttl := 24 * time.Hour
+        if year == now.Year() && month == int(now.Month()) {
+            ttl = 1 * time.Hour
+        }
+        cache.Set(ctx, cacheKey, entries, ttl)
     }
-    cache.Set(ctx, cacheKey, entries, ttl)
+} else {
+    entries = fetchMonthlyRankingFromDBWithOffset(year, month, limit, offset)
 }
-
-return entries[:min(limit, len(entries))]
+return entries
 ```
 
 ---
 
 #### 5. `/rankings/weekly`
 
-**キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}`
+**キャッシュキー**: `hateblog:rankings:weekly:{year}:{week}:{min_users}`
 
 **TTL**:
 - 過去週: 24時間
 - 当週: 30分
 
-実装は月次ランキングと同様。
+limitパラメータは最大100で、`limit=100` かつ `offset=0` のときのみ100件をキャッシュ。それ以外はDB取得のみ。
 
 ---
 
@@ -589,25 +611,28 @@ return paginate(allTags, limit, offset)
 
 #### 8. `/search`
 
-**キャッシュキー**: `hateblog:search:{query_hash}:{sort}:all`
+**キャッシュキー**: `hateblog:search:{query_hash}:{sort}:{min_users}:100:0`
 
-- クエリごとに全結果をキャッシュ（max 1000件程度）
-- アプリ層でmin_users/limit/offsetを適用
+- limitパラメータは最大100
+- `limit=100` かつ `offset=0` のときのみ100件をキャッシュ
+- それ以外はDB取得のみ（キャッシュしない）
 
 **TTL**: 15分
 
 ```go
 queryHash := sha256.Sum256([]byte(query))
-cacheKey := fmt.Sprintf("hateblog:search:%x:%s:all", queryHash, sort)
+cacheKey := fmt.Sprintf("hateblog:search:%x:%s:%d:100:0", queryHash, sort, minUsers)
 
-var allResults []Entry
-if err := cache.Get(ctx, cacheKey, &allResults); err != nil {
-    allResults = searchFromDB(query, 1000) // max 1000件
-    cache.Set(ctx, cacheKey, allResults, 15*time.Minute)
+var results []Entry
+if limit == 100 && offset == 0 {
+    if err := cache.Get(ctx, cacheKey, &results); err != nil {
+        results = searchFromDB(query, sort, minUsers, 100, 0)
+        cache.Set(ctx, cacheKey, results, 15*time.Minute)
+    }
+} else {
+    results = searchFromDB(query, sort, minUsers, limit, offset)
 }
-
-filtered := filterByMinUsers(allResults, minUsers)
-return paginate(filtered, limit, offset)
+return results
 ```
 
 ---
@@ -618,13 +643,13 @@ return paginate(filtered, limit, offset)
 |--------------|--------------|-------|
 | `/entries/new` | `hateblog:entries:{date}:all` | 日付数 |
 | `/entries/hot` | `hateblog:entries:{date}:all` | **同上（共用）** |
-| `/tags/entries/{tag}` | `hateblog:tags:{tag}:entries:all` | タグ数 |
-| `/rankings/yearly` | `hateblog:rankings:yearly:{year}` | 年数 |
-| `/rankings/monthly` | `hateblog:rankings:monthly:{year}:{month}` | 年月数 |
-| `/rankings/weekly` | `hateblog:rankings:weekly:{year}:{week}` | 年週数 |
+| `/tags/entries/{tag}` | `hateblog:tags:{tag}:entries:{sort}:{min_users}:100:0` | タグ数 × sort × min_users |
+| `/rankings/yearly` | `hateblog:rankings:yearly:{year}:{min_users}` | 年数 × min_users |
+| `/rankings/monthly` | `hateblog:rankings:monthly:{year}:{month}:{min_users}` | 年月数 × min_users |
+| `/rankings/weekly` | `hateblog:rankings:weekly:{year}:{week}:{min_users}` | 年週数 × min_users |
 | `/archive` | `hateblog:archive:{year}:{month}:{min_users}` | 年月 × 6 |
 | `/tags` | `hateblog:tags:list:all` | 1 |
-| `/search` | `hateblog:search:{query_hash}:{sort}:all` | クエリ数 |
+| `/search` | `hateblog:search:{query_hash}:{sort}:{min_users}:100:0` | クエリ数 × sort × min_users |
 
 **総キャッシュキー数の削減効果**:
 - 旧設計: 数千〜数万キー（パラメータ × ページ数）

@@ -53,7 +53,7 @@ func (c *DayEntriesCache) Set(ctx context.Context, date string, entries []*domai
 	return c.cache.Set(ctx, c.key(date), entries)
 }
 
-// TagEntriesCache caches all entries for a given tag.
+// TagEntriesCache caches the first page of tag entries for a given tag.
 type TagEntriesCache struct {
 	cache *snappyJSONCache
 }
@@ -63,21 +63,19 @@ func NewTagEntriesCache(client bytesCacheClient, ttl time.Duration) *TagEntriesC
 	return &TagEntriesCache{cache: newSnappyJSONCache(client, ttl)}
 }
 
-func (c *TagEntriesCache) key(tagName string) string {
+func (c *TagEntriesCache) key(tagName string, sort domainEntry.SortType, minUsers int) string {
 	norm := domainTag.NormalizeName(tagName)
-	return fmt.Sprintf("hateblog:tags:%s:entries:all", url.QueryEscape(norm))
+	return fmt.Sprintf("hateblog:tags:%s:entries:%s:%d:100:0", url.QueryEscape(norm), sort, minUsers)
 }
 
 // Get returns cached tag entries for the given tag name.
-func (c *TagEntriesCache) Get(ctx context.Context, tagName string) ([]*domainEntry.Entry, bool, error) {
-	var out []*domainEntry.Entry
-	ok, err := c.cache.Get(ctx, c.key(tagName), &out)
-	return out, ok, err
+func (c *TagEntriesCache) Get(ctx context.Context, tagName string, sort domainEntry.SortType, minUsers int, out any) (bool, error) {
+	return c.cache.Get(ctx, c.key(tagName, sort, minUsers), out)
 }
 
 // Set stores tag entries for the given tag name.
-func (c *TagEntriesCache) Set(ctx context.Context, tagName string, entries []*domainEntry.Entry) error {
-	return c.cache.Set(ctx, c.key(tagName), entries)
+func (c *TagEntriesCache) Set(ctx context.Context, tagName string, sort domainEntry.SortType, minUsers int, value any) error {
+	return c.cache.Set(ctx, c.key(tagName, sort, minUsers), value)
 }
 
 // SearchCache caches full search responses for a given query+params.

@@ -8,9 +8,9 @@ import (
 
 const (
 	defaultRankingLimit       = 100
-	maxYearlyRankingLimit     = 1000
-	maxMonthlyRankingLimit    = 1000
-	maxWeeklyRankingLimit     = 1000
+	maxYearlyRankingLimit     = 100
+	maxMonthlyRankingLimit    = 100
+	maxWeeklyRankingLimit     = 100
 	defaultRankingMinBookmark = 5
 )
 
@@ -46,20 +46,25 @@ func (h *RankingHandler) handleYearly(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
+	offset, err := readQueryInt(r, "offset", 0, 100000, 0)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	result, cacheHit, err := h.service.YearlyWithCacheStatus(r.Context(), year, limit, minUsers)
+	result, cacheHit, err := h.service.YearlyWithCacheStatus(r.Context(), year, limit, offset, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
 	setCacheStatusHeader(w, cacheHit)
-	writeJSON(w, http.StatusOK, buildRankingResponse("yearly", year, nil, nil, result, h.apiBasePath))
+	writeJSON(w, http.StatusOK, buildRankingResponse("yearly", year, nil, nil, result, limit, offset, h.apiBasePath))
 }
 
 func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
@@ -78,20 +83,25 @@ func (h *RankingHandler) handleMonthly(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
+	offset, err := readQueryInt(r, "offset", 0, 100000, 0)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	result, cacheHit, err := h.service.MonthlyWithCacheStatus(r.Context(), year, month, limit, minUsers)
+	result, cacheHit, err := h.service.MonthlyWithCacheStatus(r.Context(), year, month, limit, offset, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
 	setCacheStatusHeader(w, cacheHit)
-	writeJSON(w, http.StatusOK, buildRankingResponse("monthly", year, &month, nil, result, h.apiBasePath))
+	writeJSON(w, http.StatusOK, buildRankingResponse("monthly", year, &month, nil, result, limit, offset, h.apiBasePath))
 }
 
 func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
@@ -110,28 +120,35 @@ func (h *RankingHandler) handleWeekly(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
+	offset, err := readQueryInt(r, "offset", 0, 100000, 0)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
 	minUsers, err := readQueryInt(r, "min_users", 0, 10000, defaultRankingMinBookmark)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	result, cacheHit, err := h.service.WeeklyWithCacheStatus(r.Context(), year, week, limit, minUsers)
+	result, cacheHit, err := h.service.WeeklyWithCacheStatus(r.Context(), year, week, limit, offset, minUsers)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
 	setCacheStatusHeader(w, cacheHit)
-	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result, h.apiBasePath))
+	writeJSON(w, http.StatusOK, buildRankingResponse("weekly", year, nil, &week, result, limit, offset, h.apiBasePath))
 }
 
-func buildRankingResponse(periodType string, year int, month, week *int, result usecaseRanking.Result, apiBasePath string) rankingResponse {
+func buildRankingResponse(periodType string, year int, month, week *int, result usecaseRanking.Result, limit, offset int, apiBasePath string) rankingResponse {
 	resp := rankingResponse{
 		PeriodType: periodType,
 		Year:       year,
 		Entries:    make([]rankingEntryResponse, 0, len(result.Entries)),
 		Total:      result.Total,
+		Limit:      limit,
+		Offset:     offset,
 	}
 	if month != nil {
 		resp.Month = month
@@ -141,7 +158,7 @@ func buildRankingResponse(periodType string, year int, month, week *int, result 
 	}
 	for i, ent := range result.Entries {
 		resp.Entries = append(resp.Entries, rankingEntryResponse{
-			Rank:  i + 1,
+			Rank:  offset + i + 1,
 			Entry: toEntryResponse(ent, apiBasePath),
 		})
 	}
@@ -155,6 +172,8 @@ type rankingResponse struct {
 	Week       *int                   `json:"week,omitempty"`
 	Entries    []rankingEntryResponse `json:"entries"`
 	Total      int64                  `json:"total"`
+	Limit      int                    `json:"limit"`
+	Offset     int                    `json:"offset"`
 }
 
 type rankingEntryResponse struct {

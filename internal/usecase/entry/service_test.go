@@ -2,6 +2,7 @@ package entry
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -65,22 +66,42 @@ func (c *stubDayCache) Set(ctx context.Context, date string, entries []*domainEn
 }
 
 type stubTagCache struct {
-	store map[string][]*domainEntry.Entry
+	store map[string]any
 }
 
-func (c *stubTagCache) Get(ctx context.Context, tag string) ([]*domainEntry.Entry, bool, error) {
-	v, ok := c.store[tag]
-	return v, ok, nil
+func (c *stubTagCache) key(tag string, sort domainEntry.SortType, minUsers int) string {
+	return fmt.Sprintf("%s|%s|%d", tag, sort, minUsers)
 }
 
-func (c *stubTagCache) Set(ctx context.Context, tag string, entries []*domainEntry.Entry) error {
-	c.store[tag] = entries
+func (c *stubTagCache) Get(ctx context.Context, tag string, sort domainEntry.SortType, minUsers int, out any) (bool, error) {
+	v, ok := c.store[c.key(tag, sort, minUsers)]
+	if !ok {
+		return false, nil
+	}
+	if out == nil {
+		return true, nil
+	}
+	switch dst := out.(type) {
+	case *tagEntriesCachePayload:
+		payload, ok := v.(tagEntriesCachePayload)
+		if !ok {
+			return false, nil
+		}
+		*dst = payload
+	default:
+		return false, nil
+	}
+	return true, nil
+}
+
+func (c *stubTagCache) Set(ctx context.Context, tag string, sort domainEntry.SortType, minUsers int, value any) error {
+	c.store[c.key(tag, sort, minUsers)] = value
 	return nil
 }
 
 func TestListNewEntriesUsesDayCache(t *testing.T) {
 	dayCache := newStubDayCache()
-	tagCache := &stubTagCache{store: map[string][]*domainEntry.Entry{}}
+	tagCache := &stubTagCache{store: map[string]any{}}
 	now := time.Now()
 	dayCache.store["20250105"] = []*domainEntry.Entry{{
 		ID:            uuid.New(),
@@ -109,7 +130,7 @@ func TestListNewEntriesUsesDayCache(t *testing.T) {
 
 func TestListHotEntriesStoresDayCacheAndSorts(t *testing.T) {
 	dayCache := newStubDayCache()
-	tagCache := &stubTagCache{store: map[string][]*domainEntry.Entry{}}
+	tagCache := &stubTagCache{store: map[string]any{}}
 	now := time.Now()
 	entries := []*domainEntry.Entry{
 		{

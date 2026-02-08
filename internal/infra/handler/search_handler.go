@@ -39,7 +39,7 @@ func (h *SearchHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, err := readQueryInt(r, "limit", 1, domainEntry.MaxLimit, defaultLimit)
+	limit, err := readQueryInt(r, "limit", 1, 100, defaultLimit)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return

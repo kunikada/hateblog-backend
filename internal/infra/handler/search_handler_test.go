@@ -17,6 +17,10 @@ import (
 func TestSearchHandler_SearchEntries(t *testing.T) {
 	entry1 := newTestEntry(uuid.New(), "Go Programming Tutorial", 100)
 	entry2 := newTestEntry(uuid.New(), "Advanced Go Patterns", 75)
+	entryPage := make([]*domainEntry.Entry, 0, 15)
+	for i := 0; i < 15; i++ {
+		entryPage = append(entryPage, newTestEntry(uuid.New(), fmt.Sprintf("Entry %d", i+1), 100-i))
+	}
 
 	tests := []struct {
 		name           string
@@ -46,11 +50,11 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 		{
 			name:           "success with custom limit and offset",
 			queryParams:    "?q=programming&limit=10&offset=5",
-			mockEntries:    []*domainEntry.Entry{entry1},
+			mockEntries:    entryPage,
 			mockTotal:      100,
 			wantStatus:     http.StatusOK,
 			wantQuery:      "programming",
-			wantEntryCount: 1,
+			wantEntryCount: 10,
 			wantTotal:      100,
 			wantLimit:      10,
 			wantOffset:     5,
@@ -123,7 +127,7 @@ func TestSearchHandler_SearchEntries(t *testing.T) {
 		},
 		{
 			name:        "error: limit too large",
-			queryParams: fmt.Sprintf("?q=test&limit=%d", domainEntry.MaxLimit+1),
+			queryParams: "?q=test&limit=101",
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -398,7 +402,7 @@ func TestSearchHandler_BoundaryValues(t *testing.T) {
 		{
 			name:       "maximum valid limit",
 			query:      "test",
-			limit:      domainEntry.MaxLimit,
+			limit:      100,
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -410,7 +414,7 @@ func TestSearchHandler_BoundaryValues(t *testing.T) {
 		{
 			name:       "limit above maximum",
 			query:      "test",
-			limit:      domainEntry.MaxLimit + 1,
+			limit:      101,
 			wantStatus: http.StatusBadRequest,
 		},
 	}

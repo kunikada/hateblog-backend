@@ -4,7 +4,7 @@ info:
   description: |
     hateblog リニューアル版のバックエンド API 仕様書。
     はてなブックマークのエントリー情報を提供するREST APIです。
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: Hateblog Team
   license:
@@ -71,7 +71,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 25
             example: 25
         - name: offset
@@ -142,7 +142,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 25
             example: 25
         - name: offset
@@ -249,9 +249,18 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 100
             example: 100
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
       responses:
         '200':
           description: 成功
@@ -312,9 +321,18 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 100
             example: 100
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
       responses:
         '200':
           description: 成功
@@ -375,9 +393,18 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 1000
+            maximum: 100
             default: 100
             example: 100
+        - name: offset
+          in: query
+          description: オフセット（ページネーション用）
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
       responses:
         '200':
           description: 成功
@@ -1176,6 +1203,8 @@ components:
         - year
         - entries
         - total
+        - limit
+        - offset
       properties:
         period_type:
           type: string
@@ -1206,6 +1235,14 @@ components:
           minimum: 0
           description: 対象期間の総エントリー数
           example: 10000
+        limit:
+          type: integer
+          description: 1ページあたりの件数
+          example: 100
+        offset:
+          type: integer
+          description: オフセット
+          example: 0
 
     SearchResponse:
       type: object

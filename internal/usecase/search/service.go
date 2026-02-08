@@ -81,8 +81,9 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 	if limit <= 0 {
 		limit = domainEntry.DefaultLimit
 	}
-	if limit > domainEntry.MaxLimit {
-		limit = domainEntry.MaxLimit
+	const maxLimit = 100
+	if limit > maxLimit {
+		limit = maxLimit
 	}
 	offset := params.Offset
 	if offset < 0 {
@@ -103,7 +104,8 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 		return Result{}, false, fmt.Errorf("sort must be new or hot")
 	}
 
-	if s.cache != nil {
+	useCache := limit == maxLimit && offset == 0 && s.cache != nil
+	if useCache {
 		var cached Result
 		ok, err := s.cache.Get(ctx, norm, sortType, minUsers, limit, offset, &cached)
 		if err != nil {
@@ -145,7 +147,7 @@ func (s *Service) SearchWithCacheStatus(ctx context.Context, query string, param
 		Offset:  offset,
 	}
 
-	if s.cache != nil {
+	if useCache {
 		if err := s.cache.Set(ctx, norm, sortType, minUsers, limit, offset, result); err != nil {
 			s.logDebug("failed to set search cache", err)
 		}

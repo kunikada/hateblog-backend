@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"hateblog/internal/domain/tag"
+	"hateblog/internal/pkg/apptime"
 )
 
 func TestTagRepository_Upsert(t *testing.T) {
@@ -359,13 +360,13 @@ func TestTagRepository_IncrementViewHistory(t *testing.T) {
 		tg := testTag("golang")
 		insertTag(t, pool, tg)
 
-		viewedAt := time.Now().UTC()
+		viewedAt := time.Now()
 		err := repo.IncrementViewHistory(ctx, tg.ID, viewedAt)
 		require.NoError(t, err)
 
 		// Verify count was set to 1
 		var count int
-		date := viewedAt.Truncate(24 * time.Hour)
+		date := apptime.TruncateToDay(viewedAt)
 		err = pool.QueryRow(ctx,
 			"SELECT count FROM tag_view_history WHERE tag_id = $1 AND viewed_at = $2",
 			tg.ID, date).Scan(&count)
@@ -379,8 +380,8 @@ func TestTagRepository_IncrementViewHistory(t *testing.T) {
 		tg := testTag("golang")
 		insertTag(t, pool, tg)
 
-		viewedAt := time.Now().UTC()
-		date := viewedAt.Truncate(24 * time.Hour)
+		viewedAt := time.Now()
+		date := apptime.TruncateToDay(viewedAt)
 
 		// First increment
 		err := repo.IncrementViewHistory(ctx, tg.ID, viewedAt)
@@ -406,7 +407,7 @@ func TestTagRepository_IncrementViewHistory(t *testing.T) {
 		insertTag(t, pool, tg)
 
 		// Increment with different times on same day
-		now := time.Now().UTC()
+		now := time.Now()
 		err := repo.IncrementViewHistory(ctx, tg.ID, now)
 		require.NoError(t, err)
 
@@ -421,7 +422,7 @@ func TestTagRepository_IncrementViewHistory(t *testing.T) {
 		assert.Equal(t, 1, rows)
 
 		var count int
-		date := now.Truncate(24 * time.Hour)
+		date := apptime.TruncateToDay(now)
 		err = pool.QueryRow(ctx,
 			"SELECT count FROM tag_view_history WHERE tag_id = $1 AND viewed_at = $2",
 			tg.ID, date).Scan(&count)
@@ -435,7 +436,7 @@ func TestTagRepository_IncrementViewHistory(t *testing.T) {
 		tg := testTag("golang")
 		insertTag(t, pool, tg)
 
-		today := time.Now().UTC()
+		today := time.Now()
 		yesterday := today.Add(-24 * time.Hour)
 
 		err := repo.IncrementViewHistory(ctx, tg.ID, today)
