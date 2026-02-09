@@ -31,7 +31,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Compress(5))
+	r.Use(middleware.Compress(1))
 
 	for _, mw := range cfg.Middlewares {
 		if mw == nil {

@@ -12,9 +12,9 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 
 	"hateblog/internal/domain/api_key"
+	"hateblog/internal/pkg/apikeyhash"
 	"hateblog/internal/platform/cache"
 )
 
@@ -305,8 +305,8 @@ func DynamicAPIKeyAuth(repo interface{}, logger *slog.Logger) func(next http.Han
 				return
 			}
 
-			// Verify with bcrypt
-			if err := bcrypt.CompareHashAndPassword([]byte(storedKey.KeyHash), []byte(apiKeyStr)); err != nil {
+			// Verify API key hash.
+			if !apikeyhash.Verify(storedKey.KeyHash, apiKeyStr) {
 				if logger != nil {
 					logger.Warn("API key verification failed", "key_id", keyIDStr, "path", r.URL.Path)
 				}

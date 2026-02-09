@@ -184,10 +184,6 @@ func (s *Service) listDayEntriesWithCacheStatus(ctx context.Context, sortType do
 			}
 			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 		})
-	default:
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
-		})
 	}
 	total := int64(len(filtered))
 	paged := paginate(filtered, params.Offset, params.Limit)
