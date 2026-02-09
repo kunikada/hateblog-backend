@@ -143,7 +143,7 @@ func (r *TagRepository) GetTrending(ctx context.Context, hours int, minBookmarkC
 		limit = 20
 	}
 
-	// Optimized query using CTE to avoid correlated subquery
+	// Compute entry_count only for top tags to avoid full-table aggregation on entry_tags.
 	const query = `
 WITH tag_occurrence AS (
   SELECT
@@ -156,20 +156,24 @@ WITH tag_occurrence AS (
   WHERE e.created_at >= $1 AND e.bookmark_count >= $2
   GROUP BY t.id, t.name
 ),
-tag_total AS (
-  SELECT tag_id, COUNT(DISTINCT entry_id) AS entry_count
-  FROM entry_tags
-  GROUP BY tag_id
+top_tags AS (
+  SELECT id, name, occurrence_count
+  FROM tag_occurrence
+  ORDER BY occurrence_count DESC, name ASC
+  LIMIT $3
 )
 SELECT
-  to1.id,
-  to1.name,
-  to1.occurrence_count,
-  COALESCE(tt.entry_count, 0) AS entry_count
-FROM tag_occurrence to1
-LEFT JOIN tag_total tt ON tt.tag_id = to1.id
-ORDER BY to1.occurrence_count DESC, to1.name ASC
-LIMIT $3`
+  tt.id,
+  tt.name,
+  tt.occurrence_count,
+  COALESCE(ec.entry_count, 0) AS entry_count
+FROM top_tags tt
+LEFT JOIN LATERAL (
+  SELECT COUNT(DISTINCT et2.entry_id) AS entry_count
+  FROM entry_tags et2
+  WHERE et2.tag_id = tt.id
+) ec ON true
+ORDER BY tt.occurrence_count DESC, tt.name ASC`
 
 	since := apptime.Now().Add(-time.Duration(hours) * time.Hour)
 	rows, err := r.pool.Query(ctx, query, since, minBookmarkCount, limit)
@@ -198,7 +202,7 @@ func (r *TagRepository) GetClicked(ctx context.Context, days int, limit int) ([]
 		limit = 20
 	}
 
-	// Optimized query using CTE to avoid correlated subquery
+	// Compute entry_count only for top tags to avoid full-table aggregation on entry_tags.
 	const query = `
 WITH clicked_tags AS (
   SELECT
@@ -211,20 +215,24 @@ WITH clicked_tags AS (
   WHERE cm.clicked_at >= $1
   GROUP BY t.id, t.name
 ),
-tag_total AS (
-  SELECT tag_id, COUNT(DISTINCT entry_id) AS entry_count
-  FROM entry_tags
-  GROUP BY tag_id
+top_tags AS (
+  SELECT id, name, click_count
+  FROM clicked_tags
+  ORDER BY click_count DESC, name ASC
+  LIMIT $2
 )
 SELECT
-  ct.id,
-  ct.name,
-  ct.click_count,
-  COALESCE(tt.entry_count, 0) AS entry_count
-FROM clicked_tags ct
-LEFT JOIN tag_total tt ON tt.tag_id = ct.id
-ORDER BY ct.click_count DESC, ct.name ASC
-LIMIT $2`
+  tt.id,
+  tt.name,
+  tt.click_count,
+  COALESCE(ec.entry_count, 0) AS entry_count
+FROM top_tags tt
+LEFT JOIN LATERAL (
+  SELECT COUNT(DISTINCT et2.entry_id) AS entry_count
+  FROM entry_tags et2
+  WHERE et2.tag_id = tt.id
+) ec ON true
+ORDER BY tt.click_count DESC, tt.name ASC`
 
 	since := apptime.TruncateToDay(apptime.Now().AddDate(0, 0, -days))
 	rows, err := r.pool.Query(ctx, query, since, limit)
