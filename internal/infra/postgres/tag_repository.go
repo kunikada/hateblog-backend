@@ -143,19 +143,32 @@ func (r *TagRepository) GetTrending(ctx context.Context, hours int, minBookmarkC
 		limit = 20
 	}
 
+	// Optimized query using CTE to avoid correlated subquery
 	const query = `
-SELECT
+WITH tag_occurrence AS (
+  SELECT
     t.id,
     t.name,
-    COUNT(DISTINCT e.id) AS occurrence_count,
-    (SELECT COUNT(DISTINCT et2.entry_id) FROM entry_tags et2 WHERE et2.tag_id = t.id) AS entry_count
-FROM tags t
-INNER JOIN entry_tags et ON et.tag_id = t.id
-INNER JOIN entries e ON e.id = et.entry_id
-WHERE e.created_at >= $1
-  AND e.bookmark_count >= $2
-GROUP BY t.id, t.name
-ORDER BY occurrence_count DESC, t.name ASC
+    COUNT(DISTINCT e.id) AS occurrence_count
+  FROM tags t
+  INNER JOIN entry_tags et ON et.tag_id = t.id
+  INNER JOIN entries e ON e.id = et.entry_id
+  WHERE e.created_at >= $1 AND e.bookmark_count >= $2
+  GROUP BY t.id, t.name
+),
+tag_total AS (
+  SELECT tag_id, COUNT(DISTINCT entry_id) AS entry_count
+  FROM entry_tags
+  GROUP BY tag_id
+)
+SELECT
+  to1.id,
+  to1.name,
+  to1.occurrence_count,
+  COALESCE(tt.entry_count, 0) AS entry_count
+FROM tag_occurrence to1
+LEFT JOIN tag_total tt ON tt.tag_id = to1.id
+ORDER BY to1.occurrence_count DESC, to1.name ASC
 LIMIT $3`
 
 	since := apptime.Now().Add(-time.Duration(hours) * time.Hour)
@@ -185,18 +198,32 @@ func (r *TagRepository) GetClicked(ctx context.Context, days int, limit int) ([]
 		limit = 20
 	}
 
+	// Optimized query using CTE to avoid correlated subquery
 	const query = `
-SELECT
+WITH clicked_tags AS (
+  SELECT
     t.id,
     t.name,
-    SUM(cm.count) AS click_count,
-    (SELECT COUNT(DISTINCT et2.entry_id) FROM entry_tags et2 WHERE et2.tag_id = t.id) AS entry_count
-FROM tags t
-INNER JOIN entry_tags et ON et.tag_id = t.id
-INNER JOIN click_metrics cm ON cm.entry_id = et.entry_id
-WHERE cm.clicked_at >= $1
-GROUP BY t.id, t.name
-ORDER BY click_count DESC, t.name ASC
+    SUM(cm.count) AS click_count
+  FROM tags t
+  INNER JOIN entry_tags et ON et.tag_id = t.id
+  INNER JOIN click_metrics cm ON cm.entry_id = et.entry_id
+  WHERE cm.clicked_at >= $1
+  GROUP BY t.id, t.name
+),
+tag_total AS (
+  SELECT tag_id, COUNT(DISTINCT entry_id) AS entry_count
+  FROM entry_tags
+  GROUP BY tag_id
+)
+SELECT
+  ct.id,
+  ct.name,
+  ct.click_count,
+  COALESCE(tt.entry_count, 0) AS entry_count
+FROM clicked_tags ct
+LEFT JOIN tag_total tt ON tt.tag_id = ct.id
+ORDER BY ct.click_count DESC, ct.name ASC
 LIMIT $2`
 
 	since := apptime.TruncateToDay(apptime.Now().AddDate(0, 0, -days))
