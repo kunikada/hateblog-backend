@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 
 	"hateblog/internal/domain/api_key"
 	"hateblog/internal/domain/repository"
+	"hateblog/internal/pkg/apikeyhash"
 )
 
 // Service handles API key generation and management.
@@ -70,11 +70,8 @@ func (s *Service) GenerateAPIKey(ctx context.Context, params GenerateParams) (*G
 	// Create full key
 	plaintextKey := s.keyPrefix + randomHex
 
-	// Hash the key with bcrypt (cost factor 12)
-	hashedKey, err := bcrypt.GenerateFromPassword([]byte(plaintextKey), 12)
-	if err != nil {
-		return nil, fmt.Errorf("hash api key: %w", err)
-	}
+	// Hash the key for storage.
+	hashedKey := apikeyhash.Hash(plaintextKey)
 
 	// Current time
 	now := time.Now()
@@ -82,7 +79,7 @@ func (s *Service) GenerateAPIKey(ctx context.Context, params GenerateParams) (*G
 	// Create domain API key
 	apiKey, err := api_key.New(api_key.Params{
 		ID:               id,
-		KeyHash:          string(hashedKey),
+		KeyHash:          hashedKey,
 		Name:             params.Name,
 		Description:      params.Description,
 		CreatedAt:        now,

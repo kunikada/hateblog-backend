@@ -395,6 +395,7 @@ func run(ctx context.Context) error {
 		}
 		middlewares = append(middlewares, func(next http.Handler) http.Handler {
 			dynamicAuth := server.DynamicAPIKeyAuth(apiKeyRepo, log)
+			protected := dynamicAuth(next)
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if apiBasePath != "/" && !strings.HasPrefix(r.URL.Path, apiBasePath+"/") {
 					next.ServeHTTP(w, r)
@@ -405,7 +406,7 @@ func run(ctx context.Context) error {
 					next.ServeHTTP(w, r)
 					return
 				}
-				dynamicAuth(next).ServeHTTP(w, r)
+				protected.ServeHTTP(w, r)
 			})
 		})
 	}
