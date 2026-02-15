@@ -193,10 +193,6 @@ func run() int {
 				log.Error("attach tags failed", "url", entry.URL, "err", err)
 				return 1
 			}
-			if err := markTaggingCompleted(ctx, db.Pool, entry.ID, apptime.Now()); err != nil {
-				log.Error("mark tagging completed failed", "url", entry.URL, "err", err)
-				return 1
-			}
 			if tagCount > 0 {
 				tagged++
 			}
@@ -307,12 +303,6 @@ ON CONFLICT (url) DO UPDATE SET
 	excerpt = EXCLUDED.excerpt,
 	subject = EXCLUDED.subject,
 	search_text = EXCLUDED.search_text,
-	tagging_completed_at = CASE
-		WHEN entries.title IS DISTINCT FROM EXCLUDED.title
-		  OR entries.excerpt IS DISTINCT FROM EXCLUDED.excerpt
-		THEN NULL
-		ELSE entries.tagging_completed_at
-	END,
 	-- Keep existing created_at for stable ingestion day grouping.
 	updated_at = EXCLUDED.updated_at
 RETURNING id, (xmax = 0) AS inserted, created_at`
@@ -464,7 +454,9 @@ func fetchUntaggedEntries(ctx context.Context, pool *pgxpool.Pool, limit int) ([
 	const q = `
 SELECT e.id, e.url, e.title, e.excerpt
 FROM entries e
-WHERE e.tagging_completed_at IS NULL
+WHERE NOT EXISTS (
+	SELECT 1 FROM entry_tags et WHERE et.entry_id = e.id
+)
 ORDER BY e.created_at DESC
 LIMIT $1`
 	rows, err := pool.Query(ctx, q, limit)
@@ -489,21 +481,6 @@ LIMIT $1`
 		return nil, err
 	}
 	return entries, nil
-}
-
-func markTaggingCompleted(ctx context.Context, pool *pgxpool.Pool, entryID uuid.UUID, completedAt time.Time) error {
-	if pool == nil {
-		return fmt.Errorf("pool is nil")
-	}
-	if entryID == uuid.Nil {
-		return fmt.Errorf("entry id is required")
-	}
-	const q = `
-UPDATE entries
-SET tagging_completed_at = $2, updated_at = $2
-WHERE id = $1`
-	_, err := pool.Exec(ctx, q, entryID, completedAt)
-	return err
 }
 
 // sanitizeUTF8 removes invalid UTF-8 sequences from a string
