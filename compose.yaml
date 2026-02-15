@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.postgres
-    image: hateblog-postgres:18-bigm
-    container_name: hateblog-postgres
     restart: unless-stopped
     command: postgres -c shared_preload_libraries=pg_bigm -c timezone=${APP_TIMEZONE}
     environment:
@@ -28,7 +26,6 @@ services:
   # Redis Cache
   redis:
     image: redis:8.4-alpine
-    container_name: hateblog-redis
     restart: unless-stopped
     command: >
       redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
@@ -47,8 +44,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: hateblog-backend:${APP_VERSION:-latest}
-    container_name: hateblog-app
     restart: always
     ports:
       - "127.0.0.1:8080:8080"
