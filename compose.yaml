@@ -39,6 +39,21 @@ services:
     networks:
       - hateblog-network
 
+  # Migration Job
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    command: ["migrate", "up"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hateblog-network
+
   # Go Application
   app:
     build:
@@ -50,6 +65,8 @@ services:
     env_file:
       - .env
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
