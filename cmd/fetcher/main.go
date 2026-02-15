@@ -461,7 +461,7 @@ func fetchUntaggedEntries(ctx context.Context, pool *pgxpool.Pool, limit int) ([
 	if limit <= 0 {
 		limit = 1
 	}
-const q = `
+	const q = `
 SELECT e.id, e.url, e.title, e.excerpt
 FROM entries e
 WHERE e.tagging_completed_at IS NULL

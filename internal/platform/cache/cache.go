@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -107,10 +108,18 @@ func (c *Cache) GetBytes(ctx context.Context, key string) ([]byte, error) {
 // Set sets a value in cache with TTL
 func (c *Cache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	if err := c.client.Set(ctx, key, value, ttl).Err(); err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache set aborted by context", "key", key, "error", err)
+			return fmt.Errorf("failed to set cache: %w", err)
+		}
 		c.logger.Error("failed to set cache", "key", key, "error", err)
 		return fmt.Errorf("failed to set cache: %w", err)
 	}
 	return nil
+}
+
+func isContextDoneError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // Delete deletes a value from cache
