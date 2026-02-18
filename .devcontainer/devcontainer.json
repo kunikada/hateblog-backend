@@ -7,6 +7,16 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
+  "mounts": [
+    "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gemini,target=/home/vscode/.gemini,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/vscode/.codex,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.vscode-server,target=/home/vscode/.vscode-server,type=bind,consistency=cached"
+  ],
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
   "runServices": [
     "postgres",
     "redis"
@@ -19,7 +29,10 @@
         "eamodio.gitlens",
         "editorconfig.editorconfig",
         "redhat.vscode-yaml",
-        "ms-vscode.makefile-tools"
+        "ms-vscode.makefile-tools",
+        "Anthropic.claude-code",
+        "openai.chatgpt",
+        "google.gemini-cli-vscode-ide-companion"
       ],
       "settings": {
         "go.toolsManagement.checkForUpdates": "local",
