@@ -44,6 +44,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "0:0"
     restart: "no"
     command: [ "migrate", "up" ]
     env_file:

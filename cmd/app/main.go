@@ -186,7 +186,7 @@ func buildErrorChain(err error) string {
 		return ""
 	}
 
-	seen := map[error]struct{}{}
+	seen := map[string]struct{}{}
 	parts := make([]string, 0, 8)
 	queue := []error{err}
 
@@ -196,10 +196,11 @@ func buildErrorChain(err error) string {
 		if cur == nil {
 			continue
 		}
-		if _, ok := seen[cur]; ok {
+		key := fmt.Sprintf("%T|%s", cur, cur.Error())
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[cur] = struct{}{}
+		seen[key] = struct{}{}
 		parts = append(parts, fmt.Sprintf("%T: %s", cur, cur.Error()))
 
 		type unwrapOne interface{ Unwrap() error }
