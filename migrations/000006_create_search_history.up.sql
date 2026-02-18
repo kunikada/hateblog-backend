@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS search_history (
 );
 
 -- Create indexes
-CREATE INDEX idx_search_history_searched_at ON search_history (searched_at DESC);
-CREATE INDEX idx_search_history_count ON search_history (count DESC);
+CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history (searched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_history_count ON search_history (count DESC);
 
 -- Add comment
 COMMENT ON TABLE search_history IS '検索キーワードの日別集計テーブル';

@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS entry_tags (
 );
 
 -- Create indexes
-CREATE INDEX idx_entry_tags_tag_entry ON entry_tags (tag_id, entry_id);
-CREATE INDEX idx_entry_tags_score ON entry_tags (entry_id, score DESC);
+CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_entry ON entry_tags (tag_id, entry_id);
+CREATE INDEX IF NOT EXISTS idx_entry_tags_score ON entry_tags (entry_id, score DESC);
 
 -- Add comment
 COMMENT ON TABLE entry_tags IS 'エントリーとタグの多対多リレーションを管理する中間テーブル。スコア付き';
