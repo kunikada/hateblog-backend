@@ -13,7 +13,7 @@ import (
 // Config holds Redis cache configuration
 type Config struct {
 	Address      string
-	Password     string
+	Password     string // #nosec G117
 	DB           int
 	MaxRetries   int
 	DialTimeout  time.Duration

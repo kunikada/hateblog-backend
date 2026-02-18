@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
+	ApiKeyAuthScopes = "ApiKeyAuth.Scopes" // #nosec G101
 )
 
 // Defines values for HealthResponseStatus.

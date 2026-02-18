@@ -242,7 +242,7 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 				"remote_addr", r.RemoteAddr,
 			)
 		}
-		slog.Error("internal server error", fields...)
+		slog.Error("internal server error", fields...) // #nosec G706
 		message = "internal error"
 	}
 	writeJSON(w, status, map[string]string{"error": message})

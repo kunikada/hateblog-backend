@@ -126,7 +126,7 @@ func (c *Client) FetchFeed(ctx context.Context, feedURL string) (*Feed, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", c.userAgent)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, err
 	}

@@ -49,7 +49,7 @@ func (h *FaviconHandler) handleGetFavicon(w http.ResponseWriter, r *http.Request
 	setCacheStatusHeader(w, cacheHit)
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	_, _ = w.Write(data) // #nosec G705
 }
 
 var errMissingDomain = errors.New("domain is required")

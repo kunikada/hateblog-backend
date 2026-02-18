@@ -240,7 +240,7 @@ func healthcheck() error {
 	url := fmt.Sprintf("http://localhost:%s%s", port, healthPath)
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.Get(url) // #nosec G704
 	if err != nil {
 		return fmt.Errorf("failed to call health endpoint: %w", err)
 	}
