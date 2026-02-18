@@ -78,7 +78,15 @@ func validateTestDBConnectionString(connStr string) error {
 }
 
 // applyTestMigrations runs the schema migrations from the migrations directory.
-func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool, connStr string) error {
+// If connStr is omitted, it is derived from the pool configuration.
+func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool, connStr ...string) error {
+	migrationConnStr := ""
+	if len(connStr) > 0 && connStr[0] != "" {
+		migrationConnStr = connStr[0]
+	} else {
+		migrationConnStr = pool.Config().ConnConfig.ConnString()
+	}
+
 	// Always reset schema to avoid stale structures between test runs.
 	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
 		return fmt.Errorf("drop schema: %w", err)
@@ -114,7 +122,7 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool, connStr string
 		return fmt.Errorf("resolve migrations directory: %w", err)
 	}
 
-	m, err := migrate.New("file://"+absMigrationsDir, connStr)
+	m, err := migrate.New("file://"+absMigrationsDir, migrationConnStr)
 	if err != nil {
 		return fmt.Errorf("create migrate instance: %w", err)
 	}
