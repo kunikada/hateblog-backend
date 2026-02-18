@@ -215,6 +215,10 @@ func (c *Cache) SetNX(ctx context.Context, key string, value interface{}, ttl ti
 	// nolint:staticcheck // SetNX is used for backward compatibility, will migrate to Set with NX option
 	ok, err := c.client.SetNX(ctx, key, value, ttl).Result()
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache setnx aborted by context", "key", key, "error", err)
+			return false, fmt.Errorf("failed to setnx cache: %w", err)
+		}
 		c.logger.Error("failed to setnx cache", "key", key, "error", err)
 		return false, fmt.Errorf("failed to setnx cache: %w", err)
 	}
