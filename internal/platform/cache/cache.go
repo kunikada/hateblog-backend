@@ -212,6 +212,7 @@ func (c *Cache) IncrementWithTTL(ctx context.Context, key string, ttl time.Durat
 
 // SetNX sets a value only if the key does not exist
 func (c *Cache) SetNX(ctx context.Context, key string, value interface{}, ttl time.Duration) (bool, error) {
+	// nolint:staticcheck // SetNX is used for backward compatibility, will migrate to Set with NX option
 	ok, err := c.client.SetNX(ctx, key, value, ttl).Result()
 	if err != nil {
 		c.logger.Error("failed to setnx cache", "key", key, "error", err)
