@@ -86,6 +86,10 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 		return "", ErrCacheMiss
 	}
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache get aborted by context", "key", key, "error", err)
+			return "", fmt.Errorf("failed to get cache: %w", err)
+		}
 		c.logger.Error("failed to get cache", "key", key, "error", err)
 		return "", fmt.Errorf("failed to get cache: %w", err)
 	}
@@ -99,6 +103,10 @@ func (c *Cache) GetBytes(ctx context.Context, key string) ([]byte, error) {
 		return nil, ErrCacheMiss
 	}
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache get bytes aborted by context", "key", key, "error", err)
+			return nil, fmt.Errorf("failed to get cache bytes: %w", err)
+		}
 		c.logger.Error("failed to get cache bytes", "key", key, "error", err)
 		return nil, fmt.Errorf("failed to get cache bytes: %w", err)
 	}
