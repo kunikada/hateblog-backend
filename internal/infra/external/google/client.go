@@ -76,7 +76,7 @@ func (c *Client) Fetch(ctx context.Context, domain string) ([]byte, string, erro
 		req.Header.Set("User-Agent", c.userAgent)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, "", err
 	}

@@ -222,22 +222,30 @@ docker compose up -d --build
 
 ## Database Migration
 
-マイグレーションは**コンテナ起動時に自動適用**されます。アプリケーション起動時に未適用のマイグレーションがあれば自動的に実行されます。
+`compose.yaml` では `migrate` サービスがマイグレーションを実行します。
+`app` は `migrate` の成功後に起動します（`depends_on: service_completed_successfully`）。
 
-手動でマイグレーション操作が必要な場合（ロールバックなど）：
+### 運用ルール（重要）
+
+- 大量データ更新を伴う `UPDATE` は、マイグレーション本体に直接書かない。
+- マイグレーションは「スキーマ変更（カラム追加・インデックス追加）」を優先し、データバックフィルは別ジョブでバッチ実行する。
+- 目安として、`entries` のような大規模テーブルは一括更新を避け、固定件数ごとに小分けコミットする。
+- 途中中断時は `migrate version` で `dirty` を確認し、必要なら `migrate force <直前version>` の後に再実行する。
+
+手動でマイグレーション操作が必要な場合（ロールバック・dirty復旧など）：
 
 ```bash
-# マイグレーション適用（通常は自動実行されるため不要）
-docker compose exec app /workspace/app migrate up
+# マイグレーション適用
+docker compose run --rm migrate migrate up
 
 # ロールバック
-docker compose exec app /workspace/app migrate down
+docker compose run --rm migrate migrate down
 
 # バージョン確認
-docker compose exec app /workspace/app migrate version
+docker compose run --rm migrate migrate version
 
 # 強制的にバージョンを設定（dirty状態の復旧用）
-docker compose exec app /workspace/app migrate force <version>
+docker compose run --rm migrate migrate force <version>
 ```
 
 ## Batch Jobs（Cron運用）

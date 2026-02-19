@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -38,7 +39,15 @@ func New(cfg Config) (*Runner, error) {
 // Up runs all available migrations.
 func (r *Runner) Up() error {
 	if err := r.migrate.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("migration up failed: %w", err)
+		version, dirty, versionErr := r.migrate.Version()
+		switch {
+		case versionErr == nil:
+			return fmt.Errorf("migration up failed at version=%d dirty=%t: %w", version, dirty, err)
+		case errors.Is(versionErr, migrate.ErrNilVersion):
+			return fmt.Errorf("migration up failed before version tracking was created: %w", err)
+		default:
+			return fmt.Errorf("migration up failed: %w (version check failed: %v)", err, versionErr)
+		}
 	}
 
 	version, dirty, err := r.migrate.Version()

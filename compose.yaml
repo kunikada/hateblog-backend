@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.postgres
-    image: hateblog-postgres:18-bigm
-    container_name: hateblog-postgres
     restart: unless-stopped
     command: postgres -c shared_preload_libraries=pg_bigm -c timezone=${APP_TIMEZONE}
     environment:
@@ -28,7 +26,6 @@ services:
   # Redis Cache
   redis:
     image: redis:8.4-alpine
-    container_name: hateblog-redis
     restart: unless-stopped
     command: >
       redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
@@ -42,19 +39,35 @@ services:
     networks:
       - hateblog-network
 
+  # Migration Job
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: "0:0"
+    restart: "no"
+    command: [ "migrate", "up" ]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hateblog-network
+
   # Go Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: hateblog-backend:${APP_VERSION:-latest}
-    container_name: hateblog-app
     restart: always
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     env_file:
       - .env
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

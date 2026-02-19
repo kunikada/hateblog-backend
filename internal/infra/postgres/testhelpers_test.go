@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
@@ -26,7 +28,10 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	connStr := os.Getenv("TEST_POSTGRES_URL")
 	if connStr == "" {
 		// Default connection for Dev Container (postgres, redis are running via docker-compose)
-		connStr = "postgresql://hateblog:changeme@postgres:5432/hateblog?sslmode=disable"
+		connStr = "postgresql://hateblog:changeme@postgres:5432/hateblog_test?sslmode=disable"
+	}
+	if err := validateTestDBConnectionString(connStr); err != nil {
+		t.Fatalf("invalid TEST_POSTGRES_URL: %v", err)
 	}
 
 	ctx := context.Background()
@@ -48,7 +53,7 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	// Apply migrations if needed
-	if err := applyTestMigrations(ctx, pool); err != nil {
+	if err := applyTestMigrations(ctx, pool, connStr); err != nil {
 		pool.Close()
 		t.Fatalf("failed to apply migrations: %v", err)
 	}
@@ -58,8 +63,30 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 }
 
+func validateTestDBConnectionString(connStr string) error {
+	cfg, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return fmt.Errorf("parse connection string: %w", err)
+	}
+	if cfg.ConnConfig == nil {
+		return fmt.Errorf("connection config is empty")
+	}
+	if cfg.ConnConfig.Database == "hateblog" {
+		return fmt.Errorf("database 'hateblog' is not allowed for tests; use a dedicated test database")
+	}
+	return nil
+}
+
 // applyTestMigrations runs the schema migrations from the migrations directory.
-func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+// If connStr is omitted, it is derived from the pool configuration.
+func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool, connStr ...string) error {
+	migrationConnStr := ""
+	if len(connStr) > 0 && connStr[0] != "" {
+		migrationConnStr = connStr[0]
+	} else {
+		migrationConnStr = pool.Config().ConnConfig.ConnString()
+	}
+
 	// Always reset schema to avoid stale structures between test runs.
 	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
 		return fmt.Errorf("drop schema: %w", err)
@@ -86,70 +113,28 @@ func applyTestMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		cwd = filepath.Dir(cwd)
 		migrationsDir = filepath.Join(cwd, "migrations")
 	}
-
-	files := []string{
-		filepath.Join(migrationsDir, "000001_create_entries.up.sql"),
-		filepath.Join(migrationsDir, "000002_create_tags.up.sql"),
-		filepath.Join(migrationsDir, "000003_create_entry_tags.up.sql"),
-		filepath.Join(migrationsDir, "000004_create_click_metrics.up.sql"),
-		filepath.Join(migrationsDir, "000005_create_tag_view_history.up.sql"),
-		filepath.Join(migrationsDir, "000006_create_search_history.up.sql"),
-		filepath.Join(migrationsDir, "000008_enable_pg_bigm.up.sql"),
-		filepath.Join(migrationsDir, "000009_create_fulltext_indexes.up.sql"),
-		filepath.Join(migrationsDir, "000012_create_archive_counts.up.sql"),
+	if _, err := os.Stat(migrationsDir); err != nil {
+		return fmt.Errorf("migrations directory not found: %w", err)
 	}
-	for _, file := range files {
-		if err := executeSQLFile(ctx, pool, file); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
-// executeSQLFile reads and executes a SQL file.
-func executeSQLFile(ctx context.Context, pool *pgxpool.Pool, path string) error {
-	content, err := os.ReadFile(path)
+	absMigrationsDir, err := filepath.Abs(migrationsDir)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
+		return fmt.Errorf("resolve migrations directory: %w", err)
 	}
 
-	statements := splitStatements(string(content))
-	for _, stmt := range statements {
-		if stmt == "" {
-			continue
-		}
-		if _, err := pool.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("exec %s: %w", path, err)
-		}
+	m, err := migrate.New("file://"+absMigrationsDir, migrationConnStr)
+	if err != nil {
+		return fmt.Errorf("create migrate instance: %w", err)
 	}
+	defer func() {
+		_, _ = m.Close()
+	}()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migrate up: %w", err)
+	}
+
 	return nil
-}
-
-// splitStatements splits SQL content into individual statements.
-func splitStatements(sql string) []string {
-	lines := strings.Split(sql, "\n")
-	var builder strings.Builder
-	var statements []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "--") {
-			continue
-		}
-		builder.WriteString(line)
-		if strings.HasSuffix(line, ";") {
-			stmt := strings.TrimSuffix(builder.String(), ";")
-			statements = append(statements, strings.TrimSpace(stmt))
-			builder.Reset()
-		} else {
-			builder.WriteString("\n")
-		}
-	}
-
-	// capture remaining
-	if residual := strings.TrimSpace(builder.String()); residual != "" {
-		statements = append(statements, residual)
-	}
-	return statements
 }
 
 // cleanupTables removes all data from test tables.

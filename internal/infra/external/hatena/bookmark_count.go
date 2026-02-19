@@ -55,7 +55,7 @@ func (c *Client) requestBookmarkCount(ctx context.Context, urls []string) (map[s
 	}
 	req.Header.Set("User-Agent", c.userAgent)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, err
 	}

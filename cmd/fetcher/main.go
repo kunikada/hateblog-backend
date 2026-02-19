@@ -28,6 +28,11 @@ import (
 	"hateblog/internal/platform/telemetry"
 )
 
+const (
+	dummyTagName  = "__yahoo_no_keyphrase__"
+	dummyTagScore = 1
+)
+
 func main() {
 	os.Exit(run())
 }
@@ -395,7 +400,10 @@ func attachTags(
 		return 0, 0, err
 	}
 	if len(phrases) == 0 {
-		return 0, 0, nil
+		if err := attachDummyTag(ctx, tagRepo, pool, entryID); err != nil {
+			return 0, 0, err
+		}
+		return 1, 0, nil
 	}
 
 	sort.Slice(phrases, func(i, j int) bool { return phrases[i].Score > phrases[j].Score })
@@ -434,7 +442,31 @@ ON CONFLICT (entry_id, tag_id) DO NOTHING`
 		}
 		added++
 	}
+	if added == 0 {
+		if err := attachDummyTag(ctx, tagRepo, pool, entryID); err != nil {
+			return 0, abnormalCount, err
+		}
+		return 1, abnormalCount, nil
+	}
 	return added, abnormalCount, nil
+}
+
+func attachDummyTag(
+	ctx context.Context,
+	tagRepo *postgres.TagRepository,
+	pool *pgxpool.Pool,
+	entryID uuid.UUID,
+) error {
+	t := &tag.Tag{Name: dummyTagName}
+	if err := tagRepo.Upsert(ctx, t); err != nil {
+		return err
+	}
+	const q = `
+INSERT INTO entry_tags (entry_id, tag_id, score)
+VALUES ($1, $2, $3)
+ON CONFLICT (entry_id, tag_id) DO NOTHING`
+	_, err := pool.Exec(ctx, q, entryID, t.ID, dummyTagScore)
+	return err
 }
 
 type tagEntry struct {

@@ -65,8 +65,8 @@ COPY --from=builder /build/fetcher /workspace/fetcher
 COPY --from=builder /build/updater /workspace/updater
 COPY --from=builder /build/admin /workspace/admin
 
-# Copy migrations
-COPY --from=builder /build/migrations /workspace/migrations
+# Copy migrations with runtime user ownership to avoid permission issues.
+COPY --from=builder --chown=nonroot:nonroot /build/migrations /workspace/migrations
 
 # Run as non-root user (nonroot user in distroless has UID 65532)
 USER nonroot:nonroot

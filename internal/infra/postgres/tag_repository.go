@@ -143,13 +143,14 @@ func (r *TagRepository) GetTrending(ctx context.Context, hours int, minBookmarkC
 		limit = 20
 	}
 
-	// Compute entry_count only for top tags to avoid full-table aggregation on entry_tags.
+	// Rank tags by weighted score while keeping response fields backward compatible.
 	const query = `
 WITH tag_occurrence AS (
   SELECT
     t.id,
     t.name,
-    COUNT(DISTINCT e.id) AS occurrence_count
+    COUNT(DISTINCT e.id) AS occurrence_count,
+    COALESCE(SUM((et.score::double precision / 100.0) * LN(1 + GREATEST(e.bookmark_count, 0))), 0) AS weighted_score
   FROM tags t
   INNER JOIN entry_tags et ON et.tag_id = t.id
   INNER JOIN entries e ON e.id = et.entry_id
@@ -157,9 +158,9 @@ WITH tag_occurrence AS (
   GROUP BY t.id, t.name
 ),
 top_tags AS (
-  SELECT id, name, occurrence_count
+  SELECT id, name, occurrence_count, weighted_score
   FROM tag_occurrence
-  ORDER BY occurrence_count DESC, name ASC
+  ORDER BY weighted_score DESC, occurrence_count DESC, name ASC
   LIMIT $3
 )
 SELECT
@@ -173,7 +174,7 @@ LEFT JOIN LATERAL (
   FROM entry_tags et2
   WHERE et2.tag_id = tt.id
 ) ec ON true
-ORDER BY tt.occurrence_count DESC, tt.name ASC`
+ORDER BY tt.weighted_score DESC, tt.occurrence_count DESC, tt.name ASC`
 
 	since := apptime.Now().Add(-time.Duration(hours) * time.Hour)
 	rows, err := r.pool.Query(ctx, query, since, minBookmarkCount, limit)
@@ -202,23 +203,25 @@ func (r *TagRepository) GetClicked(ctx context.Context, days int, limit int) ([]
 		limit = 20
 	}
 
-	// Compute entry_count only for top tags to avoid full-table aggregation on entry_tags.
+	// Rank tags by weighted clicks while keeping response fields backward compatible.
 	const query = `
 WITH clicked_tags AS (
   SELECT
     t.id,
     t.name,
-    SUM(cm.count) AS click_count
+    SUM(cm.count) AS click_count,
+    COALESCE(SUM(cm.count * (et.score::double precision / 100.0) * LN(1 + GREATEST(e.bookmark_count, 0))), 0) AS weighted_click
   FROM tags t
   INNER JOIN entry_tags et ON et.tag_id = t.id
+  INNER JOIN entries e ON e.id = et.entry_id
   INNER JOIN click_metrics cm ON cm.entry_id = et.entry_id
   WHERE cm.clicked_at >= $1
   GROUP BY t.id, t.name
 ),
 top_tags AS (
-  SELECT id, name, click_count
+  SELECT id, name, click_count, weighted_click
   FROM clicked_tags
-  ORDER BY click_count DESC, name ASC
+  ORDER BY weighted_click DESC, click_count DESC, name ASC
   LIMIT $2
 )
 SELECT
@@ -232,7 +235,7 @@ LEFT JOIN LATERAL (
   FROM entry_tags et2
   WHERE et2.tag_id = tt.id
 ) ec ON true
-ORDER BY tt.click_count DESC, tt.name ASC`
+ORDER BY tt.weighted_click DESC, tt.click_count DESC, tt.name ASC`
 
 	since := apptime.TruncateToDay(apptime.Now().AddDate(0, 0, -days))
 	rows, err := r.pool.Query(ctx, query, since, limit)

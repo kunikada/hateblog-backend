@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS archive_counts (
 );
 
 -- Create indexes
-CREATE INDEX idx_archive_counts_threshold_day ON archive_counts (threshold, day DESC);
+CREATE INDEX IF NOT EXISTS idx_archive_counts_threshold_day ON archive_counts (threshold, day DESC);
 
 -- Backfill aggregated counts
 INSERT INTO archive_counts (day, threshold, count)

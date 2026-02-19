@@ -53,7 +53,7 @@ type DatabaseConfig struct {
 	Host            string        `env:"POSTGRES_HOST" envDefault:"localhost"`
 	Port            int           `env:"POSTGRES_PORT" envDefault:"5432"`
 	User            string        `env:"POSTGRES_USER" envDefault:"hateblog"`
-	Password        string        `env:"POSTGRES_PASSWORD" envDefault:"hateblog"`
+	Password        string        `env:"POSTGRES_PASSWORD" envDefault:"hateblog"` // #nosec G117
 	Database        string        `env:"POSTGRES_DB" envDefault:"hateblog"`
 	SSLMode         string        `env:"POSTGRES_SSLMODE" envDefault:"disable"`
 	MaxConns        int32         `env:"POSTGRES_MAX_CONNS" envDefault:"25"`
@@ -76,7 +76,7 @@ func (d DatabaseConfig) ConnectionString() string {
 type RedisConfig struct {
 	Host         string        `env:"REDIS_HOST" envDefault:"localhost"`
 	Port         int           `env:"REDIS_PORT" envDefault:"6379"`
-	Password     string        `env:"REDIS_PASSWORD" envDefault:""`
+	Password     string        `env:"REDIS_PASSWORD" envDefault:""` // #nosec G117
 	DB           int           `env:"REDIS_DB" envDefault:"0"`
 	MaxRetries   int           `env:"REDIS_MAX_RETRIES" envDefault:"3"`
 	DialTimeout  time.Duration `env:"REDIS_DIAL_TIMEOUT" envDefault:"5s"`

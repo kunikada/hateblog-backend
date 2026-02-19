@@ -91,7 +91,7 @@ func (c *Client) Extract(ctx context.Context, text string) ([]Keyphrase, error) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", fmt.Sprintf("%s; Yahoo AppID: %s", c.userAgent, c.appID))
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, err
 	}

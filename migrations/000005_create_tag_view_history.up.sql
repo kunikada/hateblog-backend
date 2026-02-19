@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS tag_view_history (
 );
 
 -- Create indexes
-CREATE INDEX idx_tag_view_history_viewed_at ON tag_view_history (viewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tag_view_history_viewed_at ON tag_view_history (viewed_at DESC);
 
 -- Add comment
 COMMENT ON TABLE tag_view_history IS 'タグ別エントリー一覧ページの閲覧数の日別集計テーブル';

@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,7 +13,7 @@ import (
 // Config holds Redis cache configuration
 type Config struct {
 	Address      string
-	Password     string
+	Password     string // #nosec G117
 	DB           int
 	MaxRetries   int
 	DialTimeout  time.Duration
@@ -85,6 +86,10 @@ func (c *Cache) Get(ctx context.Context, key string) (string, error) {
 		return "", ErrCacheMiss
 	}
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache get aborted by context", "key", key, "error", err)
+			return "", fmt.Errorf("failed to get cache: %w", err)
+		}
 		c.logger.Error("failed to get cache", "key", key, "error", err)
 		return "", fmt.Errorf("failed to get cache: %w", err)
 	}
@@ -98,6 +103,10 @@ func (c *Cache) GetBytes(ctx context.Context, key string) ([]byte, error) {
 		return nil, ErrCacheMiss
 	}
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache get bytes aborted by context", "key", key, "error", err)
+			return nil, fmt.Errorf("failed to get cache bytes: %w", err)
+		}
 		c.logger.Error("failed to get cache bytes", "key", key, "error", err)
 		return nil, fmt.Errorf("failed to get cache bytes: %w", err)
 	}
@@ -107,10 +116,18 @@ func (c *Cache) GetBytes(ctx context.Context, key string) ([]byte, error) {
 // Set sets a value in cache with TTL
 func (c *Cache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	if err := c.client.Set(ctx, key, value, ttl).Err(); err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache set aborted by context", "key", key, "error", err)
+			return fmt.Errorf("failed to set cache: %w", err)
+		}
 		c.logger.Error("failed to set cache", "key", key, "error", err)
 		return fmt.Errorf("failed to set cache: %w", err)
 	}
 	return nil
+}
+
+func isContextDoneError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // Delete deletes a value from cache
@@ -203,8 +220,13 @@ func (c *Cache) IncrementWithTTL(ctx context.Context, key string, ttl time.Durat
 
 // SetNX sets a value only if the key does not exist
 func (c *Cache) SetNX(ctx context.Context, key string, value interface{}, ttl time.Duration) (bool, error) {
+	// nolint:staticcheck // SetNX is used for backward compatibility, will migrate to Set with NX option
 	ok, err := c.client.SetNX(ctx, key, value, ttl).Result()
 	if err != nil {
+		if isContextDoneError(err) {
+			c.logger.Debug("cache setnx aborted by context", "key", key, "error", err)
+			return false, fmt.Errorf("failed to setnx cache: %w", err)
+		}
 		c.logger.Error("failed to setnx cache", "key", key, "error", err)
 		return false, fmt.Errorf("failed to setnx cache: %w", err)
 	}

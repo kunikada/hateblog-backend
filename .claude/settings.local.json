@@ -27,7 +27,8 @@
       "Bash(crontab:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(golangci-lint run:*)"
+      "Bash(golangci-lint run:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

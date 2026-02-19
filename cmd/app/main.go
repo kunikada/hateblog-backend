@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/lib/pq"
 
 	infraGoogle "hateblog/internal/infra/external/google"
 	"hateblog/internal/infra/handler"
@@ -83,6 +85,7 @@ func runMigrate(args []string) error {
 	case "up":
 		log.Info("running migrations up")
 		if err := migrator.Up(); err != nil {
+			logMigrationFailureState(log, migrator, err)
 			return fmt.Errorf("migration up failed: %w", err)
 		}
 		log.Info("migrations completed successfully")
@@ -126,6 +129,95 @@ func runMigrate(args []string) error {
 	return nil
 }
 
+func logMigrationFailureState(log *slog.Logger, migrator *migration.Runner, migrationErr error) {
+	if log == nil || migrator == nil || migrationErr == nil {
+		return
+	}
+
+	log.Error("migration failure cause", "error_chain", buildErrorChain(migrationErr))
+	logMigrationDBCause(log, migrationErr)
+
+	version, dirty, err := migrator.Version()
+	if err != nil {
+		log.Error("migration failed and version lookup failed", "error", migrationErr, "version_error", err)
+		return
+	}
+
+	log.Error("migration failed", "error", migrationErr, "version", version, "dirty", dirty)
+}
+
+func logMigrationDBCause(log *slog.Logger, migrationErr error) {
+	var pgErr *pq.Error
+	if !errors.As(migrationErr, &pgErr) {
+		return
+	}
+
+	args := []any{
+		"type", fmt.Sprintf("%T", pgErr),
+		"sqlstate", string(pgErr.Code),
+		"message", pgErr.Message,
+	}
+	if pgErr.Detail != "" {
+		args = append(args, "detail", pgErr.Detail)
+	}
+	if pgErr.Hint != "" {
+		args = append(args, "hint", pgErr.Hint)
+	}
+	if pgErr.Where != "" {
+		args = append(args, "where", pgErr.Where)
+	}
+	if pgErr.Table != "" {
+		args = append(args, "table", pgErr.Table)
+	}
+	if pgErr.Column != "" {
+		args = append(args, "column", pgErr.Column)
+	}
+	if pgErr.Constraint != "" {
+		args = append(args, "constraint", pgErr.Constraint)
+	}
+	if pgErr.Position != "" {
+		args = append(args, "position", pgErr.Position)
+	}
+	log.Error("migration failed with postgres error", args...)
+}
+
+func buildErrorChain(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	seen := map[string]struct{}{}
+	parts := make([]string, 0, 8)
+	queue := []error{err}
+
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur == nil {
+			continue
+		}
+		key := fmt.Sprintf("%T|%s", cur, cur.Error())
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, fmt.Sprintf("%T: %s", cur, cur.Error()))
+
+		type unwrapOne interface{ Unwrap() error }
+		type unwrapMany interface{ Unwrap() []error }
+
+		if um, ok := cur.(unwrapMany); ok {
+			queue = append(queue, um.Unwrap()...)
+			continue
+		}
+		if uo, ok := cur.(unwrapOne); ok {
+			queue = append(queue, uo.Unwrap())
+		}
+	}
+
+	return strings.Join(parts, " | ")
+}
+
 // healthcheck performs a health check by calling the /health endpoint.
 func healthcheck() error {
 	port := os.Getenv("APP_PORT")
@@ -148,7 +240,7 @@ func healthcheck() error {
 	url := fmt.Sprintf("http://localhost:%s%s", port, healthPath)
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.Get(url) // #nosec G704
 	if err != nil {
 		return fmt.Errorf("failed to call health endpoint: %w", err)
 	}
@@ -226,26 +318,6 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("connect database: %w", err)
 	}
 	defer db.Close()
-
-	// Run database migrations
-	log.Info("running database migrations")
-	migrator, err := migration.New(migration.Config{
-		DatabaseURL:    cfg.Database.ConnectionString(),
-		MigrationsPath: "file://migrations",
-		Logger:         log,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create migrator: %w", err)
-	}
-	defer func() {
-		if err := migrator.Close(); err != nil {
-			log.Error("failed to close migrator", "error", err)
-		}
-	}()
-
-	if err := migrator.Up(); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
-	}
 
 	redisClient, err := cache.New(cache.Config{
 		Address:      cfg.Redis.Address(),

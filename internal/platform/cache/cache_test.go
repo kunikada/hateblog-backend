@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -61,4 +63,12 @@ func TestConfig(t *testing.T) {
 func TestErrCacheMiss(t *testing.T) {
 	assert.Error(t, ErrCacheMiss)
 	assert.Equal(t, "cache miss", ErrCacheMiss.Error())
+}
+
+func TestIsContextDoneError(t *testing.T) {
+	assert.True(t, isContextDoneError(context.Canceled))
+	assert.True(t, isContextDoneError(context.DeadlineExceeded))
+	assert.True(t, isContextDoneError(fmt.Errorf("wrapped: %w", context.Canceled)))
+	assert.False(t, isContextDoneError(nil))
+	assert.False(t, isContextDoneError(ErrCacheMiss))
 }
