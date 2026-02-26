@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -242,8 +244,16 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 				"remote_addr", r.RemoteAddr,
 			)
 		}
-		slog.Error("internal server error", fields...) // #nosec G706
+		if isRequestContextError(err) {
+			slog.Warn("request canceled before completion", fields...) // #nosec G706
+		} else {
+			slog.Error("internal server error", fields...) // #nosec G706
+		}
 		message = "internal error"
 	}
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func isRequestContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
