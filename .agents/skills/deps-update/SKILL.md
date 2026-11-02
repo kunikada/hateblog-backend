@@ -8,24 +8,16 @@ description: このリポジトリの Go 依存関係・Go 本体・コンテナ
 ## 方針
 
 - 標準ライブラリ優先。外部依存は厳選・少数・更新容易なものに限る。
-- 依存更新は Renovate の PR を起点に行う。手動更新は例外扱い。
+- 依存更新は本スキルの手順で手動で行う。
 - 破壊的変更のある外部 lib は `internal/infra/external` で吸収する。
 - 更新の実行（`go get` / 編集）前に、対象とバージョンをユーザーに確認する。
-
-## Renovate の対象範囲
-
-- 対象: `go.mod` のモジュール（`go mod tidy` 込み）、Dockerfile / compose のイメージタグ。
-- 対象外（手動対応が必要）:
-  - `Dockerfile.postgres` の `PG_BIGM_REF` / `PG_BIGM_SHA256`
-  - Debian 系統変更に伴うパッケージ名修正
-  - バージョンを記載したドキュメント
 
 ## 手順: Go モジュール
 
 1. `make deps-outdated` で更新候補を一覧表示する（`go list -m -u all` を解析）。
 2. メジャーバージョン（`/v2` 以降）は `go list -m -u` で検出されないため、主要な直接依存は個別に新メジャーの有無を確認する。
-3. Renovate の PR がある場合は、更新理由・影響・リスク（CHANGELOG の破壊的変更）を確認する。
-4. 手動更新は `go get <module>@<version>` → `go mod tidy` で行う。
+3. 更新対象ごとに影響・リスク（CHANGELOG の破壊的変更）を確認する。特に v0 系・上がり幅の大きいものは必須。
+4. `go get <module>@<version>` → `go mod tidy` で更新する。
    - `go run ./cmd/tools/depsoutdated -update` は indirect を含む全モジュールを一括更新するため、使う場合は事前に確認を取る。
 5. 検証（ユーザーの指示がある場合に実行、なければ推奨として報告）:
    - `go mod verify`

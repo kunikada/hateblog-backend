@@ -386,7 +386,7 @@ func buildListEntriesSQL(q entry.ListQuery, countOnly bool) (string, []any) {
 		builder.WriteString(" ORDER BY created_at DESC")
 	}
 
-	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
+	fmt.Fprintf(&builder, " LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, q.Limit, q.Offset)
 
 	return builder.String(), args
@@ -447,7 +447,7 @@ func buildListEntriesWithTotalSQL(q entry.ListQuery) (string, []any) {
 		builder.WriteString(" ORDER BY created_at DESC")
 	}
 
-	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
+	fmt.Fprintf(&builder, " LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, q.Limit, q.Offset)
 
 	return builder.String(), args
@@ -547,13 +547,13 @@ func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (s
 	argPos := 1
 
 	builder.WriteString("WITH params AS (SELECT ")
-	builder.WriteString(fmt.Sprintf("$%d::text[] AS terms_any, ", argPos))
+	fmt.Fprintf(&builder, "$%d::text[] AS terms_any, ", argPos)
 	args = append(args, termsAny)
 	argPos++
-	builder.WriteString(fmt.Sprintf("$%d::text[] AS en_words, ", argPos))
+	fmt.Fprintf(&builder, "$%d::text[] AS en_words, ", argPos)
 	args = append(args, enWords)
 	argPos++
-	builder.WriteString(fmt.Sprintf("$%d::text AS en_regex)", argPos))
+	fmt.Fprintf(&builder, "$%d::text AS en_regex)", argPos)
 	args = append(args, enRegex)
 	argPos++
 
@@ -561,34 +561,34 @@ func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (s
 	builder.WriteString(" (SELECT bool_and(e.search_text LIKE '%' || t || '%') FROM unnest(p.terms_any) t)")
 
 	if q.MinBookmarkCount > 0 {
-		builder.WriteString(fmt.Sprintf(" AND e.bookmark_count >= $%d", argPos))
+		fmt.Fprintf(&builder, " AND e.bookmark_count >= $%d", argPos)
 		args = append(args, q.MinBookmarkCount)
 		argPos++
 	}
 
 	if len(q.Tags) > 0 {
-		builder.WriteString(fmt.Sprintf(` AND EXISTS (
+		fmt.Fprintf(&builder, ` AND EXISTS (
 			SELECT 1 FROM entry_tags et
 			INNER JOIN tags t ON t.id = et.tag_id
 			WHERE et.entry_id = e.id AND t.name = ANY($%d)
-		)`, argPos))
+		)`, argPos)
 		args = append(args, q.Tags)
 		argPos++
 	}
 
 	if !q.PostedAtFrom.IsZero() {
-		builder.WriteString(fmt.Sprintf(" AND e.created_at >= $%d", argPos))
+		fmt.Fprintf(&builder, " AND e.created_at >= $%d", argPos)
 		args = append(args, q.PostedAtFrom)
 		argPos++
 	}
 
 	if !q.PostedAtTo.IsZero() {
-		builder.WriteString(fmt.Sprintf(" AND e.created_at < $%d", argPos))
+		fmt.Fprintf(&builder, " AND e.created_at < $%d", argPos)
 		args = append(args, q.PostedAtTo)
 		argPos++
 	}
 
-	builder.WriteString(fmt.Sprintf(" LIMIT %d)", candidateLimit))
+	fmt.Fprintf(&builder, " LIMIT %d)", candidateLimit)
 
 	builder.WriteString(" SELECT ")
 	builder.WriteString(columns)
@@ -606,7 +606,7 @@ func buildKeywordSearchSQL(q entry.ListQuery, countOnly bool, withTotal bool) (s
 		builder.WriteString(" ORDER BY c.created_at DESC")
 	}
 
-	builder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1))
+	fmt.Fprintf(&builder, " LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, q.Limit, q.Offset)
 
 	return builder.String(), args

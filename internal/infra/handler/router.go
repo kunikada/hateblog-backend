@@ -19,7 +19,9 @@ type RouterConfig struct {
 	FaviconHandler *FaviconHandler
 	HealthHandler  *HealthHandler
 
-	APIBasePath       string
+	APIBasePath string
+	// RealIP resolves the client IP before logging and other middlewares. Nil keeps RemoteAddr as is.
+	RealIP            func(http.Handler) http.Handler
 	Middlewares       []func(http.Handler) http.Handler
 	PrometheusHandler http.Handler
 }
@@ -28,7 +30,9 @@ type RouterConfig struct {
 func NewRouter(cfg RouterConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	if cfg.RealIP != nil {
+		r.Use(cfg.RealIP)
+	}
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(1))

@@ -195,13 +195,8 @@ func (s *Service) logDebug(msg string, err error) {
 		return
 	}
 	var attrs []any
-	var unwrapped error = err
-	for {
-		if unwrapped == nil {
-			break
-		}
+	for unwrapped := err; unwrapped != nil; unwrapped = errors.Unwrap(unwrapped) {
 		attrs = append(attrs, "error", unwrapped.Error())
-		unwrapped = errors.Unwrap(unwrapped)
 	}
 	s.logger.Debug(msg, attrs...)
 }

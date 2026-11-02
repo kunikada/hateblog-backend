@@ -483,6 +483,11 @@ func run(ctx context.Context) error {
 		})
 	}
 
+	trustedProxies, err := server.ParseTrustedProxies(cfg.App.TrustedProxies)
+	if err != nil {
+		return fmt.Errorf("parse trusted proxies: %w", err)
+	}
+
 	router := handler.NewRouter(handler.RouterConfig{
 		EntryHandler:      entryHandler,
 		ArchiveHandler:    archiveHandler,
@@ -494,6 +499,7 @@ func run(ctx context.Context) error {
 		FaviconHandler:    faviconHandler,
 		HealthHandler:     healthHandler,
 		APIBasePath:       apiBasePath,
+		RealIP:            server.RealIP(trustedProxies),
 		Middlewares:       middlewares,
 		PrometheusHandler: promHandler,
 	})
