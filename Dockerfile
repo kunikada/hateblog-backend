@@ -1,16 +1,10 @@
 # Build stage
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.27-trixie AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ca-certificates sudo && \
+    git ca-certificates && \
     rm -rf /var/lib/apt/lists/*
-
-# Create non-root user for development (UID 1000)
-RUN groupadd -g 1000 vscode && \
-    useradd -m -d /home/vscode -u 1000 -g vscode vscode && \
-    echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode && \
-    chmod 0440 /etc/sudoers.d/vscode
 
 WORKDIR /build
 
@@ -51,7 +45,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/admin
 
 # Runtime stage - using distroless for minimal attack surface
-FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+FROM gcr.io/distroless/static-debian13:nonroot AS runtime
 
 # Copy CA certificates from builder
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

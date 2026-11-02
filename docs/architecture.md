@@ -7,9 +7,9 @@
 4) Backward Compatibility — 破壊は慎重、移行パスを用意
 
 ## Runtime / Stack
-- Go 1.25.x（CI は 1.25 / 1.24 の2系を回す）
+- Go 1.27.x（CI は 1.27 / 1.26 の2系を回す）
 - PostgreSQL 18+
-- Redis 8.4+（キャッシュ）
+- Redis 8.10+（キャッシュ）
 - OpenAPI 3.0 仕様で REST を定義
 
 ## Libraries / Tools

@@ -23,15 +23,9 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "golang.go",
-        "ms-azuretools.vscode-docker",
-        "eamodio.gitlens",
-        "editorconfig.editorconfig",
-        "redhat.vscode-yaml",
         "ms-vscode.makefile-tools",
         "Anthropic.claude-code",
-        "openai.chatgpt",
-        "google.gemini-cli-vscode-ide-companion"
+        "openai.chatgpt"
       ],
       "settings": {
         "go.toolsManagement.checkForUpdates": "local",

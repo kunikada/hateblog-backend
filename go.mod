@@ -1,6 +1,6 @@
 module hateblog
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/caarlos0/env/v10 v10.0.0
