@@ -25,7 +25,8 @@
       "extensions": [
         "ms-vscode.makefile-tools",
         "Anthropic.claude-code",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "golang.go"
       ],
       "settings": {
         "go.toolsManagement.checkForUpdates": "local",

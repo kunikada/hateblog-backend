@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,4 +71,38 @@ func TestGetBookmarkCountsHTTPError(t *testing.T) {
 	_, err := client.GetBookmarkCounts(context.Background(), []string{"https://example.com"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bookmark count request failed")
+}
+
+func TestGetBookmarkCountsChunksByQueryLength(t *testing.T) {
+	t.Parallel()
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		require.LessOrEqual(t, len(r.URL.RawQuery), bookmarkCountMaxQueryLen)
+		urls := r.URL.Query()["url"]
+		payload := make(map[string]int, len(urls))
+		for _, u := range urls {
+			payload[u] = 1
+		}
+		_ = json.NewEncoder(w).Encode(payload)
+	}))
+	defer server.Close()
+
+	client := NewClient(ClientConfig{
+		HTTPClient:            server.Client(),
+		BookmarkCountEndpoint: server.URL,
+	})
+
+	// 1件あたり約3000バイトのため、件数上限内でも2件ずつに分割される。上限超えの1件はスキップされる。
+	tooLong := "https://example.com/" + strings.Repeat("x", bookmarkCountMaxQueryLen)
+	urls := []string{tooLong}
+	for _, c := range "abc" {
+		urls = append(urls, "https://example.com/"+strings.Repeat(string(c), 3000))
+	}
+
+	counts, err := client.GetBookmarkCounts(context.Background(), urls)
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Len(t, counts, 3)
+	require.NotContains(t, counts, tooLong)
 }

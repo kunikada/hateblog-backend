@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 )
+
+// bookmarkCountMaxQueryLen はクエリ文字列の上限バイト数。
+// APIはリクエストURL全体が約8KBを超えると件数に関係なく414を返すため、余裕を持たせている。
+const bookmarkCountMaxQueryLen = 7000
 
 func (c *Client) fetchBookmarkCounts(ctx context.Context, urls []string) (map[string]int, error) {
 	result := make(map[string]int, len(urls))
@@ -16,12 +21,7 @@ func (c *Client) fetchBookmarkCounts(ctx context.Context, urls []string) (map[st
 		return result, nil
 	}
 
-	for start := 0; start < len(cleanList); start += c.bookmarkCountMaxURLs {
-		end := start + c.bookmarkCountMaxURLs
-		if end > len(cleanList) {
-			end = len(cleanList)
-		}
-		chunk := cleanList[start:end]
+	for _, chunk := range c.chunkURLs(ctx, cleanList) {
 		part, err := c.requestBookmarkCount(ctx, chunk)
 		if err != nil {
 			return nil, err
@@ -75,6 +75,36 @@ func (c *Client) requestBookmarkCount(ctx context.Context, urls []string) (map[s
 		payload = map[string]int{}
 	}
 	return payload, nil
+}
+
+// chunkURLs は件数とエンコード後のクエリ長の両方が上限を超えないようにURLを分割する。
+// 単独で上限を超えるURLはスキップする。
+func (c *Client) chunkURLs(ctx context.Context, urls []string) [][]string {
+	var chunks [][]string
+	var chunk []string
+	queryLen := 0
+	for _, u := range urls {
+		paramLen := len("url=") + len(url.QueryEscape(u))
+		if paramLen > bookmarkCountMaxQueryLen {
+			slog.DebugContext(ctx, "hatena: skip bookmark count url exceeding query length limit", "url", u, "length", paramLen)
+			continue
+		}
+		// 2件目以降は区切りの "&" 分を加算する。
+		if len(chunk) >= c.bookmarkCountMaxURLs || (len(chunk) > 0 && queryLen+1+paramLen > bookmarkCountMaxQueryLen) {
+			chunks = append(chunks, chunk)
+			chunk = nil
+			queryLen = 0
+		}
+		if len(chunk) > 0 {
+			queryLen++
+		}
+		chunk = append(chunk, u)
+		queryLen += paramLen
+	}
+	if len(chunk) > 0 {
+		chunks = append(chunks, chunk)
+	}
+	return chunks
 }
 
 func dedupeURLs(input []string) []string {
