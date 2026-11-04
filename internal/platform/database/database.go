@@ -81,12 +81,12 @@ func (db *DB) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	return db.Pool.Ping(ctx)
+	return db.Ping(ctx)
 }
 
 // Stats returns connection pool statistics
 func (db *DB) Stats() *pgxpool.Stat {
-	return db.Pool.Stat()
+	return db.Stat()
 }
 
 // LogStats logs current connection pool statistics

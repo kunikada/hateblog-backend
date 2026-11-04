@@ -27,7 +27,7 @@ All responses must be written in Japanese.
 
 # Architecture
 
-- **`Runtime`**: Go 1.25
+- **`Runtime`**: Go 1.27
 - **`Database`**: PostgreSQL 18
 - **`Cache`**: Redis
 - **`API`**: OpenAPI 3.0 / oapi-codegen

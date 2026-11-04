@@ -84,7 +84,7 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 		return slog.NewJSONHandler(os.Stdout, opts)
 	case FormatText:
 		// Use tint handler for pretty console output in development
-		return tint.NewHandler(os.Stdout, &tint.Options{
+		return tint.NewTextHandler(os.Stdout, &tint.Options{
 			Level:       level,
 			TimeFormat:  "2006-01-02 15:04:05",
 			AddSource:   opts.AddSource,
@@ -93,7 +93,7 @@ func createHandler(format Format, level slog.Level) slog.Handler {
 		})
 	default:
 		// Default to text format
-		return tint.NewHandler(os.Stdout, &tint.Options{
+		return tint.NewTextHandler(os.Stdout, &tint.Options{
 			Level:       level,
 			TimeFormat:  "2006-01-02 15:04:05",
 			AddSource:   opts.AddSource,

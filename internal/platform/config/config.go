@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/caarlos0/env/v10"
+	"github.com/caarlos0/env/v11"
 )
 
 // DefaultAPIBasePath is the fallback base path for the HTTP API.
@@ -106,6 +106,9 @@ type AppConfig struct {
 	RateLimitEnabled     bool          `env:"APP_RATE_LIMIT_ENABLED" envDefault:"false"`
 	RateLimitWindow      time.Duration `env:"APP_RATE_LIMIT_WINDOW" envDefault:"1m"`
 	RateLimitMaxRequests int           `env:"APP_RATE_LIMIT_MAX_REQUESTS" envDefault:"120"`
+
+	// TrustedProxies lists CIDRs or IPs of reverse proxies whose X-Forwarded-For / X-Real-IP are trusted.
+	TrustedProxies []string `env:"APP_TRUSTED_PROXIES" envSeparator:","`
 }
 
 // CacheConfig holds cache TTL configuration

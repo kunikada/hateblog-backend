@@ -287,8 +287,18 @@ func normalizeHTTPURLs(ctx context.Context, pool *pgxpool.Pool, client *hatena.C
 	now := time.Now()
 	for _, e := range entries {
 		httpsURL := "https://" + strings.TrimPrefix(e.url, "http://")
-		httpCount := counts[e.url]
-		httpsCount := counts[httpsURL]
+		httpCount, httpOK := counts[e.url]
+		httpsCount, httpsOK := counts[httpsURL]
+
+		// 件数を取得できなかった場合は比較できないため、updated_at のみ更新して次回以降に回す。
+		if !httpOK || !httpsOK {
+			const q = `UPDATE entries SET updated_at = $1 WHERE id = $2`
+			if _, err := pool.Exec(ctx, q, now, e.id); err != nil {
+				return updated, deleted, fmt.Errorf("touch http entry: %w", err)
+			}
+			log.Debug("skipped http entry without bookmark counts", "id", e.id, "url", e.url)
+			continue
+		}
 
 		bestCount := httpCount
 		if httpsCount > httpCount {

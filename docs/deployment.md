@@ -163,6 +163,13 @@ sudo certbot --nginx -d example.com
 sudo systemctl reload nginx
 ```
 
+クライアント IP（ログ・レート制限）を正しく扱うため、`.env` の `APP_TRUSTED_PROXIES` に Nginx からの接続元を設定する。
+未設定の場合は `X-Forwarded-For` / `X-Real-IP` を信用せず、接続元 IP をそのまま使う。
+
+- 設定値は、app コンテナから見たプロキシの接続元 IP（またはそのサブネット）にする（例: `APP_TRUSTED_PROXIES=172.18.0.0/16`）。
+  - 接続経路（公開ポート経由か、共有 Docker ネットワーク経由か）で接続元が変わるため、未設定の状態でアクセスし、リクエストログの `remote_addr` で確認する。
+  - サブネットは `docker network inspect <network>` の `IPAM.Config.Subnet` で確認できる。
+
 ## Monitoring
 
 ### ログ確認

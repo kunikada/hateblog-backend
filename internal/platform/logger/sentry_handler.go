@@ -31,26 +31,27 @@ func (h *sentryHandler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	var capturedErr error
-	extras := map[string]any{}
+	logContext := sentry.Context{}
 	record.Attrs(func(attr slog.Attr) bool {
 		if attr.Key != "" {
-			extras[attr.Key] = attrValue(attr.Value, &capturedErr)
+			logContext[attr.Key] = attrValue(attr.Value, &capturedErr)
 		}
 		return true
 	})
+	logContext["message"] = record.Message
 	if record.PC != 0 {
 		frame, _ := runtime.CallersFrames([]uintptr{record.PC}).Next()
 		if frame.PC != 0 {
-			extras["source.file"] = frame.File
-			extras["source.line"] = frame.Line
-			extras["source.function"] = frame.Function
+			logContext["source.file"] = frame.File
+			logContext["source.line"] = frame.Line
+			logContext["source.function"] = frame.Function
 		}
 	}
 
 	sentry.WithScope(func(scope *sentry.Scope) {
 		scope.SetLevel(sentry.LevelError)
-		scope.SetExtras(extras)
-		scope.SetExtra("message", record.Message)
+		// SetExtra was removed in sentry-go v0.46.0; contexts are shown on error events.
+		scope.SetContext("log", logContext)
 		if capturedErr != nil {
 			sentry.CaptureException(capturedErr)
 			return

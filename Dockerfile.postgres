@@ -1,5 +1,5 @@
 # PostgreSQL with pg_bigm extension for Japanese full-text search
-FROM postgres:18-bookworm
+FROM postgres:18-trixie
 
 ARG PG_BIGM_REF=v1.2-20250903
 ARG PG_BIGM_SHA256=4d4fb48161e3f9e99207851299379c83b3e5d1d3c1a07c35f6a3153d577b3142
@@ -14,15 +14,16 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
     build-essential \
     postgresql-server-dev-18 \
+    libicu-dev \
     ca-certificates \
     curl \
     locales \
     && apt-mark auto llvm-19 llvm-19-dev llvm-19-runtime llvm-19-tools \
     llvm-19-linker-tools clang-19 libclang-cpp19 libclang1-19 \
-    libclang-common-19-dev libobjc-12-dev libobjc4 libpfm4 libz3-dev \
-    python3 python3-minimal python3-pkg-resources python3-pygments python3-yaml \
-    python3.11 python3.11-minimal libpython3-stdlib libpython3.11-minimal \
-    libpython3.11-stdlib libgc1 \
+    libclang-common-19-dev libobjc-14-dev libobjc4 libpfm4 libz3-dev \
+    python3 python3-minimal python3-pygments python3-yaml \
+    python3.13 python3.13-minimal libpython3-stdlib libpython3.13-minimal \
+    libpython3.13-stdlib libgc1 \
     && apt-get autoremove -y; \
     curl -fL "https://codeload.github.com/pgbigm/pg_bigm/tar.gz/${PG_BIGM_REF}" -o /tmp/pg_bigm.tar.gz; \
     echo "${PG_BIGM_SHA256}  /tmp/pg_bigm.tar.gz" | sha256sum -c -; \
@@ -32,9 +33,9 @@ RUN set -eux; \
     echo "pg_bigm source directory not found under /tmp" >&2; \
     exit 1; \
     fi; \
-    cd "$pg_bigm_dir" && make USE_PGXS=1 && make USE_PGXS=1 install; \
+    cd "$pg_bigm_dir"; make USE_PGXS=1; make USE_PGXS=1 install; \
     locale-gen ja_JP.UTF-8; \
-    apt-get purge -y --auto-remove build-essential; \
+    apt-get purge -y --auto-remove build-essential libicu-dev; \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set locale for Japanese support
