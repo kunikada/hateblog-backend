@@ -225,65 +225,6 @@ func run() int {
 	return 0
 }
 
-type feedItem struct {
-	Title         string
-	URL           string
-	Excerpt       string
-	Subject       string
-	BookmarkCount int
-	PostedAt      time.Time
-}
-
-func fetchEntries(ctx context.Context, client *hatena.Client, feedURLs []string, max int) ([]feedItem, error) {
-	if max <= 0 {
-		max = 1
-	}
-	seen := make(map[string]feedItem, max)
-	for _, raw := range feedURLs {
-		u := strings.TrimSpace(raw)
-		if u == "" {
-			continue
-		}
-		feed, err := client.FetchFeed(ctx, u)
-		if err != nil {
-			return nil, err
-		}
-		for _, e := range feed.Entries {
-			url := strings.TrimSpace(e.URL)
-			if url == "" {
-				continue
-			}
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			subject := strings.Join(e.Subjects, ",")
-			seen[url] = feedItem{
-				Title:         strings.TrimSpace(e.Title),
-				URL:           url,
-				Excerpt:       strings.TrimSpace(e.Excerpt),
-				Subject:       strings.TrimSpace(subject),
-				BookmarkCount: e.BookmarkCount,
-				PostedAt:      e.PublishedAt.In(time.Local),
-			}
-			if len(seen) >= max {
-				break
-			}
-		}
-		if len(seen) >= max {
-			break
-		}
-	}
-
-	items := make([]feedItem, 0, len(seen))
-	for _, v := range seen {
-		items = append(items, v)
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].PostedAt.After(items[j].PostedAt)
-	})
-	return items, nil
-}
-
 func insertEntry(ctx context.Context, pool *pgxpool.Pool, item feedItem) (id uuid.UUID, isInsert *bool, createdAt time.Time, err error) {
 	if pool == nil {
 		return uuid.Nil, nil, time.Time{}, fmt.Errorf("pool is nil")
